@@ -21,9 +21,6 @@ import androidx.core.graphics.drawable.toBitmap
 import id.satria.launcher.data.AppData
 import id.satria.launcher.ui.theme.SatriaColors
 
-// Cache bitmap di level object — tidak realokasi setiap recompose
-private val iconCache = HashMap<String, ImageBitmap>(64)
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun AppGridItem(
@@ -62,10 +59,8 @@ fun AppGridItem(
                 onLongClick       = { onLongPress(app.packageName) },
             ),
     ) {
-        // getBitmap — pakai cache agar tidak alokasi ulang setiap render
         val bitmap = remember(app.packageName) {
             iconCache.getOrPut(app.packageName) {
-                // 120px = sangat tajam di semua densitas (xxhdpi = 3x → 40dp icons)
                 app.icon.toBitmap(120, 120, Bitmap.Config.ARGB_8888).asImageBitmap()
             }
         }
@@ -73,7 +68,7 @@ fun AppGridItem(
         Image(
             bitmap             = bitmap,
             contentDescription = app.label,
-            contentScale       = ContentScale.Fit,   // FIT agar tidak dipotong
+            contentScale       = ContentScale.Fit,
             filterQuality      = FilterQuality.High,
             modifier           = Modifier
                 .size(54.dp)
@@ -95,6 +90,3 @@ fun AppGridItem(
         }
     }
 }
-
-/** Panggil saat app di-uninstall atau list di-refresh untuk bebaskan memori */
-fun clearIconCache() = iconCache.clear()
