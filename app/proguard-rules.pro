@@ -1,0 +1,2 @@
+-keep class id.satria.launcher.data.** { *; }
+-keepclassmembers class id.satria.launcher.data.** { *; }
