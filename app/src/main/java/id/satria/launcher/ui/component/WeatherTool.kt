@@ -313,7 +313,8 @@ fun WeatherTool(
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 w.forecast.forEach { f ->
                                     Column(
-                                        modifier = Modifier.width(62.dp)
+                                        modifier = Modifier
+                                            .width(62.dp)
                                             .clip(RoundedCornerShape(14.dp))
                                             .background(if (f.isNow) SatriaColors.SurfaceMid else SatriaColors.Surface)
                                             .padding(vertical = 12.dp, horizontal = 8.dp),
@@ -329,8 +330,13 @@ fun WeatherTool(
                                                     else SatriaColors.TextPrimary.copy(alpha = 0.75f),
                                             fontSize = 14.sp,
                                             fontWeight = if (f.isNow) FontWeight.SemiBold else FontWeight.Normal)
-                                        if (f.pop > 0) Text("${f.pop}%",
-                                            color = Color(0xFF5BA4F5), fontSize = 9.sp)
+                                        // ── FIX: selalu tampilkan baris ini agar tinggi card sama ──
+                                        // Kalau pop == 0, tampilkan teks transparan sebagai placeholder
+                                        Text(
+                                            text = if (f.pop > 0) "${f.pop}%" else "",
+                                            color = if (f.pop > 0) Color(0xFF5BA4F5) else Color.Transparent,
+                                            fontSize = 9.sp,
+                                        )
                                     }
                                 }
                             }

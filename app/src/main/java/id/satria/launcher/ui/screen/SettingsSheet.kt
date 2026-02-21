@@ -22,6 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.ImageLoader
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import id.satria.launcher.MainViewModel
@@ -40,28 +41,38 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
     var tempName   by remember(userName)      { mutableStateOf(userName) }
     var tempAssist by remember(assistantName) { mutableStateOf(assistantName) }
 
+    // ── FIX: key untuk force-recompose AsyncImage setiap ganti avatar ────
+    var avatarKey by remember { mutableStateOf(0) }
+
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri ?: return@rememberLauncherForActivityResult
         runCatching {
             val bmp = if (Build.VERSION.SDK_INT >= 28) {
                 ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, _, _ ->
                     decoder.isMutableRequired = true
-                    decoder.setTargetSize(512, 512) // crop ke square sebelum simpan
+                    decoder.setTargetSize(512, 512)
                 }
             } else {
                 @Suppress("DEPRECATION")
                 android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
             }
-            // Centre-crop ke square untuk avatar
             val size   = minOf(bmp.width, bmp.height)
             val xOff   = (bmp.width - size) / 2
             val yOff   = (bmp.height - size) / 2
             val square = android.graphics.Bitmap.createBitmap(bmp, xOff, yOff, size, size)
+
+            // Simpan avatar
             vm.saveAvatar(square)
+
+            // ── FIX: Invalidate Coil disk+memory cache agar gambar baru langsung tampil ──
+            val imageLoader = ImageLoader(context)
+            imageLoader.memoryCache?.clear()
+
+            // Increment key → AsyncImage akan rebuild dengan data baru
+            avatarKey++
         }
     }
 
-    // Dim + block touch
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -76,7 +87,6 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(24.dp)
-                // Konsumsi sentuhan — card tidak tembus ke background
                 .clickable(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
@@ -91,7 +101,7 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
             ) {
                 Text("Settings", color = SatriaColors.TextPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
 
-                // ── Avatar — perfectly circular crop ─────────────────────
+                // ── Avatar ─────────────────────────────────────────────────
                 Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     Box(
                         modifier = Modifier
@@ -102,15 +112,21 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
                         contentAlignment = Alignment.Center,
                     ) {
                         if (avatarPath != null) {
-                            AsyncImage(
-                                model = ImageRequest.Builder(context)
-                                    .data(avatarPath)
-                                    .crossfade(true)
-                                    .build(),
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop, // PENTING: crop ke circle
-                                modifier = Modifier.fillMaxSize(),
-                            )
+                            // key(avatarKey) memaksa Compose buang composable lama dan buat baru
+                            // sehingga AsyncImage fetch ulang dari disk tanpa terblokir cache lama
+                            key(avatarKey) {
+                                AsyncImage(
+                                    model = ImageRequest.Builder(context)
+                                        .data(avatarPath)
+                                        .diskCacheKey("avatar_$avatarKey") // cache key unik tiap ganti foto
+                                        .memoryCacheKey("avatar_$avatarKey")
+                                        .crossfade(true)
+                                        .build(),
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
                         } else {
                             Text("👤", fontSize = 36.sp)
                         }

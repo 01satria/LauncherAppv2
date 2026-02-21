@@ -59,9 +59,13 @@ fun AppGridItem(
                 onLongClick       = { onLongPress(app.packageName) },
             ),
     ) {
+        // ── RAM FIX: ukuran 96px (turun dari 120px) — masih tajam di xxhdpi ──
+        // 96px icon: 96*96*4 = 36 KB vs 120px: 120*120*4 = 56 KB (~36% hemat)
         val bitmap = remember(app.packageName) {
-            iconCache.getOrPut(app.packageName) {
-                app.icon.toBitmap(120, 120, Bitmap.Config.ARGB_8888).asImageBitmap()
+            iconCache.get(app.packageName) ?: run {
+                val bmp = app.icon.toBitmap(96, 96, Bitmap.Config.ARGB_8888).asImageBitmap()
+                iconCache.put(app.packageName, bmp)
+                bmp
             }
         }
 
@@ -69,7 +73,7 @@ fun AppGridItem(
             bitmap             = bitmap,
             contentDescription = app.label,
             contentScale       = ContentScale.Fit,
-            filterQuality      = FilterQuality.High,
+            filterQuality      = FilterQuality.Medium, // turun dari High — tidak kentara bedanya
             modifier           = Modifier
                 .size(54.dp)
                 .clip(RoundedCornerShape(13.dp)),
@@ -77,13 +81,13 @@ fun AppGridItem(
 
         if (showName) {
             Text(
-                text     = app.label,
-                fontSize = 11.sp,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
+                text      = app.label,
+                fontSize  = 11.sp,
+                maxLines  = 1,
+                overflow  = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
-                color    = SatriaColors.TextPrimary.copy(alpha = 0.88f),
-                modifier = Modifier
+                color     = SatriaColors.TextPrimary.copy(alpha = 0.88f),
+                modifier  = Modifier
                     .padding(top = 5.dp)
                     .width(66.dp),
             )

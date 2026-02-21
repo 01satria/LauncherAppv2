@@ -51,29 +51,32 @@ fun AppListItem(
             .padding(horizontal = 20.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        // Pakai 96px sama seperti AppGridItem — share cache, tidak realokasi
         val bitmap = remember(app.packageName) {
-            iconCache.getOrPut(app.packageName) {
-                app.icon.toBitmap(120, 120, Bitmap.Config.ARGB_8888).asImageBitmap()
+            iconCache.get(app.packageName) ?: run {
+                val bmp = app.icon.toBitmap(96, 96, Bitmap.Config.ARGB_8888).asImageBitmap()
+                iconCache.put(app.packageName, bmp)
+                bmp
             }
         }
         Image(
             bitmap             = bitmap,
             contentDescription = app.label,
             contentScale       = ContentScale.Fit,
-            filterQuality      = FilterQuality.High,
+            filterQuality      = FilterQuality.Medium,
             modifier           = Modifier
                 .size(50.dp)
                 .clip(RoundedCornerShape(12.dp)),
         )
         if (showName) {
             Text(
-                text     = app.label,
-                color    = SatriaColors.TextPrimary,
-                fontSize = 16.sp,
+                text       = app.label,
+                color      = SatriaColors.TextPrimary,
+                fontSize   = 16.sp,
                 fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(start = 16.dp),
+                maxLines   = 1,
+                overflow   = TextOverflow.Ellipsis,
+                modifier   = Modifier.padding(start = 16.dp),
             )
         }
     }

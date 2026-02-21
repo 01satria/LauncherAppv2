@@ -33,11 +33,11 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
         }
     }
 
-    // ── Block semua sentuhan — fullscreen opaque ──────────────────────────
+    // ── Overlay semi-transparan — wallpaper tetap terlihat samar ─────────
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SatriaColors.Background)
+            .background(Color.Black.copy(alpha = 0.55f))
             // Intercept semua sentuhan agar tidak tembus ke HomeScreen
             .clickable(
                 indication = null,

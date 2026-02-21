@@ -1,5 +1,6 @@
 package id.satria.launcher
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -15,6 +16,15 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // ── Transparent window agar wallpaper terlihat di belakang launcher ──
+        window.apply {
+            setBackgroundDrawableResource(android.R.color.transparent)
+            // Pastikan status bar & nav bar juga transparan
+            statusBarColor = Color.TRANSPARENT
+            navigationBarColor = Color.TRANSPARENT
+        }
+
         setContent {
             SatriaTheme {
                 HomeScreen(vm = vm)
@@ -22,8 +32,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Refresh list setiap kali launcher kembali ke foreground
-    // (menangkap install/uninstall yang terjadi di background)
     override fun onResume() {
         super.onResume()
         vm.refreshApps()
