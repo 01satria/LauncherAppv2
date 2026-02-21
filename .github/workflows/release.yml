@@ -38,7 +38,7 @@ jobs:
 
       # ── 4. Beri izin eksekusi ke Gradle wrapper ──────────────────────────
       - name: Grant Gradle execute permission
-        run: chmod +x gradlew
+        run: chmod +x android/gradlew
 
       # ── 5. Build release APK per ABI ────────────────────────────────────
       - name: Build Release APKs (split ABI)
