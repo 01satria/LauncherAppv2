@@ -16,3 +16,5 @@ gradle.properties
 .idea/
 *.iml
 .DS_Store
+
+.PANDUAN_GITHUB_ACTIONS.md
