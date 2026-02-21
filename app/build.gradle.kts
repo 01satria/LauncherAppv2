@@ -50,26 +50,16 @@ android {
     }
 
     // versionCode unik per ABI agar bisa upload ke Play Store sekaligus
-    applicationVariants.all {
-        val variant = this
-        variant.outputs.all {
-            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            val abiFilter = output.getFilter(com.android.build.OutputFile.ABI)
-            val abiCode = when (abiFilter) {
-                "arm64-v8a"   -> 1
-                "armeabi-v7a" -> 2
-                "x86_64"      -> 3
-                else          -> 0
-            }
-            if (variant.buildType.name == "release") {
-                output.outputFileName = "SatriaLauncher-${variant.versionName}-${abiFilter ?: "universal"}.apk"
-                variant.mergedFlavor.versionCode?.let { base ->
-                    // contoh: versionCode 10001 untuk arm64, 10002 untuk armeabi
-                    output.versionCodeOverride = base * 10 + abiCode
-                }
-            }
+applicationVariants.all {
+    val variant = this
+    variant.outputs.all {
+        val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+        val abiFilter = output.getFilter(com.android.build.OutputFile.ABI)
+        if (variant.buildType.name == "release") {
+            output.outputFileName = "SatriaLauncher-${variant.versionName}-${abiFilter ?: "universal"}.apk"
         }
     }
+}
 
     buildFeatures { compose = true }
 
@@ -85,6 +75,7 @@ dependencies {
     implementation(composeBom)
 
     implementation(libs.androidx.core.ktx)
+    implementation("androidx.appcompat:appcompat:1.7.0")
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
