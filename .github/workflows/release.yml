@@ -1,11 +1,14 @@
+# .github/workflows/release.yml
+# Trigger: setiap push tag berbentuk v1.0, v1.2.3, dsb.
 name: Build & Release APK
 
 on:
   push:
     tags:
-      - 'v*.*'
-  workflow_dispatch:
+      - 'v*.*'          # contoh: v1.0, v1.0.1, v2.3.0
+  workflow_dispatch:    # bisa trigger manual dari GitHub UI
 
+# Izin untuk membuat GitHub Release dan upload asset
 permissions:
   contents: write
 
@@ -15,45 +18,71 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # ── 1. Checkout kode ────────────────────────────────────────────────
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ── 2. Setup JDK 17 ─────────────────────────────────────────────────
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           java-version: '17'
-          distribution: 'temurin'
-          cache: gradle
+          distribution: 'temurin'   # OpenJDK Adoptium — gratis, stabil
+          cache: gradle             # cache ~/.gradle antar run → lebih cepat
 
+      # ── 3. Decode keystore dari Secret ──────────────────────────────────
+      # Keystore di-encode base64 lalu disimpan sebagai GitHub Secret
       - name: Decode keystore
         run: |
-          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > app/keystore.jks
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $GITHUB_WORKSPACE/app/keystore.jks
 
+      # ── 4. Beri izin eksekusi ke Gradle wrapper ──────────────────────────
       - name: Grant Gradle execute permission
         run: chmod +x gradlew
 
-      - name: Build Release APK
+      # ── 5. Build release APK per ABI ────────────────────────────────────
+      - name: Build Release APKs (split ABI)
         run: ./gradlew assembleRelease
         env:
-          KEYSTORE_PATH: keystore.jks
+          KEYSTORE_PATH:     ${{ github.workspace }}/app/keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+          KEY_ALIAS:         ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD:      ${{ secrets.KEY_PASSWORD }}
 
+      # ── 6. Tampilkan APK yang dihasilkan (untuk debug log) ───────────────
+      - name: List generated APKs
+        run: find app/build/outputs/apk/release -name "*.apk" | sort
+
+      # ── 7. Baca versionName dari build.gradle untuk nama release ─────────
       - name: Get version name
         id: version
         run: |
           VERSION=$(grep 'versionName' app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
           echo "name=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
 
+      # ── 8. Buat GitHub Release dan upload semua APK sekaligus ───────────
       - name: Create GitHub Release & Upload APKs
         uses: softprops/action-gh-release@v2
         with:
           name: "Satria Launcher v${{ steps.version.outputs.name }}"
           body: |
             ## 📦 Satria Launcher v${{ steps.version.outputs.name }}
-            
-            Silakan download APK di bawah ini dan install di HP Android kamu.
+
+            ### Download APK yang sesuai device kamu:
+
+            | File | Cocok untuk |
+            |---|---|
+            | `*-arm64-v8a.apk` | HP Android modern (2017+) — **pilih ini kalau ragu** |
+            | `*-armeabi-v7a.apk` | HP Android lama 32-bit |
+            | `*-x86_64.apk` | Emulator / ChromeOS |
+
+            ### Cara install:
+            1. Download APK yang sesuai
+            2. Aktifkan "Install from unknown sources" di Settings
+            3. Buka file APK → Install
+            4. Set sebagai launcher default saat diminta
+
           files: app/build/outputs/apk/release/*.apk
           draft: false
           prerelease: false
