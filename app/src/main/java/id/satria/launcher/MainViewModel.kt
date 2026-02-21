@@ -41,7 +41,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val dockApps = combine(allApps, dockPackages) { apps, dock ->
-        dock.mapNotNull { pkg -> apps.find { it.packageName == pkg } }.take(5)
+        dock.mapNotNull { pkg -> apps.find { it.packageName == pkg } }.take(4)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init { refreshApps() }
@@ -78,7 +78,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (dock.contains(pkg)) {
             dock.remove(pkg)
         } else {
-            if (dock.size >= 5) return@launch
+            if (dock.size >= 4) return@launch
             dock.add(pkg)
             // Auto-unhide jika tersembunyi
             if (hiddenPackages.value.contains(pkg))

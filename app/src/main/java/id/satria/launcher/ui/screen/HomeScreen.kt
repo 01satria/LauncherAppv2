@@ -109,7 +109,7 @@ fun HomeScreen(vm: MainViewModel) {
                                ?: dockApps.find { it.packageName == pkg }?.label ?: pkg,
                     isHidden = hiddenPackages.contains(pkg),
                     isDocked = dockApps.any { it.packageName == pkg },
-                    dockFull = dockApps.size >= 5,
+                    dockFull = dockApps.size >= 4,
                     onClose      = { actionTarget = null },
                     onHide       = { vm.hideApp(pkg);    actionTarget = null },
                     onUnhide     = { vm.unhideApp(pkg);  actionTarget = null },
