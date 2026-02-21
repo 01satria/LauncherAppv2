@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URL
+import java.text.SimpleDateFormat
 import java.util.*
 
 private fun weatherDesc(c: Int) = when {
@@ -47,10 +48,10 @@ fun WeatherTool(
 ) {
     val scope = rememberCoroutineScope()
 
-    var query    by remember { mutableStateOf("") }
-    var weather  by remember { mutableStateOf<WeatherResult?>(null) }
-    var loading  by remember { mutableStateOf(false) }
-    var error    by remember { mutableStateOf("") }
+    var query     by remember { mutableStateOf("") }
+    var weather   by remember { mutableStateOf<WeatherResult?>(null) }
+    var loading   by remember { mutableStateOf(false) }
+    var error     by remember { mutableStateOf("") }
     var showSaved by remember { mutableStateOf(false) }
 
     fun fetchWeather(q: String = query) {
@@ -73,15 +74,15 @@ fun WeatherTool(
                     "&hourly=temperature_2m,weathercode,precipitation_probability&forecast_days=2&timezone=auto"
                 val wxJson = JSONObject(withContext(Dispatchers.IO) { URL(wxUrl).readText() })
 
-                val cur     = wxJson.getJSONObject("current")
-                val hourly  = wxJson.getJSONObject("hourly")
-                val times   = hourly.getJSONArray("time")
-                val temps   = hourly.getJSONArray("temperature_2m")
-                val codes   = hourly.getJSONArray("weathercode")
-                val pops    = hourly.getJSONArray("precipitation_probability")
+                val cur    = wxJson.getJSONObject("current")
+                val hourly = wxJson.getJSONObject("hourly")
+                val times  = hourly.getJSONArray("time")
+                val temps  = hourly.getJSONArray("temperature_2m")
+                val codes  = hourly.getJSONArray("weathercode")
+                val pops   = hourly.getJSONArray("precipitation_probability")
 
-                val todayStr     = android.text.format.DateFormat.format("yyyy-MM-dd", Date()).toString()
-                val currentHour  = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+                val todayStr    = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+                val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
 
                 val forecast = mutableListOf<WeatherForecast>()
                 for (i in 0 until times.length()) {
@@ -141,8 +142,12 @@ fun WeatherTool(
         // Saved locations toggle
         if (savedLocations.isNotEmpty()) {
             Row(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(SatriaColors.Surface)
-                    .clickable { showSaved = !showSaved }.padding(horizontal = 14.dp, vertical = 10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(SatriaColors.Surface)
+                    .clickable { showSaved = !showSaved }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -161,11 +166,16 @@ fun WeatherTool(
                             Text(
                                 text = "📍 $loc",
                                 color = SatriaColors.TextPrimary, fontSize = 14.sp,
-                                modifier = Modifier.weight(1f).clickable { fetchWeather(loc) }.padding(horizontal = 14.dp, vertical = 11.dp),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clickable { fetchWeather(loc) }
+                                    .padding(horizontal = 14.dp, vertical = 11.dp),
                                 maxLines = 1,
                             )
                             Text("✕", color = SatriaColors.Danger, fontSize = 14.sp, fontWeight = FontWeight.Medium,
-                                modifier = Modifier.clickable { onRemoveLocation(loc) }.padding(horizontal = 14.dp, vertical = 11.dp))
+                                modifier = Modifier
+                                    .clickable { onRemoveLocation(loc) }
+                                    .padding(horizontal = 14.dp, vertical = 11.dp))
                         }
                     }
                 }
@@ -178,7 +188,11 @@ fun WeatherTool(
         weather?.let { w ->
             // Main card
             Column(
-                modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF141414)).padding(20.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(Color(0xFF141414))
+                    .padding(20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
@@ -203,13 +217,34 @@ fun WeatherTool(
 
             // Forecast
             if (w.forecast.isNotEmpty()) {
-                Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF141414)).padding(vertical = 12.dp)) {
-                    Text("TODAY'S FORECAST", color = SatriaColors.TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 0.5.sp, modifier = Modifier.padding(horizontal = 14.dp, bottom = 10.dp))
-                    Row(modifier = Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF141414))
+                        .padding(vertical = 12.dp)
+                ) {
+                    Text(
+                        "TODAY'S FORECAST",
+                        color = SatriaColors.TextSecondary,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 0.5.sp,
+                        modifier = Modifier.padding(start = 14.dp, end = 14.dp, bottom = 10.dp) // ✅ FIXED
+                    )
+                    Row(
+                        modifier = Modifier
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 10.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         w.forecast.forEach { f ->
                             Column(
-                                modifier = Modifier.width(60.dp).clip(RoundedCornerShape(12.dp))
-                                    .background(if (f.isNow) SatriaColors.SurfaceMid else SatriaColors.Surface).padding(vertical = 10.dp, horizontal = 8.dp),
+                                modifier = Modifier
+                                    .width(60.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(if (f.isNow) SatriaColors.SurfaceMid else SatriaColors.Surface)
+                                    .padding(vertical = 10.dp, horizontal = 8.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
