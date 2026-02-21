@@ -1,25 +1,28 @@
 package id.satria.launcher.ui.component
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
+import android.graphics.Bitmap
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.*
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
 import id.satria.launcher.data.AppData
 import id.satria.launcher.ui.theme.SatriaColors
-import androidx.compose.foundation.Image
+
+// Cache bitmap di level object — tidak realokasi setiap recompose
+private val iconCache = HashMap<String, ImageBitmap>(64)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -29,46 +32,69 @@ fun AppGridItem(
     onPress: (String) -> Unit,
     onLongPress: (String) -> Unit,
 ) {
-    var pressed by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.85f else 1f,
-        animationSpec = spring(dampingRatio = 0.5f, stiffness = 500f),
-        label = "scale",
+        targetValue = if (isPressed) 0.80f else 1f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness    = Spring.StiffnessMediumLow,
+        ),
+        label = "iconScale",
+    )
+    val alpha by animateFloatAsState(
+        targetValue = if (isPressed) 0.7f else 1f,
+        animationSpec = tween(60),
+        label = "iconAlpha",
     )
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .padding(4.dp)
+            .padding(6.dp)
             .scale(scale)
+            .alpha(alpha)
             .combinedClickable(
-                onClick = { onPress(app.packageName) },
-                onLongClick = { onLongPress(app.packageName) },
+                interactionSource = interactionSource,
+                indication        = null,
+                onClick           = { onPress(app.packageName) },
+                onLongClick       = { onLongPress(app.packageName) },
             ),
     ) {
-        // Icon — toBitmap di-cache oleh key packageName, tidak re-alokasi
+        // getBitmap — pakai cache agar tidak alokasi ulang setiap render
         val bitmap = remember(app.packageName) {
-            app.icon.toBitmap(55, 55).asImageBitmap()
+            iconCache.getOrPut(app.packageName) {
+                // 120px = sangat tajam di semua densitas (xxhdpi = 3x → 40dp icons)
+                app.icon.toBitmap(120, 120, Bitmap.Config.ARGB_8888).asImageBitmap()
+            }
         }
+
         Image(
-            bitmap = bitmap,
+            bitmap             = bitmap,
             contentDescription = app.label,
-            modifier = Modifier
-                .size(55.dp)
-                .clip(RoundedCornerShape(12.dp)),
+            contentScale       = ContentScale.Fit,   // FIT agar tidak dipotong
+            filterQuality      = FilterQuality.High,
+            modifier           = Modifier
+                .size(54.dp)
+                .clip(RoundedCornerShape(13.dp)),
         )
+
         if (showName) {
             Text(
-                text = app.label,
+                text     = app.label,
                 fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
-                color = SatriaColors.TextPrimary.copy(alpha = 0.9f),
+                color    = SatriaColors.TextPrimary.copy(alpha = 0.88f),
                 modifier = Modifier
-                    .padding(top = 4.dp)
-                    .width(70.dp),
+                    .padding(top = 5.dp)
+                    .width(66.dp),
             )
         }
     }
 }
+
+/** Panggil saat app di-uninstall atau list di-refresh untuk bebaskan memori */
+fun clearIconCache() = iconCache.clear()

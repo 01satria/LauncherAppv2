@@ -1,6 +1,8 @@
 package id.satria.launcher.ui.screen
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.lazy.grid.*
@@ -17,20 +19,19 @@ fun HomeScreen(vm: MainViewModel) {
     val layoutMode     by vm.layoutMode.collectAsState()
     val showNames      by vm.showNames.collectAsState()
     val avatarPath     by vm.avatarPath.collectAsState()
-    val userName       by vm.userName.collectAsState()
-    val assistantName  by vm.assistantName.collectAsState()
     val hiddenPackages by vm.hiddenPackages.collectAsState()
 
     var showDashboard by remember { mutableStateOf(false) }
     var showSettings  by remember { mutableStateOf(false) }
     var actionTarget  by remember { mutableStateOf<String?>(null) }
 
-    // Hardware back — tutup overlay jika ada yang terbuka
-    BackHandler(enabled = showDashboard || showSettings || actionTarget != null) {
+    val overlayActive = showDashboard || showSettings || actionTarget != null
+
+    BackHandler(enabled = overlayActive) {
         when {
-            actionTarget != null  -> actionTarget = null
-            showSettings          -> showSettings = false
-            showDashboard         -> showDashboard = false
+            actionTarget != null -> actionTarget = null
+            showSettings         -> showSettings = false
+            showDashboard        -> showDashboard = false
         }
     }
 
@@ -45,10 +46,9 @@ fun HomeScreen(vm: MainViewModel) {
             ) {
                 items(filteredApps, key = { it.packageName }) { app ->
                     AppGridItem(
-                        app         = app,
-                        showName    = showNames,
-                        onPress     = { vm.launchApp(it) },
-                        onLongPress = { actionTarget = it },
+                        app = app, showName = showNames,
+                        onPress = { if (!overlayActive) vm.launchApp(it) },
+                        onLongPress = { if (!overlayActive) actionTarget = it },
                     )
                 }
             }
@@ -59,10 +59,9 @@ fun HomeScreen(vm: MainViewModel) {
             ) {
                 items(filteredApps, key = { it.packageName }) { app ->
                     AppListItem(
-                        app         = app,
-                        showName    = showNames,
-                        onPress     = { vm.launchApp(it) },
-                        onLongPress = { actionTarget = it },
+                        app = app, showName = showNames,
+                        onPress = { if (!overlayActive) vm.launchApp(it) },
+                        onLongPress = { if (!overlayActive) actionTarget = it },
                     )
                 }
             }
@@ -72,43 +71,52 @@ fun HomeScreen(vm: MainViewModel) {
         Dock(
             dockApps            = dockApps,
             avatarPath          = avatarPath,
-            onAvatarClick       = { showDashboard = true },
-            onAppPress          = { vm.launchApp(it) },
-            onAppLongPress      = { actionTarget = it },
-            onLongPressSettings = { showSettings = true },
+            onAvatarClick       = { if (!overlayActive) showDashboard = true },
+            onAppPress          = { if (!overlayActive) vm.launchApp(it) },
+            onAppLongPress      = { if (!overlayActive) actionTarget = it },
+            onLongPressSettings = { if (!overlayActive) showSettings = true },
             modifier            = Modifier.align(Alignment.BottomCenter),
         )
 
-        // ── Overlays — hanya mount saat dibutuhkan ─────────────────────────
-        if (showDashboard) {
-            DashboardScreen(
-                vm      = vm,
-                onClose = { showDashboard = false },
-            )
+        // ── Dashboard — slide in from bottom ───────────────────────────────
+        AnimatedVisibility(
+            visible = showDashboard,
+            enter   = slideInVertically { it } + fadeIn(tween(250)),
+            exit    = slideOutVertically { it } + fadeOut(tween(200)),
+        ) {
+            DashboardScreen(vm = vm, onClose = { showDashboard = false })
         }
 
-        if (showSettings) {
-            SettingsSheet(
-                vm      = vm,
-                onClose = { showSettings = false },
-            )
+        // ── Settings — fade + scale ────────────────────────────────────────
+        AnimatedVisibility(
+            visible = showSettings,
+            enter   = fadeIn(tween(220)) + scaleIn(initialScale = 0.92f, animationSpec = tween(220)),
+            exit    = fadeOut(tween(180)) + scaleOut(targetScale = 0.92f, animationSpec = tween(180)),
+        ) {
+            SettingsSheet(vm = vm, onClose = { showSettings = false })
         }
 
-        actionTarget?.let { pkg ->
-            AppActionSheet(
-                pkg        = pkg,
-                label      = filteredApps.find { it.packageName == pkg }?.label
-                             ?: dockApps.find { it.packageName == pkg }?.label
-                             ?: pkg,
-                isHidden   = hiddenPackages.contains(pkg),
-                isDocked   = dockApps.any { it.packageName == pkg },
-                dockFull   = dockApps.size >= 5,
-                onClose    = { actionTarget = null },
-                onHide     = { vm.hideApp(pkg);    actionTarget = null },
-                onUnhide   = { vm.unhideApp(pkg);  actionTarget = null },
-                onDock     = { vm.toggleDock(pkg); actionTarget = null },
-                onUninstall = { vm.uninstallApp(pkg); actionTarget = null },
-            )
+        // ── Action sheet ───────────────────────────────────────────────────
+        AnimatedVisibility(
+            visible = actionTarget != null,
+            enter   = slideInVertically { it / 2 } + fadeIn(tween(200)),
+            exit    = slideOutVertically { it / 2 } + fadeOut(tween(150)),
+        ) {
+            actionTarget?.let { pkg ->
+                AppActionSheet(
+                    pkg      = pkg,
+                    label    = filteredApps.find { it.packageName == pkg }?.label
+                               ?: dockApps.find { it.packageName == pkg }?.label ?: pkg,
+                    isHidden = hiddenPackages.contains(pkg),
+                    isDocked = dockApps.any { it.packageName == pkg },
+                    dockFull = dockApps.size >= 5,
+                    onClose      = { actionTarget = null },
+                    onHide       = { vm.hideApp(pkg);    actionTarget = null },
+                    onUnhide     = { vm.unhideApp(pkg);  actionTarget = null },
+                    onDock       = { vm.toggleDock(pkg); actionTarget = null },
+                    onUninstall  = { vm.uninstallApp(pkg); actionTarget = null },
+                )
+            }
         }
     }
 }

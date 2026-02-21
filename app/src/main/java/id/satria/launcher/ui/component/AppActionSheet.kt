@@ -1,17 +1,25 @@
 package id.satria.launcher.ui.component
 
-import androidx.compose.foundation.background
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import id.satria.launcher.ui.theme.SatriaColors
+import kotlin.math.roundToInt
 
 @Composable
 fun AppActionSheet(
@@ -26,84 +34,118 @@ fun AppActionSheet(
     onDock: () -> Unit,
     onUninstall: () -> Unit,
 ) {
+    // Drag state — tidak pakai Animated karena finishedListener lebih reliable
+    var dragY by remember { mutableStateOf(0f) }
+    val closing = remember { mutableStateOf(false) }
+
+    val animY by animateFloatAsState(
+        targetValue = dragY,
+        animationSpec = if (closing.value)
+            tween(durationMillis = 280, easing = FastOutLinearInEasing)
+        else
+            spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "sheetY",
+        finishedListener = { if (closing.value) onClose() }
+    )
+
+    fun dismiss() {
+        if (!closing.value) {
+            closing.value = true
+            dragY = 900f
+        }
+    }
+
+    val dimAlpha = (0.65f * (1f - (dragY / 600f).coerceIn(0f, 1f)))
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.5f)),
+            // Dim scrim — tap untuk tutup
+            .background(Color.Black.copy(alpha = dimAlpha))
+            // PENTING: pointerInput ini menangkap semua sentuhan di layer ini
+            // Tidak ada sentuhan yang bisa "tembus" ke bawah (HomeScreen)
+            .pointerInput(Unit) {
+                detectTapGestures { dismiss() }
+            },
         contentAlignment = Alignment.BottomCenter,
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(SatriaColors.Surface, RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                .offset { IntOffset(0, animY.roundToInt().coerceAtLeast(0)) }
+                .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
+                .background(SatriaColors.Surface)
                 .navigationBarsPadding()
-                .padding(bottom = 16.dp),
+                // PENTING: consume tap agar tidak trigger dismiss() di scrim
+                .pointerInput(Unit) {
+                    detectTapGestures { /* consume — jangan dismiss */ }
+                }
+                // Drag ke bawah untuk tutup
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onVerticalDrag = { _, delta ->
+                            if (!closing.value)
+                                dragY = (dragY + delta).coerceAtLeast(0f)
+                        },
+                        onDragEnd = {
+                            if (dragY > 120f) dismiss() else dragY = 0f
+                        },
+                        onDragCancel = { dragY = 0f },
+                    )
+                }
+                .padding(bottom = 10.dp),
         ) {
-            // Handle
+            // Handle bar
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
-                    .padding(top = 12.dp, bottom = 8.dp)
-                    .width(36.dp)
-                    .height(4.dp)
-                    .background(SatriaColors.SurfaceHigh, RoundedCornerShape(2.dp))
+                    .padding(top = 10.dp, bottom = 6.dp)
+                    .width(36.dp).height(4.dp)
+                    .clip(RoundedCornerShape(2.dp))
+                    .background(SatriaColors.SurfaceHigh)
             )
 
-            // App name
+            // App label
             Text(
                 text = label,
                 color = SatriaColors.TextPrimary,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                modifier = Modifier.fillMaxWidth().padding(vertical = 14.dp),
             )
 
-            HorizontalDivider(color = SatriaColors.Border)
+            HorizontalDivider(color = SatriaColors.Border, thickness = 0.5.dp)
 
-            // Dock action
+            // Dock
             val dockLabel = when {
-                isDocked         -> "📌 Unpin from Dock"
-                dockFull         -> "📌 Dock is full (max 5)"
-                else             -> "📌 Pin to Dock"
+                isDocked -> "📌  Unpin from Dock"
+                dockFull -> "📌  Dock is full (max 5)"
+                else     -> "📌  Pin to Dock"
             }
-            ActionSheetButton(
-                text    = dockLabel,
-                enabled = isDocked || !dockFull,
-                onClick = { onDock(); onClose() },
-            )
+            SheetButton(dockLabel, enabled = isDocked || !dockFull) { onDock(); dismiss() }
 
-            HorizontalDivider(color = SatriaColors.Border)
+            HorizontalDivider(color = SatriaColors.Border, thickness = 0.5.dp)
 
             // Hide / Unhide
-            ActionSheetButton(
-                text    = if (isHidden) "👁 Show App" else "🙈 Hide App",
-                onClick = { if (isHidden) onUnhide() else onHide(); onClose() },
-            )
+            SheetButton(if (isHidden) "👁  Show App" else "🙈  Hide App") {
+                if (isHidden) onUnhide() else onHide(); dismiss()
+            }
 
-            HorizontalDivider(color = SatriaColors.Border)
+            HorizontalDivider(color = SatriaColors.Border, thickness = 0.5.dp)
 
             // Uninstall
-            ActionSheetButton(
-                text    = "🗑 Uninstall",
-                color   = SatriaColors.Danger,
-                onClick = { onUninstall(); onClose() },
-            )
+            SheetButton("🗑  Uninstall", color = SatriaColors.Danger) { onUninstall(); dismiss() }
 
-            HorizontalDivider(color = SatriaColors.Border)
+            HorizontalDivider(color = SatriaColors.Border, thickness = 0.5.dp)
 
             // Cancel
-            ActionSheetButton(
-                text    = "Cancel",
-                color   = SatriaColors.TextSecondary,
-                onClick = onClose,
-            )
+            SheetButton("Cancel", color = SatriaColors.TextSecondary) { dismiss() }
         }
     }
 }
 
 @Composable
-private fun ActionSheetButton(
+private fun SheetButton(
     text: String,
     color: Color = SatriaColors.TextPrimary,
     enabled: Boolean = true,
@@ -112,13 +154,13 @@ private fun ActionSheetButton(
     TextButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
     ) {
         Text(
             text = text,
             color = if (enabled) color else SatriaColors.TextTertiary,
             fontSize = 16.sp,
-            modifier = Modifier.padding(vertical = 4.dp),
+            modifier = Modifier.padding(vertical = 6.dp),
         )
     }
 }

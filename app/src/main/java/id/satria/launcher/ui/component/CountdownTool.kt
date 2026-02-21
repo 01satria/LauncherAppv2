@@ -1,11 +1,10 @@
 package id.satria.launcher.ui.component
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.animation.*
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -14,6 +13,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import id.satria.launcher.data.CountdownItem
@@ -22,18 +22,39 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CountdownTool(
     countdowns: List<CountdownItem>,
     onAdd: (name: String, isoDate: String) -> Unit,
     onRemove: (String) -> Unit,
 ) {
-    var name        by remember { mutableStateOf("") }
-    var pickedDate  by remember { mutableStateOf<Date?>(null) }
-    var showPicker  by remember { mutableStateOf(false) }
+    var name       by remember { mutableStateOf("") }
+    var showPicker by remember { mutableStateOf(false) }
+    var nameError  by remember { mutableStateOf(false) }
 
-    val dateFmt = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-    val isoFmt  = SimpleDateFormat("yyyy-MM-dd'T'00:00:00.000'Z'", Locale.getDefault())
+    // Material3 DatePickerState — tidak crash karena pakai Compose sepenuhnya
+    val today = remember {
+        Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    }
+
+    val pickerState = rememberDatePickerState(
+        initialSelectedDateMillis = today + TimeUnit.DAYS.toMillis(1),
+        selectableDates = object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis > today
+        }
+    )
+
+    val displayDate = remember(pickerState.selectedDateMillis) {
+        pickerState.selectedDateMillis?.let {
+            SimpleDateFormat("EEE, d MMM yyyy", Locale.getDefault()).format(Date(it))
+        } ?: "Tap to pick a date"
+    }
 
     Column(
         modifier = Modifier
@@ -42,139 +63,176 @@ fun CountdownTool(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text("⏳ Countdown", color = SatriaColors.TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        Text("⏳ Countdown", color = SatriaColors.TextPrimary,
+            fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
 
-        // Name input
+        // Event name
         TextField(
             value = name,
-            onValueChange = { name = it },
+            onValueChange = { name = it; nameError = false },
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)),
             placeholder = { Text("Event name...", color = SatriaColors.TextTertiary) },
             colors = toolTextFieldColors(),
             singleLine = true,
+            isError = nameError,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
         )
+        if (nameError)
+            Text("Please enter event name", color = SatriaColors.Danger, fontSize = 12.sp)
 
-        // Date picker button
+        // Date picker button — opens M3 DatePickerDialog (no force close)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(10.dp))
                 .background(SatriaColors.Surface)
                 .clickable { showPicker = true }
-                .padding(horizontal = 14.dp, vertical = 14.dp),
+                .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text("📅", fontSize = 18.sp)
-            Text(
-                text  = pickedDate?.let { dateFmt.format(it) } ?: "Pick a date",
-                color = if (pickedDate != null) SatriaColors.TextPrimary else SatriaColors.TextTertiary,
-                fontSize = 15.sp,
-            )
+            Text("📅", fontSize = 20.sp)
+            Column {
+                Text("Date", color = SatriaColors.TextSecondary, fontSize = 11.sp)
+                Text(displayDate,
+                    color = if (pickerState.selectedDateMillis != null)
+                        SatriaColors.TextPrimary else SatriaColors.TextTertiary,
+                    fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            }
         }
 
+        // Add button
         Button(
             onClick = {
-                if (name.isBlank() || pickedDate == null) return@Button
-                onAdd(name.trim(), isoFmt.format(pickedDate!!))
-                name = ""; pickedDate = null
+                if (name.isBlank()) { nameError = true; return@Button }
+                val millis = pickerState.selectedDateMillis ?: return@Button
+                val iso = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(millis))
+                onAdd(name.trim(), iso)
+                name = ""
             },
             modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = SatriaColors.SurfaceMid),
+            colors = ButtonDefaults.buttonColors(containerColor = SatriaColors.Accent),
+            shape  = RoundedCornerShape(10.dp),
         ) {
-            Text("Start Countdown", color = SatriaColors.TextPrimary)
+            Text("＋ Start Countdown", color = Color.White, fontWeight = FontWeight.SemiBold)
         }
+
+        HorizontalDivider(color = SatriaColors.Border, modifier = Modifier.padding(vertical = 4.dp))
 
         if (countdowns.isEmpty()) {
-            Text("No countdowns yet.", color = SatriaColors.TextTertiary, fontSize = 13.sp,
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-        }
-
-        countdowns.forEach { item ->
-            key(item.id) {
-                val days = daysLeft(item.targetDate)
-                val past = days < 0
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(item.name, color = SatriaColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-                        Text(
-                            SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(
-                                SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(item.targetDate.take(10)) ?: Date()
-                            ),
-                            color = SatriaColors.TextTertiary, fontSize = 11.sp,
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (past) Color(0xFF2A1A1A) else SatriaColors.SurfaceMid)
-                            .padding(horizontal = 10.dp, vertical = 4.dp),
-                    ) {
-                        Text(
-                            text = when {
-                                past      -> "${Math.abs(days)}d ago"
-                                days == 0 -> "Today!"
-                                else      -> "${days}d"
-                            },
-                            color = if (past) SatriaColors.Danger else SatriaColors.TextPrimary,
-                            fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-                        )
-                    }
-                    Text("✕", color = SatriaColors.TextTertiary, fontSize = 16.sp,
-                        modifier = Modifier.clickable { onRemove(item.id) }.padding(4.dp))
+            Text("No countdowns yet.\nAdd your first event above.",
+                color = SatriaColors.TextTertiary, fontSize = 13.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 12.dp))
+        } else {
+            countdowns.forEach { item ->
+                key(item.id) {
+                    CountdownRow(item = item, onRemove = { onRemove(item.id) })
                 }
-                HorizontalDivider(color = SatriaColors.Border)
             }
         }
     }
 
-    // Simple date picker dialog menggunakan DatePickerDialog Android native
+    // ── Material3 DatePickerDialog — pure Compose, zero force close ─────────
     if (showPicker) {
-        val calendar = Calendar.getInstance()
-        pickedDate?.let { calendar.time = it }
-        NativeDatePickerDialog(
-            initialYear  = calendar.get(Calendar.YEAR),
-            initialMonth = calendar.get(Calendar.MONTH),
-            initialDay   = calendar.get(Calendar.DAY_OF_MONTH),
-            onConfirm    = { y, m, d -> pickedDate = Calendar.getInstance().apply { set(y, m, d) }.time; showPicker = false },
-            onDismiss    = { showPicker = false },
-        )
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(onClick = { showPicker = false }) {
+                    Text("OK", color = SatriaColors.Accent, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) {
+                    Text("Cancel", color = SatriaColors.TextSecondary)
+                }
+            },
+            colors = DatePickerDefaults.colors(
+                containerColor           = Color(0xFF1C1C1E),
+                titleContentColor        = SatriaColors.TextSecondary,
+                headlineContentColor     = SatriaColors.TextPrimary,
+                weekdayContentColor      = SatriaColors.TextSecondary,
+                subheadContentColor      = SatriaColors.TextSecondary,
+                navigationContentColor   = SatriaColors.TextPrimary,
+                yearContentColor         = SatriaColors.TextPrimary,
+                currentYearContentColor  = SatriaColors.Accent,
+                selectedYearContentColor = Color.White,
+                selectedYearContainerColor  = SatriaColors.Accent,
+                dayContentColor             = SatriaColors.TextPrimary,
+                selectedDayContentColor     = Color.White,
+                selectedDayContainerColor   = SatriaColors.Accent,
+                todayContentColor           = SatriaColors.Accent,
+                todayDateBorderColor        = SatriaColors.Accent,
+                disabledDayContentColor     = SatriaColors.TextTertiary,
+                disabledSelectedDayContentColor    = SatriaColors.TextTertiary,
+                disabledSelectedDayContainerColor  = SatriaColors.SurfaceMid,
+            ),
+        ) {
+            DatePicker(
+                state  = pickerState,
+                colors = DatePickerDefaults.colors(
+                    containerColor = Color(0xFF1C1C1E),
+                )
+            )
+        }
     }
-}
-
-private fun daysLeft(iso: String): Int {
-    return try {
-        val sdf  = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val target = sdf.parse(iso.take(10)) ?: return 0
-        val now    = Calendar.getInstance().apply { set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0) }.time
-        TimeUnit.MILLISECONDS.toDays(target.time - now.time).toInt()
-    } catch (e: Exception) { 0 }
 }
 
 @Composable
-private fun NativeDatePickerDialog(
-    initialYear: Int,
-    initialMonth: Int,
-    initialDay: Int,
-    onConfirm: (year: Int, month: Int, day: Int) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val context = androidx.compose.ui.platform.LocalContext.current
-    DisposableEffect(Unit) {
-        val dialog = android.app.DatePickerDialog(
-            context,
-            { _, y, m, d -> onConfirm(y, m, d) },
-            initialYear, initialMonth, initialDay,
-        )
-        dialog.datePicker.minDate = System.currentTimeMillis()
-        dialog.setOnDismissListener { onDismiss() }
-        dialog.show()
-        onDispose { if (dialog.isShowing) dialog.dismiss() }
+private fun CountdownRow(item: CountdownItem, onRemove: () -> Unit) {
+    val days = daysLeft(item.targetDate)
+    val past = days < 0
+
+    val bgColor = when {
+        days == 0 -> Color(0xFF1A2A1A)
+        past      -> Color(0xFF2A1A1A)
+        days <= 7 -> Color(0xFF1A1A2A)
+        else      -> SatriaColors.Surface
     }
+    val daysLabel = when {
+        past      -> "${Math.abs(days)}d ago"
+        days == 0 -> "Today! 🎉"
+        days == 1 -> "Tomorrow"
+        else      -> "${days} days"
+    }
+    val daysColor = when {
+        days == 0 -> Color(0xFF4CAF50)
+        past      -> SatriaColors.Danger
+        days <= 7 -> Color(0xFFFFB74D)
+        else      -> SatriaColors.TextPrimary
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(bgColor)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(item.name, color = SatriaColors.TextPrimary,
+                fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            Text(formatDate(item.targetDate), color = SatriaColors.TextTertiary, fontSize = 11.sp)
+        }
+        Text(daysLabel, color = daysColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        Text("✕", color = SatriaColors.TextTertiary, fontSize = 16.sp,
+            modifier = Modifier.clickable { onRemove() }.padding(4.dp))
+    }
+    Spacer(Modifier.height(6.dp))
 }
+
+private fun daysLeft(iso: String): Int = runCatching {
+    val target = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(iso.take(10))!!
+    val now    = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+    }.time
+    TimeUnit.MILLISECONDS.toDays(target.time - now.time).toInt()
+}.getOrDefault(0)
+
+private fun formatDate(iso: String): String = runCatching {
+    val d = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).parse(iso.take(10))!!
+    SimpleDateFormat("d MMM yyyy, EEEE", Locale.getDefault()).format(d)
+}.getOrDefault(iso)

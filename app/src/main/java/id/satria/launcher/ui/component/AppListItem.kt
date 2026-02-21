@@ -1,18 +1,19 @@
 package id.satria.launcher.ui.component
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.combinedClickable
+import android.graphics.Bitmap
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.*
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.*
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -29,11 +30,12 @@ fun AppListItem(
     onPress: (String) -> Unit,
     onLongPress: (String) -> Unit,
 ) {
-    var pressed by remember { mutableStateOf(false) }
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.97f else 1f,
-        animationSpec = spring(dampingRatio = 0.6f, stiffness = 500f),
-        label = "scale",
+        targetValue = if (isPressed) 0.97f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "listScale",
     )
 
     Row(
@@ -41,22 +43,32 @@ fun AppListItem(
             .fillMaxWidth()
             .scale(scale)
             .combinedClickable(
-                onClick = { onPress(app.packageName) },
-                onLongClick = { onLongPress(app.packageName) },
+                interactionSource = interactionSource,
+                indication        = null,
+                onClick           = { onPress(app.packageName) },
+                onLongClick       = { onLongPress(app.packageName) },
             )
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(horizontal = 20.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val bitmap = remember(app.packageName) { app.icon.toBitmap(52, 52).asImageBitmap() }
+        val bitmap = remember(app.packageName) {
+            iconCache.getOrPut(app.packageName) {
+                app.icon.toBitmap(120, 120, Bitmap.Config.ARGB_8888).asImageBitmap()
+            }
+        }
         Image(
-            bitmap = bitmap,
+            bitmap             = bitmap,
             contentDescription = app.label,
-            modifier = Modifier.size(52.dp).clip(RoundedCornerShape(11.dp)),
+            contentScale       = ContentScale.Fit,
+            filterQuality      = FilterQuality.High,
+            modifier           = Modifier
+                .size(50.dp)
+                .clip(RoundedCornerShape(12.dp)),
         )
         if (showName) {
             Text(
-                text = app.label,
-                color = SatriaColors.TextPrimary,
+                text     = app.label,
+                color    = SatriaColors.TextPrimary,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 maxLines = 1,

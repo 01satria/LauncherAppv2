@@ -7,15 +7,10 @@ keystore.properties
 /app/build/
 /build/
 
-# Gradle cache (bukan wrapper!)
+# Gradle
 .gradle/
 local.properties
-
-# Pastikan wrapper tetap ter-commit
-!gradle/wrapper/gradle-wrapper.jar
-!gradle/wrapper/gradle-wrapper.properties
-!gradlew
-!gradlew.bat
+gradle.properties
 
 # IDE
 .idea/
