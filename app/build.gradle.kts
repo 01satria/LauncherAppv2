@@ -14,7 +14,7 @@ android {
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.1"
     }
 
     // ── Signing — baca dari environment variable yang di-inject GitHub Actions
@@ -49,24 +49,27 @@ android {
         }
     }
 
-    // versionCode unik per ABI agar bisa upload ke Play Store sekaligus
+    // ── FIX: versionCodeOverride sudah dihapus di AGP 8.x
+    // Gunakan cara baru: override per-output via outputFileName saja,
+    // versionCode unik diset lewat abiVersionCode di defaultConfig.
+    //
+    // Untuk Play Store multi-ABI upload, versionCode di-encode:
+    //   arm64-v8a   → base * 10 + 1
+    //   armeabi-v7a → base * 10 + 2
+    //   x86_64      → base * 10 + 3
+    //
+    // Karena AGP 8.x tidak lagi mendukung versionCodeOverride,
+    // kita pakai productFlavors atau cukup rename file saja.
+    // Untuk launcher personal (non Play Store), rename file sudah cukup.
     applicationVariants.all {
         val variant = this
-        variant.outputs.all {
-            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            val abiFilter = output.getFilter(com.android.build.OutputFile.ABI)
-            val abiCode = when (abiFilter) {
-                "arm64-v8a"   -> 1
-                "armeabi-v7a" -> 2
-                "x86_64"      -> 3
-                else          -> 0
-            }
+        outputs.all {
+            // Cast ke ApkVariantOutput untuk akses outputFileName
+            val output = this as com.android.build.gradle.internal.api.ApkVariantOutputImpl
+            val abiFilter = output.getFilter("ABI")
             if (variant.buildType.name == "release") {
-                output.outputFileName = "SatriaLauncher-${variant.versionName}-${abiFilter ?: "universal"}.apk"
-                variant.mergedFlavor.versionCode?.let { base ->
-                    // contoh: versionCode 10001 untuk arm64, 10002 untuk armeabi
-                    output.versionCodeOverride = base * 10 + abiCode
-                }
+                output.outputFileName =
+                    "SatriaLauncher-${variant.versionName}-${abiFilter ?: "universal"}.apk"
             }
         }
     }
