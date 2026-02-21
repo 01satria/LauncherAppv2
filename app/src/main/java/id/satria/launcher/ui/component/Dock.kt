@@ -127,8 +127,10 @@ private fun DockIcon(
     )
 
     val bitmap = remember(app.packageName) {
-        iconCache.getOrPut(app.packageName) {
-            app.icon.toBitmap(120, 120, Bitmap.Config.ARGB_8888).asImageBitmap()
+        iconCache.get(app.packageName) ?: run {
+            val bmp = app.icon.toBitmap(96, 96, Bitmap.Config.ARGB_8888).asImageBitmap()
+            iconCache.put(app.packageName, bmp)
+            bmp
         }
     }
 
@@ -136,7 +138,7 @@ private fun DockIcon(
         bitmap             = bitmap,
         contentDescription = app.label,
         contentScale       = ContentScale.Fit,
-        filterQuality      = FilterQuality.High,
+        filterQuality      = FilterQuality.Medium,
         modifier           = Modifier
             .size(56.dp)
             .scale(scale)
