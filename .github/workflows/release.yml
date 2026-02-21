@@ -42,7 +42,7 @@ jobs:
 
       # ── 5. Build release APK per ABI ────────────────────────────────────
       - name: Build Release APKs (split ABI)
-        run: ./gradlew assembleRelease
+        run: ./android/gradlew assembleRelease
         env:
           KEYSTORE_PATH:     ${{ github.workspace }}/app/keystore.jks
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
