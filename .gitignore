@@ -17,4 +17,3 @@ gradle.properties
 *.iml
 .DS_Store
 
-.PANDUAN_GITHUB_ACTIONS.md
