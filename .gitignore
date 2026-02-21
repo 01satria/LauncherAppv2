@@ -7,13 +7,17 @@ keystore.properties
 /app/build/
 /build/
 
-# Gradle
+# Gradle cache (bukan wrapper!)
 .gradle/
 local.properties
-gradle.properties
+
+# Pastikan wrapper tetap ter-commit
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+!gradlew
+!gradlew.bat
 
 # IDE
 .idea/
 *.iml
 .DS_Store
-
