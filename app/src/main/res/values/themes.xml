@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Definisikan style ini secara eksplisit agar AAPT tidak error
+        meski tidak ada referensi ke AppCompat di mana pun.
+        Parent pakai android: system theme — zero dependency.
+    -->
+    <style name="Theme.SatriaLauncher" parent="android:Theme.Black.NoTitleBar.Fullscreen" />
+    <style name="Theme.AppCompat.DayNight.NoActionBar" parent="android:Theme.Black.NoTitleBar.Fullscreen" />
+</resources>
