@@ -33,11 +33,11 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
         }
     }
 
-    // ── Overlay semi-transparan — wallpaper tetap terlihat samar ─────────
+    // ── Block semua sentuhan — fullscreen opaque ──────────────────────────
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.55f))
+            .background(SatriaColors.ScreenBackground)
             // Intercept semua sentuhan agar tidak tembus ke HomeScreen
             .clickable(
                 indication = null,
@@ -107,7 +107,7 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                 ) {
                     Column {
                         HorizontalDivider(color = SatriaColors.Border)
-                        Box(modifier = Modifier.fillMaxWidth().background(SatriaColors.Background)
+                        Box(modifier = Modifier.fillMaxWidth().background(SatriaColors.ScreenBackground)
                             .padding(horizontal = 20.dp, vertical = 10.dp).navigationBarsPadding()) {
                             Button(
                                 onClick = { activeTool = null },

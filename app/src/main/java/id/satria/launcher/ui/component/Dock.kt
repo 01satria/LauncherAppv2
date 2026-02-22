@@ -32,6 +32,7 @@ import id.satria.launcher.ui.theme.SatriaColors
 fun Dock(
     dockApps: List<AppData>,
     avatarPath: String?,
+    avatarVersion: Int = 0,
     onAvatarClick: () -> Unit,
     onAppPress: (String) -> Unit,
     onAppLongPress: (String) -> Unit,
@@ -70,16 +71,22 @@ fun Dock(
                 contentAlignment = Alignment.Center,
             ) {
                 if (avatarPath != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(avatarPath)
-                            .crossfade(true)
-                            .scale(Scale.FILL) // pastikan fill circle
-                            .build(),
-                        contentDescription = null,
-                        contentScale       = ContentScale.Crop, // crop circle
-                        modifier           = Modifier.fillMaxSize(),
-                    )
+                    // key(avatarVersion) paksa Compose buang composable lama
+                    // sehingga Coil tidak pakai cache lama saat avatar diganti
+                    key(avatarVersion) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(avatarPath)
+                                .diskCacheKey("avatar_$avatarVersion")
+                                .memoryCacheKey("avatar_$avatarVersion")
+                                .crossfade(true)
+                                .scale(Scale.FILL)
+                                .build(),
+                            contentDescription = null,
+                            contentScale       = ContentScale.Crop,
+                            modifier           = Modifier.fillMaxSize(),
+                        )
+                    }
                 } else {
                     Text("👤", fontSize = 26.sp)
                 }

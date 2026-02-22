@@ -25,6 +25,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val showNames       = prefs.showNames.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val layoutMode      = prefs.layoutMode.stateIn(viewModelScope, SharingStarted.Eagerly, "grid")
     val avatarPath      = prefs.avatarPath.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    // u2500u2500 avatarVersion u2014 increment setiap ganti foto, dipakai sebagai cache-bust key di Dock u2500u2500
+    private val _avatarVersion = MutableStateFlow(0)
+    val avatarVersion: StateFlow<Int> = _avatarVersion.asStateFlow()
     val hiddenPackages  = prefs.hiddenPackages.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val dockPackages    = prefs.dockPackages.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val todos           = prefs.todos.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -98,6 +102,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val file = File(getApplication<Application>().filesDir, "avatar.jpg")
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.JPEG, 85, it) }
         prefs.setAvatarPath(file.absolutePath)
+        _avatarVersion.value++  // trigger Dock untuk reload avatar
     }
 
     // ── Todo ───────────────────────────────────────────────────────────────

@@ -19,6 +19,7 @@ fun HomeScreen(vm: MainViewModel) {
     val layoutMode     by vm.layoutMode.collectAsState()
     val showNames      by vm.showNames.collectAsState()
     val avatarPath     by vm.avatarPath.collectAsState()
+    val avatarVersion  by vm.avatarVersion.collectAsState()
     val hiddenPackages by vm.hiddenPackages.collectAsState()
 
     var showDashboard by remember { mutableStateOf(false) }
@@ -71,6 +72,7 @@ fun HomeScreen(vm: MainViewModel) {
         Dock(
             dockApps            = dockApps,
             avatarPath          = avatarPath,
+            avatarVersion       = avatarVersion,
             onAvatarClick       = { if (!overlayActive) showDashboard = true },
             onAppPress          = { if (!overlayActive) vm.launchApp(it) },
             onAppLongPress      = { if (!overlayActive) actionTarget = it },

@@ -131,7 +131,7 @@ fun ChatScreen(vm: MainViewModel, onClose: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SatriaColors.Background)
+            .background(SatriaColors.ScreenBackground)
             .systemBarsPadding()
     ) {
         // ── Header ─────────────────────────────────────────────────────────
