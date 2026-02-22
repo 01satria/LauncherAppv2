@@ -53,9 +53,9 @@ Download the APK for your device from the [Releases](../../releases) page:
 
 | APK | Device |
 |---|---|
-| `*-arm64-v8a.apk` | Most Android phones (2017 and newer) — **pick this if unsure** |
-| `*-armeabi-v7a.apk` | Older 32-bit Android phones |
-| `*-x86_64.apk` | Emulators and ChromeOS |
+| `*-arm64-v8a.apk*` | Most Android phones (2017 and newer) — **pick this if unsure** |
+| `*-armeabi-v7a.apk*` | Older 32-bit Android phones |
+| `*-x86_64.apk*` | Emulators and ChromeOS |
 
 1. Download the right APK
 2. Enable **Install from unknown sources** in your Settings
