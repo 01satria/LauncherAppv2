@@ -19,7 +19,6 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Modern edge-to-edge dengan transparent bars — tidak ada deprecation
         enableEdgeToEdge(
             statusBarStyle     = SystemBarStyle.dark(Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
@@ -28,17 +27,9 @@ class MainActivity : ComponentActivity() {
         window.setBackgroundDrawableResource(android.R.color.transparent)
 
         setContent {
-            val accentHex by vm.themeAccent.collectAsState()
-            val bgHex     by vm.themeBg.collectAsState()
-            val borderHex by vm.themeBorder.collectAsState()
-            val fontHex   by vm.themeFont.collectAsState()
+            val darkMode by vm.darkMode.collectAsState()
 
-            SatriaTheme(
-                accentHex = accentHex,
-                bgHex     = bgHex,
-                borderHex = borderHex,
-                fontHex   = fontHex,
-            ) {
+            SatriaTheme(darkMode = darkMode) {
                 HomeScreen(vm = vm)
             }
         }

@@ -25,11 +25,8 @@ object PrefKeys {
     val DOCK_ICON_SIZE    = intPreferencesKey("dock_icon_size")
     val NOTES             = stringPreferencesKey("notes")
     val HABITS            = stringPreferencesKey("habits")
-    // ── Theme palette ─────────────────────────────────────────────────────
-    val THEME_ACCENT      = stringPreferencesKey("theme_accent")
-    val THEME_BG          = stringPreferencesKey("theme_bg")
-    val THEME_BORDER      = stringPreferencesKey("theme_border")
-    val THEME_FONT        = stringPreferencesKey("theme_font")
+    // ── Theme mode ────────────────────────────────────────────────────────
+    val DARK_MODE         = booleanPreferencesKey("dark_mode")
 }
 
 const val DEFAULT_ICON_SIZE      = 54
@@ -65,11 +62,8 @@ class Prefs(private val context: Context) {
     val notes            = ds.data.map { decode(it[PrefKeys.NOTES],             emptyList()) { s -> json.decodeFromString<List<NoteItem>>(s) } }
     val habits           = ds.data.map { decode(it[PrefKeys.HABITS],            emptyList()) { s -> json.decodeFromString<List<HabitItem>>(s) } }
 
-    // ── Theme palette — stored as AARRGGBB hex string ──────────────────────
-    val themeAccent  = ds.data.map { it[PrefKeys.THEME_ACCENT]  ?: "FF27AE60" }
-    val themeBg      = ds.data.map { it[PrefKeys.THEME_BG]      ?: "FF000000" }
-    val themeBorder  = ds.data.map { it[PrefKeys.THEME_BORDER]  ?: "FF1A1A1A" }
-    val themeFont    = ds.data.map { it[PrefKeys.THEME_FONT]    ?: "FFFFFFFF" }
+    // ── Theme mode — stored as boolean (true = dark, default = true) ──────
+    val darkMode     = ds.data.map { it[PrefKeys.DARK_MODE] ?: true }
 
     // ── Write helpers ──────────────────────────────────────────────────────
     suspend fun setUserName(v: String)      = ds.edit { it[PrefKeys.USER_NAME] = v }
@@ -88,8 +82,5 @@ class Prefs(private val context: Context) {
     suspend fun setWeatherLocations(v: List<String>)  = ds.edit { it[PrefKeys.WEATHER_LOCATIONS] = json.encodeToString(v) }
     suspend fun setNotes(v: List<NoteItem>)           = ds.edit { it[PrefKeys.NOTES]             = json.encodeToString(v) }
     suspend fun setHabits(v: List<HabitItem>)         = ds.edit { it[PrefKeys.HABITS]            = json.encodeToString(v) }
-    suspend fun setThemeAccent(v: String)                 = ds.edit { it[PrefKeys.THEME_ACCENT]      = v }
-    suspend fun setThemeBg(v: String)                     = ds.edit { it[PrefKeys.THEME_BG]          = v }
-    suspend fun setThemeBorder(v: String)                 = ds.edit { it[PrefKeys.THEME_BORDER]      = v }
-    suspend fun setThemeFont(v: String)                   = ds.edit { it[PrefKeys.THEME_FONT]        = v }
+    suspend fun setDarkMode(v: Boolean)                        = ds.edit { it[PrefKeys.DARK_MODE]      = v }
 }
