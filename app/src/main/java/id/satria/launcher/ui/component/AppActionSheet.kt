@@ -118,28 +118,24 @@ fun AppActionSheet(
 
             // Dock
             val dockLabel = when {
-                isDocked -> "📌  Unpin from Dock"
-                dockFull -> "📌  Dock is full (max 4)"
-                else     -> "📌  Pin to Dock"
+                isDocked -> "Unpin from Dock"
+                dockFull -> "Dock is full (max 4)"
+                else     -> "Pin to Dock"
             }
             SheetButton(dockLabel, enabled = isDocked || !dockFull) { onDock(); dismiss() }
 
             HorizontalDivider(color = SatriaColors.Border, thickness = 0.5.dp)
 
             // Hide / Unhide
-            SheetButton(if (isHidden) "👁  Show App" else "🙈  Hide App") {
+            SheetButton(if (isHidden) "Show App" else "Hide App") {
                 if (isHidden) onUnhide() else onHide(); dismiss()
             }
 
             HorizontalDivider(color = SatriaColors.Border, thickness = 0.5.dp)
 
             // Uninstall
-            SheetButton("🗑  Uninstall", color = SatriaColors.Danger) { onUninstall(); dismiss() }
+            SheetButton("Uninstall", color = SatriaColors.Danger) { onUninstall(); dismiss() }
 
-            HorizontalDivider(color = SatriaColors.Border, thickness = 0.5.dp)
-
-            // Cancel
-            SheetButton("Cancel", color = SatriaColors.TextSecondary) { dismiss() }
         }
     }
 }

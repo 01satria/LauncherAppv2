@@ -133,6 +133,7 @@ fun ChatScreen(vm: MainViewModel, onClose: () -> Unit) {
             .fillMaxSize()
             .background(SatriaColors.ScreenBackground)
             .systemBarsPadding()
+            .imePadding()  // naik otomatis saat keyboard muncul
     ) {
         // ── Header ─────────────────────────────────────────────────────────
         Row(
@@ -207,8 +208,7 @@ fun ChatScreen(vm: MainViewModel, onClose: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp)
-                .navigationBarsPadding(),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TextField(
@@ -242,7 +242,7 @@ fun ChatScreen(vm: MainViewModel, onClose: () -> Unit) {
                     .clip(CircleShape)
                     .background(if (hasInput) SatriaColors.AccentDim else SatriaColors.Surface),
             ) {
-                Text("➤", color = if (hasInput) Color.White else SatriaColors.TextTertiary, fontSize = 18.sp)
+                Text("↑", color = if (hasInput) Color.White else SatriaColors.TextTertiary, fontSize = 20.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
             }
         }
     }
