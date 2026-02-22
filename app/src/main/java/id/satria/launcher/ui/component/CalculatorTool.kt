@@ -77,7 +77,7 @@ fun CalculatorTool() {
         }
     }
 
-    Column(modifier=Modifier.fillMaxWidth().background(Color.Black), verticalArrangement=Arrangement.Bottom) {
+    Column(modifier=Modifier.fillMaxSize().background(Color.Black), verticalArrangement=Arrangement.Bottom) {
         Box(modifier=Modifier.fillMaxWidth().padding(horizontal=24.dp, vertical=8.dp), contentAlignment=Alignment.BottomEnd) {
             Column(horizontalAlignment=Alignment.End) {
                 if(expr.isNotEmpty()&&!justEqual&&expr!=display)
