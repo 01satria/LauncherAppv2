@@ -3,7 +3,6 @@ package id.satria.launcher.data
 import android.graphics.drawable.Drawable
 import kotlinx.serialization.Serializable
 
-// Pengganti interface AppData di types/index.ts
 data class AppData(
     val label: String,
     val packageName: String,
@@ -43,3 +42,25 @@ data class WeatherResult(
     val rawQuery: String,
     val forecast: List<WeatherForecast>,
 )
+
+// ── Notes ─────────────────────────────────────────────────────────────────────
+@Serializable
+data class NoteItem(
+    val id        : String,
+    val text      : String,
+    val createdAt : Long,
+    val updatedAt : Long,
+)
+
+// ── Habits ────────────────────────────────────────────────────────────────────
+@Serializable
+data class HabitItem(
+    val id          : String,
+    val name        : String,
+    val emoji       : String,
+    val doneDates   : List<String>, // "yyyy-MM-dd" strings
+    val streak      : Int,
+    val createdAt   : Long,
+) {
+    fun doneToday(todayKey: String): Boolean = doneDates.contains(todayKey)
+}

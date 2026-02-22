@@ -18,123 +18,94 @@ import id.satria.launcher.data.CountdownItem
 import id.satria.launcher.ui.theme.SatriaColors
 import java.util.concurrent.TimeUnit
 
-private val DividerColor = Color(0xFF1A1A1A)
-private val CardBg       = Color(0xFF0D0D0D)
+private val DIVIDER = Color(0xFF1A1A1A)
+private val CARD_BG = Color(0xFF0D0D0D)
 
-private data class Tool(
-    val icon    : String,
-    val label   : String,
-    val badge   : String?,
-    val onClick : () -> Unit,
-)
+private data class ToolEntry(val icon: String, val label: String, val badge: String?, val onClick: () -> Unit)
 
 @Composable
 fun ToolGrid(
-    todoPending : Int?,
-    cdFirst     : CountdownItem?,
-    onWeather   : () -> Unit,
-    onMoney     : () -> Unit,
-    onTodo      : () -> Unit,
-    onCountdown : () -> Unit,
-    onPomodoro  : () -> Unit,
+    todoPending  : Int?,
+    cdFirst      : CountdownItem?,
+    noteCount    : Int,
+    habitDone    : Int,
+    habitTotal   : Int,
+    onWeather    : () -> Unit,
+    onMoney      : () -> Unit,
+    onTodo       : () -> Unit,
+    onCountdown  : () -> Unit,
+    onPomodoro   : () -> Unit,
+    onCalculator : () -> Unit,
+    onStopwatch  : () -> Unit,
+    onNotes      : () -> Unit,
+    onConverter  : () -> Unit,
+    onHabits     : () -> Unit,
 ) {
-    val tools = listOf(
-        Tool("🌤️", "Weather",       null,                                       onWeather),
-        Tool("💱", "Exchange",      null,                                       onMoney),
-        Tool("📝", "To Do",         todoPending?.let { "$it pending" },         onTodo),
-        Tool("⏳", "Countdown",     cdFirst?.let { cdPreview(it) },             onCountdown),
-        Tool("🍅", "Pomodoro",      "Focus mode",                               onPomodoro),
+    // Two groups for visual separation
+    val group1 = listOf(
+        ToolEntry("🌤️", "Weather",   null,                                   onWeather),
+        ToolEntry("💱",  "Exchange",  null,                                   onMoney),
+        ToolEntry("📝",  "To Do",     todoPending?.let { "$it pending" },     onTodo),
+        ToolEntry("⏳",  "Countdown", cdFirst?.let { cdPreview(it) },         onCountdown),
+        ToolEntry("🍅",  "Pomodoro",  "Focus timer",                          onPomodoro),
+    )
+    val group2 = listOf(
+        ToolEntry("🧮",  "Calculator","",                                     onCalculator),
+        ToolEntry("⏱️",  "Stopwatch", "& Timer",                             onStopwatch),
+        ToolEntry("🗒️",  "Notes",     if (noteCount > 0) "$noteCount notes" else null, onNotes),
+        ToolEntry("📐",  "Converter", "Length · Weight · Temp…",              onConverter),
+        ToolEntry("💪",  "Habits",    if (habitTotal > 0) "$habitDone/$habitTotal today" else null, onHabits),
     )
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(0.dp),
-    ) {
-        // Label
-        Text(
-            "TOOLS",
-            color         = SatriaColors.TextTertiary,
-            fontSize      = 10.sp,
-            fontWeight    = FontWeight.SemiBold,
-            letterSpacing = 1.5.sp,
-            modifier      = Modifier.padding(bottom = 12.dp),
-        )
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+        .padding(horizontal = 20.dp, vertical = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)) {
 
-        // Single grouped card
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(CardBg),
-        ) {
-            tools.forEachIndexed { index, tool ->
-                ToolRow(tool = tool)
-                if (index < tools.lastIndex) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .padding(start = 52.dp) // align divider with text, skip icon area
-                            .background(DividerColor)
-                    )
-                }
+        ToolGroup(label = "ESSENTIALS", tools = group1)
+        ToolGroup(label = "UTILITIES",  tools = group2)
+
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun ToolGroup(label: String, tools: List<ToolEntry>) {
+    Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
+        Text(label, color = SatriaColors.TextTertiary, fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp,
+            modifier = Modifier.padding(bottom = 8.dp))
+        Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CARD_BG)) {
+            tools.forEachIndexed { i, tool ->
+                ToolRow(tool)
+                if (i < tools.lastIndex)
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).padding(start = 52.dp).background(DIVIDER))
             }
         }
     }
 }
 
 @Composable
-private fun ToolRow(tool: Tool) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = tool.onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+private fun ToolRow(tool: ToolEntry) {
+    Row(modifier = Modifier.fillMaxWidth()
+        .clickable(onClick = tool.onClick)
+        .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        // Icon
+        horizontalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(tool.icon, fontSize = 22.sp, modifier = Modifier.width(28.dp))
-
-        // Label + badge
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(
-                tool.label,
-                color      = SatriaColors.TextPrimary,
-                fontSize   = 15.sp,
-                fontWeight = FontWeight.Medium,
-            )
-            if (tool.badge != null) {
-                Text(
-                    tool.badge,
-                    color    = SatriaColors.TextTertiary,
-                    fontSize = 12.sp,
-                )
-            }
+            Text(tool.label, color = SatriaColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+            if (!tool.badge.isNullOrEmpty())
+                Text(tool.badge, color = SatriaColors.TextTertiary, fontSize = 12.sp)
         }
-
-        // Chevron
-        Text(
-            "›",
-            color    = SatriaColors.TextTertiary,
-            fontSize = 20.sp,
-        )
+        Text("›", color = SatriaColors.TextTertiary, fontSize = 20.sp)
     }
 }
 
 private fun cdPreview(item: CountdownItem): String {
     return try {
-        val now    = System.currentTimeMillis()
-        val target = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-                        .parse(item.targetDate.take(10))?.time ?: return item.name
-        val days   = TimeUnit.MILLISECONDS.toDays(target - now)
-        when {
-            days > 0L  -> "${item.name} · ${days}d"
-            days == 0L -> "${item.name} · Today"
-            else       -> "${item.name} · ${-days}d ago"
-        }
-    } catch (e: Exception) { item.name }
+        val days = TimeUnit.MILLISECONDS.toDays(
+            java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
+                .parse(item.targetDate.take(10))!!.time - System.currentTimeMillis())
+        when { days > 0L -> "${item.name} · ${days}d"; days == 0L -> "${item.name} · Today"; else -> "${item.name} · ${-days}d ago" }
+    } catch (_: Exception) { item.name }
 }

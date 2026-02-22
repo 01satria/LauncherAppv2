@@ -21,12 +21,13 @@ object PrefKeys {
     val TODOS             = stringPreferencesKey("todos")
     val COUNTDOWNS        = stringPreferencesKey("countdowns")
     val WEATHER_LOCATIONS = stringPreferencesKey("weather_locations")
-    // ── Icon size (stored as Int dp) ──────────────────────────────────────
-    val ICON_SIZE         = intPreferencesKey("icon_size")       // home screen icon
-    val DOCK_ICON_SIZE    = intPreferencesKey("dock_icon_size")  // dock icon
+    val ICON_SIZE         = intPreferencesKey("icon_size")
+    val DOCK_ICON_SIZE    = intPreferencesKey("dock_icon_size")
+    // ── New features ──────────────────────────────────────────────────────
+    val NOTES             = stringPreferencesKey("notes")
+    val HABITS            = stringPreferencesKey("habits")
 }
 
-// Default icon sizes (dp)
 const val DEFAULT_ICON_SIZE      = 54
 const val DEFAULT_DOCK_ICON_SIZE = 56
 const val MIN_ICON_SIZE          = 36
@@ -36,7 +37,7 @@ const val MAX_DOCK_ICON_SIZE     = 72
 
 class Prefs(private val context: Context) {
 
-    private val ds = context.dataStore
+    private val ds   = context.dataStore
     private val json = Json { ignoreUnknownKeys = true }
 
     // ── Read flows ─────────────────────────────────────────────────────────
@@ -49,31 +50,16 @@ class Prefs(private val context: Context) {
     val iconSize         = ds.data.map { it[PrefKeys.ICON_SIZE] ?: DEFAULT_ICON_SIZE }
     val dockIconSize     = ds.data.map { it[PrefKeys.DOCK_ICON_SIZE] ?: DEFAULT_DOCK_ICON_SIZE }
 
-    val hiddenPackages  = ds.data.map {
-        it[PrefKeys.HIDDEN_PACKAGES]
-            ?.let { s -> runCatching { json.decodeFromString<List<String>>(s) }.getOrNull() }
-            ?: emptyList()
-    }
-    val dockPackages    = ds.data.map {
-        it[PrefKeys.DOCK_PACKAGES]
-            ?.let { s -> runCatching { json.decodeFromString<List<String>>(s) }.getOrNull() }
-            ?: emptyList()
-    }
-    val todos           = ds.data.map {
-        it[PrefKeys.TODOS]
-            ?.let { s -> runCatching { json.decodeFromString<List<TodoItem>>(s) }.getOrNull() }
-            ?: emptyList()
-    }
-    val countdowns      = ds.data.map {
-        it[PrefKeys.COUNTDOWNS]
-            ?.let { s -> runCatching { json.decodeFromString<List<CountdownItem>>(s) }.getOrNull() }
-            ?: emptyList()
-    }
-    val weatherLocations = ds.data.map {
-        it[PrefKeys.WEATHER_LOCATIONS]
-            ?.let { s -> runCatching { json.decodeFromString<List<String>>(s) }.getOrNull() }
-            ?: emptyList()
-    }
+    private fun <T> decode(s: String?, default: T, block: (String) -> T?): T =
+        s?.let { runCatching { block(it) }.getOrNull() } ?: default
+
+    val hiddenPackages   = ds.data.map { decode(it[PrefKeys.HIDDEN_PACKAGES],   emptyList()) { s -> json.decodeFromString<List<String>>(s) } }
+    val dockPackages     = ds.data.map { decode(it[PrefKeys.DOCK_PACKAGES],     emptyList()) { s -> json.decodeFromString<List<String>>(s) } }
+    val todos            = ds.data.map { decode(it[PrefKeys.TODOS],             emptyList()) { s -> json.decodeFromString<List<TodoItem>>(s) } }
+    val countdowns       = ds.data.map { decode(it[PrefKeys.COUNTDOWNS],        emptyList()) { s -> json.decodeFromString<List<CountdownItem>>(s) } }
+    val weatherLocations = ds.data.map { decode(it[PrefKeys.WEATHER_LOCATIONS], emptyList()) { s -> json.decodeFromString<List<String>>(s) } }
+    val notes            = ds.data.map { decode(it[PrefKeys.NOTES],             emptyList()) { s -> json.decodeFromString<List<NoteItem>>(s) } }
+    val habits           = ds.data.map { decode(it[PrefKeys.HABITS],            emptyList()) { s -> json.decodeFromString<List<HabitItem>>(s) } }
 
     // ── Write helpers ──────────────────────────────────────────────────────
     suspend fun setUserName(v: String)      = ds.edit { it[PrefKeys.USER_NAME] = v }
@@ -90,4 +76,6 @@ class Prefs(private val context: Context) {
     suspend fun setTodos(v: List<TodoItem>)           = ds.edit { it[PrefKeys.TODOS]             = json.encodeToString(v) }
     suspend fun setCountdowns(v: List<CountdownItem>) = ds.edit { it[PrefKeys.COUNTDOWNS]       = json.encodeToString(v) }
     suspend fun setWeatherLocations(v: List<String>)  = ds.edit { it[PrefKeys.WEATHER_LOCATIONS] = json.encodeToString(v) }
+    suspend fun setNotes(v: List<NoteItem>)           = ds.edit { it[PrefKeys.NOTES]             = json.encodeToString(v) }
+    suspend fun setHabits(v: List<HabitItem>)         = ds.edit { it[PrefKeys.HABITS]            = json.encodeToString(v) }
 }

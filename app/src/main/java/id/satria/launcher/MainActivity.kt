@@ -35,5 +35,6 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         vm.refreshApps()
+        vm.resetHabitsIfNewDay()
     }
 }
