@@ -19,6 +19,7 @@ import androidx.compose.material3.Text
 import id.satria.launcher.MainViewModel
 import id.satria.launcher.ui.component.*
 import id.satria.launcher.ui.theme.SatriaColors
+import id.satria.launcher.ui.theme.LocalAppTheme
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -98,9 +99,11 @@ fun HomeScreen(vm: MainViewModel) {
                 ),
             contentAlignment = Alignment.Center,
         ) {
+            val darkMode = LocalAppTheme.current.darkMode
             Canvas(modifier = Modifier.matchParentSize()) {
                 drawRoundRect(
-                    color        = androidx.compose.ui.graphics.Color(0xEB000000), // kept dark for contrast on wallpaper
+                    color = if (darkMode) androidx.compose.ui.graphics.Color(0xEB000000)
+                            else         androidx.compose.ui.graphics.Color(0xEBFFFFFF),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx()),
                 )
             }

@@ -37,6 +37,7 @@ fun DashboardHeader(
     onClose       : () -> Unit,
 ) {
     val context = LocalContext.current
+    val darkMode = id.satria.launcher.ui.theme.LocalAppTheme.current.darkMode
 
     var clockStr by remember { mutableStateOf(fmt("HH:mm")) }
     var dateStr  by remember { mutableStateOf(fmt("EEEE, d MMMM")) }
@@ -47,7 +48,7 @@ fun DashboardHeader(
     var message by remember(userName) { mutableStateOf(getAssistantMessage(userName)) }
     LaunchedEffect(userName) { while (true) { delay(60_000); message = getAssistantMessage(userName) } }
 
-    // Battery
+    // Battery — event-driven, zero polling
     var batteryPct by remember { mutableIntStateOf(getBatLevel(context)) }
     var isCharging by remember { mutableStateOf(getBatCharging(context)) }
     DisposableEffect(Unit) {
@@ -57,7 +58,8 @@ fun DashboardHeader(
                 val s = i.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
                 if (l >= 0 && s > 0) batteryPct = l * 100 / s
                 val st = i.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-                isCharging = st == BatteryManager.BATTERY_STATUS_CHARGING || st == BatteryManager.BATTERY_STATUS_FULL
+                isCharging = st == BatteryManager.BATTERY_STATUS_CHARGING ||
+                        st == BatteryManager.BATTERY_STATUS_FULL
             }
         }
         context.registerReceiver(r, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -65,19 +67,32 @@ fun DashboardHeader(
     }
     val batText = if (isCharging) "$batteryPct% · charging" else "$batteryPct%"
 
+    // Close button colors — high contrast on both modes
+    val closeBg    = if (darkMode) Color(0x55000000) else Color(0x55FFFFFF)
+    val closeColor = if (darkMode) Color.White       else Color.Black
+
+    // Assistant name & message — high contrast overlay at bottom of photo
+    val overlayBg      = if (darkMode) Color(0x88000000) else Color(0x88FFFFFF)
+    val overlayFont    = if (darkMode) Color.White       else Color(0xFF1C1C1E)
+    val overlaySubfont = if (darkMode) Color(0xCCFFFFFF) else Color(0xFF444444)
+
     Column(modifier = Modifier.fillMaxWidth()) {
 
-        // ── Avatar — full width square box (no fractional height) ──────────
+        // ── Avatar — full width square, no fractional screen dependency ───
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(1f)           // kotak penuh
+                .aspectRatio(1f)
                 .clickable { onAvatarClick() }
         ) {
             if (avatarPath != null) {
                 AsyncImage(
-                    model = ImageRequest.Builder(context).data(avatarPath).crossfade(true).build(),
-                    contentDescription = null, contentScale = ContentScale.Crop,
+                    model = ImageRequest.Builder(context)
+                        .data(avatarPath)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
@@ -87,65 +102,93 @@ fun DashboardHeader(
                 ) { Text("👤", fontSize = 72.sp) }
             }
 
-            // Gradient fade bawah → bg
+            // Fade — hanya 22% dari bawah, smooth, RAM-zero (Brush is lazy)
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.40f)
+                    .fillMaxHeight(0.22f)
                     .align(Alignment.BottomCenter)
                     .background(
                         Brush.verticalGradient(
-                            listOf(Color.Transparent, SatriaColors.ScreenBackground)
+                            0f to Color.Transparent,
+                            1f to SatriaColors.ScreenBackground
                         )
                     )
             )
 
-            // Close button
+            // Close button — top-right, high contrast pill
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
-                    .padding(end = 16.dp, top = 16.dp)
+                    .padding(end = 14.dp, top = 14.dp)
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(SatriaColors.BorderLight)
+                    .background(closeBg)
                     .clickable { onClose() },
                 contentAlignment = Alignment.Center,
-            ) { Text("✕", color = SatriaColors.TextSecondary, fontSize = 13.sp) }
+            ) {
+                Text(
+                    "✕",
+                    color = closeColor,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
 
-            // Assistant name overlay
-            Text(
-                assistantName,
-                color = SatriaColors.TextSecondary,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
+            // Assistant name + message — semi-opaque pill at bottom of photo
+            // Wrapped in its own Box so text is never clipped by the fade
+            Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .padding(start = 20.dp, bottom = 12.dp)
-            )
+                    .padding(start = 14.dp, bottom = 14.dp, end = 56.dp)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
+                    .background(overlayBg)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(1.dp),
+            ) {
+                Text(
+                    assistantName,
+                    color = overlayFont,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    message,
+                    color = overlaySubfont,
+                    fontSize = 11.sp,
+                    lineHeight = 15.sp,
+                )
+            }
         }
 
-        // ── Clock / date / message ─────────────────────────────────────────
+        // ── Clock / date / battery ─────────────────────────────────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .padding(top = 12.dp, bottom = 16.dp),
         ) {
-            Text(clockStr, color = SatriaColors.TextPrimary, fontSize = 56.sp,
-                fontWeight = FontWeight.Thin, letterSpacing = 2.sp)
-            Row(verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(dateStr, color = SatriaColors.TextSecondary, fontSize = 14.sp)
-                Text("·",    color = SatriaColors.TextTertiary,   fontSize = 14.sp)
-                Text(batText, color = SatriaColors.TextSecondary, fontSize = 14.sp)
+            Text(
+                clockStr,
+                color = SatriaColors.TextPrimary,
+                fontSize = 56.sp,
+                fontWeight = FontWeight.Thin,
+                letterSpacing = 2.sp,
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Text(dateStr,  color = SatriaColors.TextSecondary, fontSize = 14.sp)
+                Text("·",     color = SatriaColors.TextTertiary,   fontSize = 14.sp)
+                Text(batText,  color = SatriaColors.TextSecondary, fontSize = 14.sp)
             }
-            Spacer(Modifier.height(6.dp))
-            Text(message, color = SatriaColors.TextTertiary, fontSize = 12.sp, lineHeight = 18.sp)
         }
     }
 }
 
-private fun fmt(pattern: String) = SimpleDateFormat(pattern, Locale.getDefault()).format(Date())
+private fun fmt(pattern: String) =
+    SimpleDateFormat(pattern, Locale.getDefault()).format(Date())
 
 private fun getBatLevel(ctx: Context): Int {
     val i = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
@@ -156,5 +199,6 @@ private fun getBatLevel(ctx: Context): Int {
 private fun getBatCharging(ctx: Context): Boolean {
     val i  = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
     val st = i?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-    return st == BatteryManager.BATTERY_STATUS_CHARGING || st == BatteryManager.BATTERY_STATUS_FULL
+    return st == BatteryManager.BATTERY_STATUS_CHARGING ||
+           st == BatteryManager.BATTERY_STATUS_FULL
 }

@@ -23,6 +23,7 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import id.satria.launcher.MainViewModel
 import id.satria.launcher.ui.theme.SatriaColors
+import id.satria.launcher.ui.theme.LocalAppTheme
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -170,9 +171,9 @@ fun ChatScreen(vm: MainViewModel, onClose: () -> Unit) {
 
             Spacer(Modifier.width(10.dp))
 
-            Column(modifier = Modifier.weight(1f)) {
-                Text(assistantName, color = SatriaColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                Text("Online", color = Color(0xFF00D134), fontSize = 12.sp)
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(0.dp)) {
+                Text(assistantName, color = SatriaColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, lineHeight = 17.sp)
+                Text("● Online", color = Color(0xFF2ECC71), fontSize = 11.sp, lineHeight = 13.sp)
             }
 
             // Hapus chat
@@ -281,10 +282,12 @@ private fun MessageBubble(msg: Message) {
                 .background(if (isUser) SatriaColors.Accent else SatriaColors.Surface)
                 .padding(horizontal = 14.dp, vertical = 10.dp),
         ) {
-            Text(msg.text, color = Color.White, fontSize = 15.sp, lineHeight = 21.sp)
+            val textColor  = if (isUser) Color.White else SatriaColors.TextPrimary
+            val timeColor  = if (isUser) Color.White.copy(alpha = 0.55f) else SatriaColors.TextTertiary
+            Text(msg.text, color = textColor, fontSize = 15.sp, lineHeight = 21.sp)
             Text(
                 msg.time,
-                color = Color.White.copy(alpha = 0.4f),
+                color = timeColor,
                 fontSize = 11.sp,
                 modifier = Modifier.align(Alignment.End).padding(top = 4.dp),
             )
