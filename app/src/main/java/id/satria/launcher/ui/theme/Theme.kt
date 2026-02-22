@@ -5,7 +5,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AppThemeColors — backing fields dengan prefix _ untuk hindari JVM clash
+// AppThemeColors
+// Store colors as Long (ULong bits) to avoid JVM inline-class signature clash.
+// Color is an inline class over Long — two properties returning Color in the
+// same class produce identical JVM signatures → "Platform declaration clash".
+// Storing as Long sidesteps this entirely.
 // ─────────────────────────────────────────────────────────────────────────────
 @Stable
 class AppThemeColors(
@@ -14,34 +18,35 @@ class AppThemeColors(
     borderInit : Color,
     fontInit   : Color,
 ) {
-    // Backing mutable state — private prefix menghindari JVM signature clash
-    private var _accent  by mutableStateOf(accentInit)
-    private var _bg      by mutableStateOf(bgInit)
-    private var _border  by mutableStateOf(borderInit)
-    private var _font    by mutableStateOf(fontInit)
+    private var accentBits by mutableLongStateOf(accentInit.value.toLong())
+    private var bgBits     by mutableLongStateOf(bgInit.value.toLong())
+    private var borderBits by mutableLongStateOf(borderInit.value.toLong())
+    private var fontBits   by mutableLongStateOf(fontInit.value.toLong())
 
-    // Public updaters — dipanggil dari SatriaTheme LaunchedEffect
-    fun updateAccent(c: Color) { _accent = c }
-    fun updateBg    (c: Color) { _bg     = c }
-    fun updateBorder(c: Color) { _border = c }
-    fun updateFont  (c: Color) { _font   = c }
+    fun updateAccent(c: Color) { accentBits = c.value.toLong() }
+    fun updateBg    (c: Color) { bgBits     = c.value.toLong() }
+    fun updateBorder(c: Color) { borderBits = c.value.toLong() }
+    fun updateFont  (c: Color) { fontBits   = c.value.toLong() }
 
-    // Static structural colors
-    val Surface          = Color(0xFF1C1C1E)
-    val SurfaceMid       = Color(0xFF2C2C2E)
-    val SurfaceHigh      = Color(0xFF3A3A3C)
-    val Danger           = Color(0xFFFF453A)
+    // Static structural — no conflict, these are val (not Color getters with mangling)
+    val Surface    = Color(0xFF1C1C1E)
+    val SurfaceMid = Color(0xFF2C2C2E)
+    val SurfaceHigh= Color(0xFF3A3A3C)
+    val Danger     = Color(0xFFFF453A)
 
-    // Dynamic palette — derived from user theme
-    val Accent           get() = _accent
-    val AccentDim        get() = _accent.copy(alpha = 0.75f)
-    val Border           get() = _border
-    val BorderLight      get() = _font.copy(alpha = 0.08f)
-    val DockBg           get() = _bg.copy(alpha = 0.92f)
-    val ScreenBackground get() = _bg
-    val TextPrimary      get() = _font
-    val TextSecondary    get() = _font.copy(alpha = 0.55f)
-    val TextTertiary     get() = _font.copy(alpha = 0.28f)
+    // Derived — computed from Long bits, returned as Color
+    // Functions instead of val to avoid any getter mangling issue
+    fun accent()        : Color = Color(accentBits.toULong())
+    fun bg()            : Color = Color(bgBits.toULong())
+    fun border()        : Color = Color(borderBits.toULong())
+    fun font()          : Color = Color(fontBits.toULong())
+    fun accentDim()     : Color = Color(accentBits.toULong()).copy(alpha = 0.75f)
+    fun borderLight()   : Color = Color(fontBits.toULong()).copy(alpha = 0.08f)
+    fun dockBg()        : Color = Color(bgBits.toULong()).copy(alpha = 0.92f)
+    fun screenBg()      : Color = Color(bgBits.toULong())
+    fun textPrimary()   : Color = Color(fontBits.toULong())
+    fun textSecondary() : Color = Color(fontBits.toULong()).copy(alpha = 0.55f)
+    fun textTertiary()  : Color = Color(fontBits.toULong()).copy(alpha = 0.28f)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -52,37 +57,23 @@ val LocalAppTheme = staticCompositionLocalOf<AppThemeColors> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SatriaColors — @Composable getters, zero allocation, delegates to LocalAppTheme
+// SatriaColors — @Composable getters delegating to LocalAppTheme
 // ─────────────────────────────────────────────────────────────────────────────
 object SatriaColors {
-    val Background: Color
-        @Composable get() = Color(0x00000000)
-    val Surface: Color
-        @Composable get() = LocalAppTheme.current.Surface
-    val SurfaceMid: Color
-        @Composable get() = LocalAppTheme.current.SurfaceMid
-    val SurfaceHigh: Color
-        @Composable get() = LocalAppTheme.current.SurfaceHigh
-    val TextPrimary: Color
-        @Composable get() = LocalAppTheme.current.TextPrimary
-    val TextSecondary: Color
-        @Composable get() = LocalAppTheme.current.TextSecondary
-    val TextTertiary: Color
-        @Composable get() = LocalAppTheme.current.TextTertiary
-    val Accent: Color
-        @Composable get() = LocalAppTheme.current.Accent
-    val AccentDim: Color
-        @Composable get() = LocalAppTheme.current.AccentDim
-    val Danger: Color
-        @Composable get() = Color(0xFFFF453A)
-    val DockBg: Color
-        @Composable get() = LocalAppTheme.current.DockBg
-    val Border: Color
-        @Composable get() = LocalAppTheme.current.Border
-    val BorderLight: Color
-        @Composable get() = LocalAppTheme.current.BorderLight
-    val ScreenBackground: Color
-        @Composable get() = LocalAppTheme.current.ScreenBackground
+    val Background   : Color @Composable get() = Color(0x00000000)
+    val Surface      : Color @Composable get() = LocalAppTheme.current.Surface
+    val SurfaceMid   : Color @Composable get() = LocalAppTheme.current.SurfaceMid
+    val SurfaceHigh  : Color @Composable get() = LocalAppTheme.current.SurfaceHigh
+    val Danger       : Color @Composable get() = LocalAppTheme.current.Danger
+    val Accent       : Color @Composable get() = LocalAppTheme.current.accent()
+    val AccentDim    : Color @Composable get() = LocalAppTheme.current.accentDim()
+    val Border       : Color @Composable get() = LocalAppTheme.current.border()
+    val BorderLight  : Color @Composable get() = LocalAppTheme.current.borderLight()
+    val DockBg       : Color @Composable get() = LocalAppTheme.current.dockBg()
+    val ScreenBackground: Color @Composable get() = LocalAppTheme.current.screenBg()
+    val TextPrimary  : Color @Composable get() = LocalAppTheme.current.textPrimary()
+    val TextSecondary: Color @Composable get() = LocalAppTheme.current.textSecondary()
+    val TextTertiary : Color @Composable get() = LocalAppTheme.current.textTertiary()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -101,7 +92,7 @@ fun colorToHex(color: Color): String {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SatriaTheme — root composable
+// SatriaTheme
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun SatriaTheme(
@@ -119,7 +110,6 @@ fun SatriaTheme(
             fontInit   = hexToColor(fontHex,   Color(0xFFFFFFFF)),
         )
     }
-    // Update in-place — no reallocation
     LaunchedEffect(accentHex) { theme.updateAccent(hexToColor(accentHex, Color(0xFF27AE60))) }
     LaunchedEffect(bgHex)     { theme.updateBg    (hexToColor(bgHex,     Color(0xFF000000))) }
     LaunchedEffect(borderHex) { theme.updateBorder(hexToColor(borderHex, Color(0xFF1A1A1A))) }
@@ -129,12 +119,12 @@ fun SatriaTheme(
         background     = Color.Transparent,
         surface        = theme.Surface,
         surfaceVariant = theme.SurfaceMid,
-        primary        = theme.Accent,
+        primary        = theme.accent(),
         onPrimary      = Color.White,
-        onBackground   = theme.TextPrimary,
-        onSurface      = theme.TextPrimary,
+        onBackground   = theme.textPrimary(),
+        onSurface      = theme.textPrimary(),
         error          = theme.Danger,
-        outline        = theme.Border,
+        outline        = theme.border(),
     )
 
     CompositionLocalProvider(LocalAppTheme provides theme) {
