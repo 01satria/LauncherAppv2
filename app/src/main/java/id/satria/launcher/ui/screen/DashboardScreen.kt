@@ -151,7 +151,7 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                                 onClick  = { activeTool = null },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors   = ButtonDefaults.buttonColors(containerColor = SatriaColors.Surface),
-                            ) { Text("← Back", color = SatriaColors.TextPrimary) }
+                            ) { Text("Back", color = SatriaColors.TextPrimary) }
                         }
                     }
                 }
