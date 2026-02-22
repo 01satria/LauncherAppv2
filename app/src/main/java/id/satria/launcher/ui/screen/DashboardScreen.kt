@@ -22,18 +22,26 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
     val todos         by vm.todos.collectAsState()
     val countdowns    by vm.countdowns.collectAsState()
 
-    var activeTool by remember { mutableStateOf<String?>(null) }
-    var showChat   by remember { mutableStateOf(false) }
+    var activeTool    by remember { mutableStateOf<String?>(null) }
+    var showChat      by remember { mutableStateOf(false) }
+    var showPomodoro  by remember { mutableStateOf(false) }
 
     BackHandler {
         when {
+            showPomodoro       -> { /* Pomodoro: tidak bisa back, harus pakai exit button */ }
             showChat           -> showChat = false
             activeTool != null -> activeTool = null
             else               -> onClose()
         }
     }
 
-    // ── Block semua sentuhan — fullscreen opaque ──────────────────────────
+    // ── Pomodoro mode: render HANYA PomodoroScreen, semua lainnya dibuang ─────
+    if (showPomodoro) {
+        PomodoroScreen(onExit = { showPomodoro = false })
+        return
+    }
+
+    // ── Normal Dashboard ──────────────────────────────────────────────────────
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -83,6 +91,7 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                                 onToggle = { vm.toggleTodo(it) },
                                 onRemove = { vm.removeTodo(it) },
                             )
+                            "pomodoro"  -> { showPomodoro = true; activeTool = null }
                             "countdown" -> CountdownTool(
                                 countdowns = countdowns,
                                 onAdd      = { name, date -> vm.addCountdown(name, date) },
@@ -95,6 +104,7 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                                 onMoney     = { activeTool = "money" },
                                 onTodo      = { activeTool = "todo" },
                                 onCountdown = { activeTool = "countdown" },
+                                onPomodoro  = { showPomodoro = true },
                             )
                         }
                     }

@@ -25,6 +25,7 @@ fun ToolGrid(
     onMoney: () -> Unit,
     onTodo: () -> Unit,
     onCountdown: () -> Unit,
+    onPomodoro: () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -40,6 +41,9 @@ fun ToolGrid(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ToolCard(icon = "📝", label = "To Do",      preview = todoPending?.let { "$it task${if (it > 1) "s" else ""} pending" }, onClick = onTodo,      modifier = Modifier.weight(1f))
             ToolCard(icon = "⏳", label = "Countdown",  preview = cdFirst?.let { cdPreview(it) },                                    onClick = onCountdown, modifier = Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            ToolCard(icon = "🍅", label = "Pomodoro", preview = "Focus mode", onClick = onPomodoro, modifier = Modifier.weight(1f))
         }
     }
 }
