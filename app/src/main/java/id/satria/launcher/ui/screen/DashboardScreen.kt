@@ -66,7 +66,7 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                 "stopwatch"  -> StopwatchTool()
             }
             Box(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                .background(Color(0xCC000000)).padding(horizontal = 20.dp, vertical = 10.dp).navigationBarsPadding()) {
+                .background(SatriaColors.ScreenBackground.copy(alpha = 0.92f)).padding(horizontal = 20.dp, vertical = 10.dp).navigationBarsPadding()) {
                 Button(onClick = { activeTool = null }, modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = SatriaColors.Surface)) {
                     Text("Back", color = SatriaColors.TextPrimary)

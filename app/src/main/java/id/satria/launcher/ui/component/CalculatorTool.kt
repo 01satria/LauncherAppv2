@@ -50,8 +50,8 @@ private val ROWS = listOf(
     listOf(CalcBtn("1",BtnType.NUMBER),CalcBtn("2",BtnType.NUMBER),CalcBtn("3",BtnType.NUMBER),CalcBtn("+",BtnType.OP)),
     listOf(CalcBtn("0",BtnType.NUMBER),CalcBtn(".",BtnType.NUMBER),CalcBtn("⌫",BtnType.ACTION),CalcBtn("=",BtnType.EQUAL)),
 )
-private val C_NUM=Color(0xFF1C1C1E); private val C_OP=Color(0xFF2C2C2E)
-private val C_EQ=Color(0xFF27AE60); private val C_AC=Color(0xFF3A3A3C)
+// C_EQ stays accent; C_NUM/C_OP/C_AC resolved at composable time via SatriaColors
+private val C_EQ = Color(0xFF27AE60)
 
 @Composable
 fun CalculatorTool() {
@@ -77,12 +77,12 @@ fun CalculatorTool() {
         }
     }
 
-    Column(modifier=Modifier.fillMaxSize().background(Color.Black).padding(bottom=68.dp), verticalArrangement=Arrangement.Bottom) {
+    Column(modifier=Modifier.fillMaxSize().background(SatriaColors.ScreenBackground).padding(bottom=68.dp), verticalArrangement=Arrangement.Bottom) {
         Box(modifier=Modifier.fillMaxWidth().padding(horizontal=24.dp, vertical=8.dp), contentAlignment=Alignment.BottomEnd) {
             Column(horizontalAlignment=Alignment.End) {
                 if(expr.isNotEmpty()&&!justEqual&&expr!=display)
                     Text(expr, color=SatriaColors.TextTertiary, fontSize=13.sp, maxLines=1, overflow=TextOverflow.Ellipsis)
-                Text(display, color=Color.White,
+                Text(display, color=SatriaColors.TextPrimary,
                     fontSize=when{display.length>14->28.sp;display.length>9->36.sp;else->48.sp},
                     fontWeight=FontWeight.Thin, textAlign=TextAlign.End, maxLines=1, overflow=TextOverflow.Ellipsis)
             }
@@ -100,8 +100,11 @@ fun CalculatorTool() {
 @Composable
 private fun CalcButton(btn: CalcBtn, modifier: Modifier, onClick: () -> Unit) {
     val src=remember{MutableInteractionSource()}; val dn by src.collectIsPressedAsState()
-    val bg=when(btn.type){BtnType.ACTION->if(dn)C_AC.copy(.55f)else C_AC; BtnType.OP->if(dn)C_OP.copy(.55f)else C_OP; BtnType.EQUAL->if(dn)C_EQ.copy(.65f)else C_EQ; BtnType.NUMBER->if(dn)C_NUM.copy(.55f)else C_NUM}
-    val fg=if(btn.type==BtnType.OP) Color(0xFFFF9F0A) else Color.White
+    val cNum = SatriaColors.SurfaceMid
+    val cOp  = SatriaColors.SurfaceHigh
+    val cAc  = SatriaColors.SurfaceHigh
+    val bg=when(btn.type){BtnType.ACTION->if(dn)cAc.copy(.55f)else cAc; BtnType.OP->if(dn)cOp.copy(.55f)else cOp; BtnType.EQUAL->if(dn)C_EQ.copy(.65f)else C_EQ; BtnType.NUMBER->if(dn)cNum.copy(.55f)else cNum}
+    val fg=if(btn.type==BtnType.OP) Color(0xFFFF9F0A) else SatriaColors.TextPrimary
     Box(modifier=modifier.height(72.dp).clip(RoundedCornerShape(50.dp)).background(bg).clickable(interactionSource=src,indication=null,onClick=onClick), contentAlignment=Alignment.Center) {
         Text(btn.label, color=fg, fontSize=22.sp, fontWeight=FontWeight.Medium)
     }

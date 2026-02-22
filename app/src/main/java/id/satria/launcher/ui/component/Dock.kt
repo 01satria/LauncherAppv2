@@ -41,7 +41,7 @@ fun Dock(
         Row(
             modifier = Modifier
                 .background(SatriaColors.DockBg, RoundedCornerShape(28.dp))
-                .border(0.5.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(28.dp))
+                .border(0.5.dp, SatriaColors.DockBorder, RoundedCornerShape(28.dp))
                 .padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),

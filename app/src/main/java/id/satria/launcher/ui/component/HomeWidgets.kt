@@ -21,9 +21,6 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Widget type constants
-// ─────────────────────────────────────────────────────────────────────────────
 const val WIDGET_CLOCK   = "widget_clock"
 const val WIDGET_DATE    = "widget_date"
 const val WIDGET_BATTERY = "widget_battery"
@@ -36,9 +33,6 @@ val AVAILABLE_WIDGETS = listOf(
     WidgetInfo(WIDGET_BATTERY, "Battery", "🔋"),
 )
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Clock Widget
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun ClockWidget(modifier: Modifier = Modifier) {
     var time by remember { mutableStateOf(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())) }
@@ -54,13 +48,13 @@ fun ClockWidget(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xCC1C1C1E), RoundedCornerShape(20.dp))
+            .background(SatriaColors.WidgetBg, RoundedCornerShape(20.dp))
             .padding(horizontal = 20.dp, vertical = 16.dp),
     ) {
         Column {
             Text(
                 text       = time,
-                color      = Color.White,
+                color      = SatriaColors.TextPrimary,
                 fontSize   = 52.sp,
                 fontWeight = FontWeight.Thin,
                 letterSpacing = 1.sp,
@@ -74,9 +68,6 @@ fun ClockWidget(modifier: Modifier = Modifier) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Date Widget
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun DateWidget(modifier: Modifier = Modifier) {
     val now = remember { Date() }
@@ -87,11 +78,10 @@ fun DateWidget(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xCC1C1C1E), RoundedCornerShape(20.dp))
+            .background(SatriaColors.WidgetBg, RoundedCornerShape(20.dp))
             .padding(horizontal = 20.dp, vertical = 14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            // Big day number
             Box(
                 modifier = Modifier
                     .size(56.dp)
@@ -101,16 +91,13 @@ fun DateWidget(modifier: Modifier = Modifier) {
                 Text(dayNum, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
             }
             Column {
-                Text(dayName, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-                Text(month, color = SatriaColors.TextSecondary, fontSize = 13.sp)
+                Text(dayName, color = SatriaColors.TextPrimary,   fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(month,   color = SatriaColors.TextSecondary, fontSize = 13.sp)
             }
         }
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Battery Widget
-// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun BatteryWidget(modifier: Modifier = Modifier) {
     val context = LocalContext.current
@@ -142,7 +129,7 @@ fun BatteryWidget(modifier: Modifier = Modifier) {
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(Color(0xCC1C1C1E), RoundedCornerShape(20.dp))
+            .background(SatriaColors.WidgetBg, RoundedCornerShape(20.dp))
             .padding(horizontal = 20.dp, vertical = 14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -152,7 +139,6 @@ fun BatteryWidget(modifier: Modifier = Modifier) {
                     Text(if (charging) "Charging" else "Battery", color = SatriaColors.TextSecondary, fontSize = 12.sp)
                     Text("$pct%", color = barColor, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
-                // Bar
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()

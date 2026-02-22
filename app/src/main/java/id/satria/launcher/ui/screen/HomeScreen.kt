@@ -100,7 +100,7 @@ fun HomeScreen(vm: MainViewModel) {
         ) {
             Canvas(modifier = Modifier.matchParentSize()) {
                 drawRoundRect(
-                    color        = Color(0xEB000000), // sama dengan DockBg
+                    color        = androidx.compose.ui.graphics.Color(0xEB000000), // kept dark for contrast on wallpaper
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx()),
                 )
             }

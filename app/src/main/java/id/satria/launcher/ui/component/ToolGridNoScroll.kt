@@ -8,7 +8,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -16,12 +15,8 @@ import id.satria.launcher.data.CountdownItem
 import id.satria.launcher.ui.theme.SatriaColors
 import java.util.concurrent.TimeUnit
 
-private val DIVIDER @Composable get() = SatriaColors.Border
-private val CARD_BG = Color(0xFF0D0D0D)
-
 private data class TE(val icon: String, val label: String, val badge: String?, val onClick: () -> Unit)
 
-// Identik dengan ToolGrid tapi TANPA verticalScroll — dipakai saat parent sudah scroll
 @Composable
 fun ToolGridNoScroll(
     todoPending  : Int?,
@@ -66,10 +61,11 @@ private fun TGroup(label: String, tools: List<TE>) {
     Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
         Text(label, color = SatriaColors.TextTertiary, fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, modifier = Modifier.padding(bottom = 8.dp))
-        Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CARD_BG)) {
+        Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(SatriaColors.CardBg)) {
             tools.forEachIndexed { i, t ->
                 TRow(t)
-                if (i < tools.lastIndex) Box(modifier = Modifier.fillMaxWidth().height(1.dp).padding(start = 52.dp).background(DIVIDER))
+                if (i < tools.lastIndex)
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).padding(start = 52.dp).background(SatriaColors.Divider))
             }
         }
     }

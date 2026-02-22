@@ -148,7 +148,7 @@ fun CountdownTool(
                 }
             },
             colors = DatePickerDefaults.colors(
-                containerColor           = Color(0xFF1C1C1E),
+                containerColor           = SatriaColors.Surface,
                 titleContentColor        = SatriaColors.TextSecondary,
                 headlineContentColor     = SatriaColors.TextPrimary,
                 weekdayContentColor      = SatriaColors.TextSecondary,
@@ -171,7 +171,7 @@ fun CountdownTool(
             DatePicker(
                 state  = pickerState,
                 colors = DatePickerDefaults.colors(
-                    containerColor = Color(0xFF1C1C1E),
+                    containerColor = SatriaColors.Surface,
                 )
             )
         }

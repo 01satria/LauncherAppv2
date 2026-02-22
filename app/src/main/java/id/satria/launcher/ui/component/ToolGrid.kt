@@ -10,16 +10,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import id.satria.launcher.data.CountdownItem
 import id.satria.launcher.ui.theme.SatriaColors
 import java.util.concurrent.TimeUnit
-
-private val DIVIDER = Color(0xFF1A1A1A)
-private val CARD_BG = Color(0xFF0D0D0D)
 
 private data class ToolEntry(val icon: String, val label: String, val badge: String?, val onClick: () -> Unit)
 
@@ -41,7 +37,6 @@ fun ToolGrid(
     onConverter  : () -> Unit,
     onHabits     : () -> Unit,
 ) {
-    // Two groups for visual separation
     val group1 = listOf(
         ToolEntry("🌤️", "Weather",   null,                                   onWeather),
         ToolEntry("💱",  "Exchange",  null,                                   onMoney),
@@ -60,10 +55,8 @@ fun ToolGrid(
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
         .padding(horizontal = 20.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)) {
-
         ToolGroup(label = "ESSENTIALS", tools = group1)
         ToolGroup(label = "UTILITIES",  tools = group2)
-
         Spacer(Modifier.height(8.dp))
     }
 }
@@ -74,11 +67,11 @@ private fun ToolGroup(label: String, tools: List<ToolEntry>) {
         Text(label, color = SatriaColors.TextTertiary, fontSize = 10.sp,
             fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp,
             modifier = Modifier.padding(bottom = 8.dp))
-        Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(CARD_BG)) {
+        Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(SatriaColors.CardBg)) {
             tools.forEachIndexed { i, tool ->
                 ToolRow(tool)
                 if (i < tools.lastIndex)
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).padding(start = 52.dp).background(DIVIDER))
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).padding(start = 52.dp).background(SatriaColors.Divider))
             }
         }
     }

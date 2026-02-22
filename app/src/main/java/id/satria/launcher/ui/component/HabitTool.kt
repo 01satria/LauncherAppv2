@@ -31,7 +31,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 private val DONE_GREEN   = Color(0xFF30D158)
-private val HABIT_CARD   = Color(0xFF0D0D0D)
+
 private val EMOJIS = listOf("💪","🏃","📚","💧","🥗","😴","🧘","🎯","✍️","🎵","🌿","🚴","🏋️","🧹","☕")
 
 @Composable
@@ -67,7 +67,7 @@ fun HabitTool(
             if (habits.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
                 val progress = if (habits.isEmpty()) 0f else doneCount.toFloat() / habits.size
-                Box(modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF1A1A1A))) {
+                Box(modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)).background(SatriaColors.Divider)) {
                     Box(modifier = Modifier.fillMaxWidth(progress).fillMaxHeight().clip(RoundedCornerShape(2.dp)).background(DONE_GREEN))
                 }
             }
@@ -76,7 +76,7 @@ fun HabitTool(
         // Add form
         if (showAdd) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
-                .clip(RoundedCornerShape(14.dp)).background(HABIT_CARD).padding(14.dp),
+                .clip(RoundedCornerShape(14.dp)).background(SatriaColors.CardBg).padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 TextField(value = newName, onValueChange = { newName = it },
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)),
@@ -137,7 +137,7 @@ private fun HabitRow(habit: HabitItem, todayKey: String, onToggle: () -> Unit, o
         targetValue = if (done) DONE_GREEN else Color.Transparent,
         animationSpec = spring(stiffness = Spring.StiffnessMedium), label = "habitBg")
 
-    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(HABIT_CARD)
+    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(SatriaColors.CardBg)
         .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp)) {

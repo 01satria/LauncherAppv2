@@ -148,13 +148,13 @@ private fun UnitChips(units: List<UnitDef>, selected: Int, onSelect: (Int) -> Un
         items(units.indices.toList()) { idx ->
             val u = units[idx]; val active = selected == idx
             Box(modifier = Modifier.clip(RoundedCornerShape(10.dp))
-                .background(if (active) SatriaColors.AccentDim else Color(0xFF0D0D0D))
+                .background(if (active) SatriaColors.AccentDim else SatriaColors.SurfaceMid)
                 .clickable(interactionSource = remember{MutableInteractionSource()}, indication = null) { onSelect(idx) }
                 .padding(horizontal = 12.dp, vertical = 8.dp)) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(u.symbol, color = if (active) Color.White else SatriaColors.TextPrimary,
                         fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                    Text(u.name, color = if (active) Color.White.copy(.65f) else SatriaColors.TextTertiary,
+                    Text(u.name, color = if (active) androidx.compose.ui.graphics.Color.White.copy(.65f) else SatriaColors.TextTertiary,
                         fontSize = 9.sp)
                 }
             }

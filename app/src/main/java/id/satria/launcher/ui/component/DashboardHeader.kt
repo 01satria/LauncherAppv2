@@ -68,34 +68,10 @@ fun DashboardHeader(
     }
     val batText = if (isCharging) "$batteryPct% · charging" else "$batteryPct%"
 
-    // ── Layout: clock & message first, then avatar below ──────────────────
+    // ── Layout: avatar first (top), then clock & message below ───────────
     Column(modifier = Modifier.fillMaxWidth()) {
 
-        // Close button row
-        Box(modifier = Modifier.fillMaxWidth().padding(end = 16.dp, top = 12.dp)) {
-            Box(
-                modifier = Modifier.align(Alignment.TopEnd).size(30.dp).clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.10f)).clickable { onClose() },
-                contentAlignment = Alignment.Center,
-            ) { Text("✕", color = SatriaColors.TextSecondary, fontSize = 12.sp) }
-        }
-
-        // Clock + date + battery + message (ABOVE avatar, no fade overlay)
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 4.dp, bottom = 16.dp),
-        ) {
-            Text(clockStr, color = SatriaColors.TextPrimary, fontSize = 56.sp,
-                fontWeight = FontWeight.Thin, letterSpacing = 2.sp)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                Text(dateStr, color = SatriaColors.TextSecondary, fontSize = 14.sp)
-                Text("·",    color = SatriaColors.TextTertiary,   fontSize = 14.sp)
-                Text(batText, color = SatriaColors.TextSecondary, fontSize = 14.sp)
-            }
-            Spacer(Modifier.height(6.dp))
-            Text(message, color = SatriaColors.TextTertiary, fontSize = 12.sp, lineHeight = 18.sp)
-        }
-
-        // Avatar — full width, 1/3 layar, fade hanya di dalam kotak avatar
+        // Avatar — full width, 1/3 layar, with close button overlaid
         Box(modifier = Modifier.fillMaxWidth().height(avatarHeightDp).clickable { onAvatarClick() }) {
             if (avatarPath != null) {
                 AsyncImage(
@@ -107,14 +83,36 @@ fun DashboardHeader(
                 Box(modifier = Modifier.fillMaxSize().background(SatriaColors.SurfaceMid),
                     contentAlignment = Alignment.Center) { Text("👤", fontSize = 56.sp) }
             }
-            // Fade hanya di DALAM kotak avatar (atas → transparan, bawah → bg)
+            // Fade di bawah avatar → bg
             Box(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.45f).align(Alignment.BottomCenter)
                 .background(Brush.verticalGradient(listOf(Color.Transparent, SatriaColors.ScreenBackground))))
 
+            // Close button — overlaid top-end
+            Box(modifier = Modifier.align(Alignment.TopEnd).padding(end = 16.dp, top = 12.dp)
+                .size(30.dp).clip(CircleShape)
+                .background(SatriaColors.BorderLight).clickable { onClose() },
+                contentAlignment = Alignment.Center,
+            ) { Text("✕", color = SatriaColors.TextSecondary, fontSize = 12.sp) }
+
             // Assistant name overlay dalam avatar
-            Text(assistantName, color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp,
+            Text(assistantName, color = SatriaColors.TextSecondary, fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 10.dp))
+        }
+
+        // Clock + date + battery + message (BELOW avatar)
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp, bottom = 16.dp),
+        ) {
+            Text(clockStr, color = SatriaColors.TextPrimary, fontSize = 56.sp,
+                fontWeight = FontWeight.Thin, letterSpacing = 2.sp)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(dateStr, color = SatriaColors.TextSecondary, fontSize = 14.sp)
+                Text("·",    color = SatriaColors.TextTertiary,   fontSize = 14.sp)
+                Text(batText, color = SatriaColors.TextSecondary, fontSize = 14.sp)
+            }
+            Spacer(Modifier.height(6.dp))
+            Text(message, color = SatriaColors.TextTertiary, fontSize = 12.sp, lineHeight = 18.sp)
         }
     }
 }

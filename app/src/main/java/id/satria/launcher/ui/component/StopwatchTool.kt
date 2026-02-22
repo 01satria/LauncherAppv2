@@ -32,7 +32,7 @@ private fun fmtMs(ms: Long): String {
 private val GREEN  = Color(0xFF30D158)
 private val ORANGE = Color(0xFFFF9F0A)
 private val RED    = Color(0xFFFF453A)
-private val BTNBG  = Color(0xFF1C1C1E)
+
 
 private enum class SwState  { IDLE, RUNNING, PAUSED }
 private enum class TmrState { IDLE, RUNNING, PAUSED, DONE }
@@ -48,7 +48,7 @@ fun StopwatchTool() {
             listOf("Stopwatch", "Timer").forEachIndexed { idx, label ->
                 val active = tab == idx
                 Box(modifier = Modifier.weight(1f).clip(RoundedCornerShape(50.dp))
-                    .background(if (active) SatriaColors.Accent else BTNBG)
+                    .background(if (active) SatriaColors.Accent else SatriaColors.SurfaceMid)
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { tab = idx }
                     .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
                     Text(label, color = if (active) Color.White else SatriaColors.TextSecondary,
@@ -98,7 +98,7 @@ private fun StopwatchPanel() {
                     RoundBtn("Start", GREEN) { state = SwState.RUNNING }
                 }
                 SwState.RUNNING -> {
-                    RoundBtn("Lap", BTNBG) { laps.add(elapsed) }
+                    RoundBtn("Lap", SatriaColors.SurfaceMid) { laps.add(elapsed) }
                     RoundBtn("Pause", ORANGE) { baseMs = elapsed; state = SwState.PAUSED }
                 }
                 SwState.PAUSED -> {
@@ -120,7 +120,7 @@ private fun StopwatchPanel() {
                         Text(fmtMs(delta), color = SatriaColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     }
                     if (i < laps.lastIndex)
-                        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFF1A1A1A)))
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(SatriaColors.Divider))
                 }
             }
         } else {
@@ -165,7 +165,7 @@ private fun TimerPanel() {
             Text(fmtMs(remaining), color = if (done) GREEN else Color.White,
                 fontSize = 52.sp, fontWeight = FontWeight.Thin, letterSpacing = 2.sp)
             Spacer(Modifier.height(16.dp))
-            Box(modifier = Modifier.fillMaxWidth(0.7f).height(3.dp).clip(RoundedCornerShape(2.dp)).background(Color(0xFF1A1A1A))) {
+            Box(modifier = Modifier.fillMaxWidth(0.7f).height(3.dp).clip(RoundedCornerShape(2.dp)).background(SatriaColors.Divider)) {
                 Box(modifier = Modifier.fillMaxWidth(progress).fillMaxHeight().background(if (done) GREEN else SatriaColors.Accent))
             }
             if (done) {
@@ -180,7 +180,7 @@ private fun TimerPanel() {
             val canStart = pickH > 0 || pickM > 0 || pickS > 0
             when (state) {
                 TmrState.IDLE -> {
-                    RoundBtn("Start", if (canStart) GREEN else BTNBG) {
+                    RoundBtn("Start", if (canStart) GREEN else SatriaColors.SurfaceMid) {
                         if (!canStart) return@RoundBtn
                         totalMs = (pickH * 3600 + pickM * 60 + pickS) * 1000L
                         remaining = totalMs; state = TmrState.RUNNING
@@ -191,7 +191,7 @@ private fun TimerPanel() {
                     RoundBtn("Reset", RED) { state = TmrState.IDLE; remaining = totalMs }
                     RoundBtn("Resume", GREEN) { state = TmrState.RUNNING }
                 }
-                TmrState.DONE -> RoundBtn("Reset", BTNBG) {
+                TmrState.DONE -> RoundBtn("Reset", SatriaColors.SurfaceMid) {
                     state = TmrState.IDLE; pickH = 0; pickM = 5; pickS = 0
                     totalMs = 5 * 60 * 1000L; remaining = 0L
                 }
@@ -207,13 +207,13 @@ private fun TimerPicker(label: String, value: Int, min: Int, max: Int, onChange:
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, color = SatriaColors.TextTertiary, fontSize = 10.sp, letterSpacing = 1.sp)
         Spacer(Modifier.height(4.dp))
-        Box(modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(BTNBG)
+        Box(modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(SatriaColors.SurfaceMid)
             .clickable(interactionSource = remember{MutableInteractionSource()}, indication = null) { if (value < max) onChange(value + 1) },
             contentAlignment = Alignment.Center) { Text("▲", color = SatriaColors.Accent, fontSize = 11.sp) }
         Spacer(Modifier.height(6.dp))
         Text("%02d".format(value), color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.Thin)
         Spacer(Modifier.height(6.dp))
-        Box(modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(BTNBG)
+        Box(modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(SatriaColors.SurfaceMid)
             .clickable(interactionSource = remember{MutableInteractionSource()}, indication = null) { if (value > min) onChange(value - 1) },
             contentAlignment = Alignment.Center) { Text("▼", color = SatriaColors.Accent, fontSize = 11.sp) }
     }

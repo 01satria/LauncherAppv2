@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import id.satria.launcher.ui.theme.SatriaColors
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -34,7 +35,7 @@ private val AccentGreen = Color(0xFF27AE60)
 private val DimWhite40  = Color(0x66FFFFFF)
 private val DimWhite12  = Color(0x1FFFFFFF)
 private val DimWhite08  = Color(0x14FFFFFF)
-private val CardBg      = Color(0xFF111111)
+
 private val DangerRed   = Color(0xFFFF453A)
 
 @Composable
@@ -189,7 +190,7 @@ private fun PickerCard(label: String, value: Int, onUp: () -> Unit, onDown: () -
         modifier = Modifier
             .width(112.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(CardBg)
+            .background(SatriaColors.Surface)
             .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
@@ -345,7 +346,7 @@ private fun ExitConfirmOverlay(onConfirm: () -> Unit, onDismiss: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xCC000000))
+            .background(SatriaColors.ScreenBackground.copy(alpha = 0.92f))
             .clickable(interactionSource = remember { MutableInteractionSource() },
                 indication = null, onClick = onDismiss),
         contentAlignment = Alignment.Center,
@@ -353,7 +354,7 @@ private fun ExitConfirmOverlay(onConfirm: () -> Unit, onDismiss: () -> Unit) {
         Column(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
-                .background(Color(0xFF1C1C1E))
+                .background(SatriaColors.Surface)
                 .padding(28.dp)
                 .clickable(interactionSource = remember { MutableInteractionSource() },
                     indication = null, onClick = {}),
