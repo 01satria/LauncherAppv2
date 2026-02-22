@@ -22,7 +22,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.ImageLoader
 import id.satria.launcher.data.DEFAULT_DOCK_ICON_SIZE
 import id.satria.launcher.data.DEFAULT_ICON_SIZE
 import id.satria.launcher.data.MAX_DOCK_ICON_SIZE
@@ -60,28 +59,38 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri ?: return@rememberLauncherForActivityResult
         runCatching {
-            val bmp = if (Build.VERSION.SDK_INT >= 28) {
+            // ── Decode asli TANPA target size agar tidak distorsi (penyet) ──
+            // Lalu crop square dari tengah secara manual
+            val rawBmp = if (Build.VERSION.SDK_INT >= 28) {
                 ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, _, _ ->
                     decoder.isMutableRequired = true
-                    decoder.setTargetSize(512, 512)
+                    // TIDAK set targetSize — biarkan dimensi asli agar proporsional
                 }
             } else {
                 @Suppress("DEPRECATION")
                 android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
             }
-            val size   = minOf(bmp.width, bmp.height)
-            val xOff   = (bmp.width - size) / 2
-            val yOff   = (bmp.height - size) / 2
-            val square = android.graphics.Bitmap.createBitmap(bmp, xOff, yOff, size, size)
+
+            // Crop square dari tengah gambar asli (tidak memaksa resize dulu)
+            val size   = minOf(rawBmp.width, rawBmp.height)
+            val xOff   = (rawBmp.width  - size) / 2
+            val yOff   = (rawBmp.height - size) / 2
+            val square = android.graphics.Bitmap.createBitmap(rawBmp, xOff, yOff, size, size)
+            // Bebaskan raw bitmap segera agar tidak double RAM
+            if (square !== rawBmp) rawBmp.recycle()
+
+            // Scale ke 512x512 setelah crop (tetap proporsional karena sudah square)
+            val scaled = android.graphics.Bitmap.createScaledBitmap(square, 512, 512, true)
+            if (scaled !== square) square.recycle()
 
             // Simpan avatar
-            vm.saveAvatar(square)
+            vm.saveAvatar(scaled)
 
-            // ── FIX: Invalidate Coil disk+memory cache agar gambar baru langsung tampil ──
-            val imageLoader = ImageLoader(context)
-            imageLoader.memoryCache?.clear()
+            // ── Invalidate Coil singleton (bukan instance baru!) ──────────
+            // context.imageLoader adalah singleton Coil yang benar-benar dipakai
+            coil.Coil.imageLoader(context).memoryCache?.clear()
 
-            // Increment key → AsyncImage akan rebuild dengan data baru
+            // Increment key → paksa AsyncImage recompose dengan data baru
             avatarKey++
         }
     }
@@ -137,7 +146,9 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
                                         .build(),
                                     contentDescription = null,
                                     contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize(),
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape), // ← FIX: clip agar tidak penyet
                                 )
                             }
                         } else {

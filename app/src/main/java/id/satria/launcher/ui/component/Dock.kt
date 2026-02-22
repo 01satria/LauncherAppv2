@@ -81,11 +81,13 @@ fun Dock(
                                 .diskCacheKey("avatar_$avatarVersion")
                                 .memoryCacheKey("avatar_$avatarVersion")
                                 .crossfade(true)
-                                .scale(Scale.FIT)
+                                .scale(Scale.FILL)
                                 .build(),
                             contentDescription = null,
                             contentScale       = ContentScale.Crop,
-                            modifier           = Modifier.fillMaxSize(),
+                            modifier           = Modifier
+                                .fillMaxSize()
+                                .clip(CircleShape), // ← FIX: clip agar avatar bulat & tidak penyet
                         )
                     }
                 } else {

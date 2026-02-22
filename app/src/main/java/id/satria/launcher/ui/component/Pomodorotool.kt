@@ -1,11 +1,7 @@
 package id.satria.launcher.ui.component
 
 import android.app.Activity
-import android.content.Context
-import android.os.PowerManager
 import android.view.WindowManager
-import androidx.compose.animation.*
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -17,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,84 +28,75 @@ private fun Activity.keepScreenOn(on: Boolean) {
     else    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 }
 
+// ── Color constants — allocated once, never recreated ────────────────────────
+private val BgColor     = Color.Black
+private val AccentGreen = Color(0xFF27AE60)
+private val DimWhite40  = Color(0x66FFFFFF)
+private val DimWhite12  = Color(0x1FFFFFFF)
+private val DimWhite08  = Color(0x14FFFFFF)
+private val CardBg      = Color(0xFF111111)
+private val DangerRed   = Color(0xFFFF453A)
+
 @Composable
 fun PomodoroScreen(onExit: () -> Unit) {
-    val context = LocalContext.current
+    val context  = LocalContext.current
     val activity = context as? Activity
 
-    // ── State machine: SETUP → RUNNING → (confirm exit) ──────────────────
-    var phase by remember { mutableStateOf(PomodoroPhase.SETUP) }
-    var showExitConfirm by remember { mutableStateOf(false) }
-
-    // Selector values
-    var selectedHour by remember { mutableIntStateOf(0) }
-    var selectedMin  by remember { mutableIntStateOf(25) }
-
-    // Timer state (in seconds)
+    var phase          by remember { mutableStateOf(PomodoroPhase.SETUP) }
+    var showExitDialog by remember { mutableStateOf(false) }
+    var selectedHour   by remember { mutableIntStateOf(0) }
+    var selectedMin    by remember { mutableIntStateOf(25) }
     var totalSeconds   by remember { mutableIntStateOf(0) }
     var elapsedSeconds by remember { mutableIntStateOf(0) }
+    var currentTime    by remember { mutableStateOf(clockStr()) }
 
-    // Current time for clock display
-    var currentTime by remember { mutableStateOf(currentTimeString()) }
-
-    // Keep screen on saat RUNNING
+    // Keep screen on only while RUNNING
     DisposableEffect(phase) {
         if (phase == PomodoroPhase.RUNNING) activity?.keepScreenOn(true)
         onDispose { activity?.keepScreenOn(false) }
     }
 
-    // Clock tick — hanya update setiap detik, ringan
+    // One coroutine: clock tick + elapsed counter
     LaunchedEffect(phase) {
         while (isActive) {
-            currentTime = currentTimeString()
-            if (phase == PomodoroPhase.RUNNING) elapsedSeconds++
-            delay(1000L)
+            delay(1_000L)
+            currentTime = clockStr()
+            if (phase == PomodoroPhase.RUNNING && elapsedSeconds < totalSeconds) {
+                elapsedSeconds++
+            }
         }
     }
 
-    // Fullscreen hitam — tidak ada animasi berat
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(BgColor),
     ) {
         when (phase) {
-
-            // ── SETUP: pilih jam & menit ──────────────────────────────────
-            PomodoroPhase.SETUP -> {
-                SetupPanel(
-                    hour      = selectedHour,
-                    minute    = selectedMin,
-                    onHour    = { selectedHour = it },
-                    onMinute  = { selectedMin = it },
-                    onStart   = {
-                        totalSeconds   = selectedHour * 3600 + selectedMin * 60
-                        elapsedSeconds = 0
-                        phase          = PomodoroPhase.RUNNING
-                    },
-                    onCancel  = onExit,
-                )
-            }
-
-            // ── RUNNING: jam digital + progress ──────────────────────────
-            PomodoroPhase.RUNNING -> {
-                ClockPanel(
-                    currentTime    = currentTime,
-                    totalSeconds   = totalSeconds,
-                    elapsedSeconds = elapsedSeconds,
-                    onExitRequest  = { showExitConfirm = true },
-                )
-            }
+            PomodoroPhase.SETUP -> SetupPanel(
+                hour     = selectedHour,
+                minute   = selectedMin,
+                onHour   = { selectedHour = it },
+                onMinute = { selectedMin = it },
+                onStart  = {
+                    totalSeconds   = selectedHour * 3600 + selectedMin * 60
+                    elapsedSeconds = 0
+                    phase          = PomodoroPhase.RUNNING
+                },
+                onCancel = onExit,
+            )
+            PomodoroPhase.RUNNING -> ClockPanel(
+                currentTime    = currentTime,
+                totalSeconds   = totalSeconds,
+                elapsedSeconds = elapsedSeconds,
+                onExitRequest  = { showExitDialog = true },
+            )
         }
 
-        // ── Exit confirm dialog ───────────────────────────────────────────
-        if (showExitConfirm) {
+        if (showExitDialog) {
             ExitConfirmOverlay(
-                onConfirm = {
-                    activity?.keepScreenOn(false)
-                    onExit()
-                },
-                onDismiss = { showExitConfirm = false },
+                onConfirm = { activity?.keepScreenOn(false); onExit() },
+                onDismiss = { showExitDialog = false },
             )
         }
     }
@@ -123,141 +111,145 @@ private fun SetupPanel(
     onHour: (Int) -> Unit, onMinute: (Int) -> Unit,
     onStart: () -> Unit, onCancel: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(40.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(
-            "🍅  Pomodoro",
-            color = Color.White,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Light,
-            letterSpacing = 2.sp,
-        )
+    val isLandscape = LocalConfiguration.current.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
 
-        Spacer(Modifier.height(8.dp))
-
-        Text(
-            "Set focus duration",
-            color = Color.White.copy(alpha = 0.4f),
-            fontSize = 13.sp,
-        )
-
-        Spacer(Modifier.height(48.dp))
-
-        // ── Jam & Menit picker ─────────────────────────────────────────────
+    if (isLandscape) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(24.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 48.dp, vertical = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(40.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            PickerColumn(
-                label  = "HRS",
-                value  = hour,
-                range  = 0..5,
-                onUp   = { if (hour < 5) onHour(hour + 1) },
-                onDown = { if (hour > 0) onHour(hour - 1) },
-            )
-
-            Text(":", color = Color.White.copy(0.3f), fontSize = 40.sp, fontWeight = FontWeight.Thin)
-
-            PickerColumn(
-                label  = "MIN",
-                value  = minute,
-                range  = 0..59,
-                onUp   = { if (minute < 59) onMinute(minute + 1) },
-                onDown = { if (minute > 0)  onMinute(minute - 1) },
-            )
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp),
+            ) {
+                SetupTitle()
+                TimePickerRow(hour, minute, onHour, onMinute)
+            }
+            Column(
+                modifier = Modifier.weight(0.65f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                StartButton(enabled = hour > 0 || minute > 0, onClick = onStart)
+                CancelButton(onClick = onCancel)
+            }
         }
-
-        Spacer(Modifier.height(56.dp))
-
-        // Start button
-        Button(
-            onClick  = onStart,
-            enabled  = hour > 0 || minute > 0,
-            modifier = Modifier.fillMaxWidth().height(52.dp),
-            colors   = ButtonDefaults.buttonColors(
-                containerColor         = Color(0xFF27AE60),
-                disabledContainerColor = Color.White.copy(alpha = 0.08f),
-            ),
-            shape = RoundedCornerShape(14.dp),
+    } else {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 36.dp, vertical = 48.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
         ) {
-            Text(
-                "Start Focus",
-                color      = Color.White,
-                fontSize   = 16.sp,
-                fontWeight = FontWeight.Medium,
-            )
-        }
-
-        Spacer(Modifier.height(14.dp))
-
-        TextButton(onClick = onCancel) {
-            Text("Cancel", color = Color.White.copy(alpha = 0.35f), fontSize = 14.sp)
+            SetupTitle()
+            Spacer(Modifier.height(40.dp))
+            TimePickerRow(hour, minute, onHour, onMinute)
+            Spacer(Modifier.height(52.dp))
+            StartButton(enabled = hour > 0 || minute > 0, onClick = onStart)
+            Spacer(Modifier.height(10.dp))
+            CancelButton(onClick = onCancel)
         }
     }
 }
 
 @Composable
-private fun PickerColumn(
-    label: String,
-    value: Int,
-    range: IntRange,
-    onUp: () -> Unit,
-    onDown: () -> Unit,
+private fun SetupTitle() {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("🍅  Pomodoro", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Light, letterSpacing = 2.sp)
+        Spacer(Modifier.height(6.dp))
+        Text("Set focus duration", color = DimWhite40, fontSize = 13.sp)
+    }
+}
+
+@Composable
+private fun TimePickerRow(
+    hour: Int, minute: Int,
+    onHour: (Int) -> Unit, onMinute: (Int) -> Unit,
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(label, color = Color.White.copy(alpha = 0.3f), fontSize = 11.sp, letterSpacing = 2.sp)
+        PickerCard(label = "HRS", value = hour,
+            onUp = { if (hour < 5)  onHour(hour + 1) },
+            onDown = { if (hour > 0) onHour(hour - 1) })
+        Text(":", color = DimWhite40, fontSize = 44.sp, fontWeight = FontWeight.Thin,
+            modifier = Modifier.padding(bottom = 8.dp))
+        PickerCard(label = "MIN", value = minute,
+            onUp = { if (minute < 59) onMinute(minute + 1) },
+            onDown = { if (minute > 0)  onMinute(minute - 1) })
+    }
+}
 
-        // Up arrow
+// ── Card-style picker with bigger buttons ────────────────────────────────────
+@Composable
+private fun PickerCard(label: String, value: Int, onUp: () -> Unit, onDown: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .width(112.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(CardBg)
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(label, color = DimWhite40, fontSize = 11.sp, letterSpacing = 2.sp,
+            modifier = Modifier.padding(top = 10.dp, bottom = 2.dp))
+
+        // UP — large touch target (54dp height)
         Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onUp,
-                ),
+            modifier = Modifier.fillMaxWidth().height(54.dp)
+                .clickable(interactionSource = remember { MutableInteractionSource() },
+                    indication = null, onClick = onUp),
             contentAlignment = Alignment.Center,
         ) {
-            Text("▲", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
+            Text("▲", color = AccentGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
 
-        Text(
-            "%02d".format(value),
-            color      = Color.White,
-            fontSize   = 52.sp,
-            fontWeight = FontWeight.Thin,
-            letterSpacing = 2.sp,
-        )
+        // Value
+        Text("%02d".format(value), color = Color.White, fontSize = 54.sp,
+            fontWeight = FontWeight.Thin, letterSpacing = 2.sp)
 
-        // Down arrow
+        // DOWN — large touch target (54dp height)
         Box(
-            modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onDown,
-                ),
+            modifier = Modifier.fillMaxWidth().height(54.dp)
+                .clickable(interactionSource = remember { MutableInteractionSource() },
+                    indication = null, onClick = onDown),
             contentAlignment = Alignment.Center,
         ) {
-            Text("▼", color = Color.White.copy(alpha = 0.5f), fontSize = 14.sp)
+            Text("▼", color = AccentGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
+
+        Spacer(Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun StartButton(enabled: Boolean, onClick: () -> Unit) {
+    Button(
+        onClick  = onClick,
+        enabled  = enabled,
+        modifier = Modifier.fillMaxWidth().height(54.dp),
+        colors   = ButtonDefaults.buttonColors(
+            containerColor         = AccentGreen,
+            disabledContainerColor = DimWhite08,
+        ),
+        shape = RoundedCornerShape(16.dp),
+    ) { Text("Start Focus", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
+}
+
+@Composable
+private fun CancelButton(onClick: () -> Unit) {
+    TextButton(onClick = onClick) {
+        Text("Cancel", color = DimWhite40, fontSize = 14.sp)
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CLOCK PANEL — hemat RAM ekstrem: tidak ada list, tidak ada image, tidak ada
-// komponen berat. Hanya Text + LinearProgressIndicator + Box.
+// CLOCK PANEL — extreme RAM savings:
+//   No LazyList · No Image · No Coil · No Canvas · No Animation objects
+//   Only Text + LinearProgressIndicator + Box
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun ClockPanel(
@@ -270,99 +262,93 @@ private fun ClockPanel(
     val progress  = if (totalSeconds > 0) elapsedSeconds.toFloat() / totalSeconds else 0f
     val isDone    = remaining == 0
 
-    // Format remaining time
-    val remH  = remaining / 3600
-    val remM  = (remaining % 3600) / 60
-    val remS  = remaining % 60
+    val remH   = remaining / 3600
+    val remM   = (remaining % 3600) / 60
+    val remS   = remaining % 60
     val remStr = if (remH > 0) "%d:%02d:%02d".format(remH, remM, remS)
                  else          "%02d:%02d".format(remM, remS)
 
+    val isLandscape = LocalConfiguration.current.orientation ==
+            android.content.res.Configuration.ORIENTATION_LANDSCAPE
+
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // ── Exit button pojok kanan atas ─────────────────────────────────
+        // Exit button — top-right
         Box(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(20.dp)
-                .size(36.dp)
+                .padding(18.dp)
+                .size(38.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.08f))
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onExitRequest,
-                ),
+                .background(DimWhite08)
+                .clickable(interactionSource = remember { MutableInteractionSource() },
+                    indication = null, onClick = onExitRequest),
             contentAlignment = Alignment.Center,
-        ) {
-            Text("✕", color = Color.White.copy(alpha = 0.6f), fontSize = 14.sp)
-        }
+        ) { Text("✕", color = DimWhite40, fontSize = 14.sp) }
 
-        // ── Main clock content ────────────────────────────────────────────
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(40.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            // Label
-            Text(
-                if (isDone) "Done! 🎉" else "Focus",
-                color     = Color.White.copy(alpha = 0.3f),
-                fontSize  = 12.sp,
-                letterSpacing = 3.sp,
-            )
-
-            Spacer(Modifier.height(24.dp))
-
-            // Jam sekarang — besar
-            Text(
-                currentTime,
-                color      = Color.White,
-                fontSize   = 72.sp,
-                fontWeight = FontWeight.Thin,
-                letterSpacing = 4.sp,
-                textAlign  = TextAlign.Center,
-            )
-
-            Spacer(Modifier.height(32.dp))
-
-            // Countdown remaining
-            Text(
-                remStr,
-                color      = if (isDone) Color(0xFF27AE60) else Color.White.copy(alpha = 0.6f),
-                fontSize   = 24.sp,
-                fontWeight = FontWeight.Light,
-                letterSpacing = 2.sp,
-            )
-
-            Spacer(Modifier.height(32.dp))
-
-            // Progress bar tipis
-            LinearProgressIndicator(
-                progress    = { progress },
-                modifier    = Modifier.fillMaxWidth().height(1.dp),
-                color       = Color(0xFF27AE60),
-                trackColor  = Color.White.copy(alpha = 0.06f),
-            )
+        if (isLandscape) {
+            Row(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 56.dp, vertical = 32.dp),
+                horizontalArrangement = Arrangement.spacedBy(40.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(if (isDone) "Done! 🎉" else "Focus",
+                        color = DimWhite40, fontSize = 12.sp, letterSpacing = 3.sp)
+                    Spacer(Modifier.height(10.dp))
+                    Text(currentTime, color = Color.White, fontSize = 64.sp,
+                        fontWeight = FontWeight.Thin, letterSpacing = 4.sp, textAlign = TextAlign.Center)
+                }
+                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center) {
+                    Text(remStr, color = if (isDone) AccentGreen else DimWhite40,
+                        fontSize = 28.sp, fontWeight = FontWeight.Light, letterSpacing = 2.sp)
+                    Spacer(Modifier.height(20.dp))
+                    LinearProgressIndicator(
+                        progress   = { progress },
+                        modifier   = Modifier.fillMaxWidth().height(1.dp),
+                        color      = AccentGreen,
+                        trackColor = DimWhite08,
+                    )
+                }
+            }
+        } else {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Text(if (isDone) "Done! 🎉" else "Focus",
+                    color = DimWhite40, fontSize = 12.sp, letterSpacing = 3.sp)
+                Spacer(Modifier.height(20.dp))
+                Text(currentTime, color = Color.White, fontSize = 72.sp,
+                    fontWeight = FontWeight.Thin, letterSpacing = 4.sp, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(28.dp))
+                Text(remStr, color = if (isDone) AccentGreen else DimWhite40,
+                    fontSize = 24.sp, fontWeight = FontWeight.Light, letterSpacing = 2.sp)
+                Spacer(Modifier.height(28.dp))
+                LinearProgressIndicator(
+                    progress   = { progress },
+                    modifier   = Modifier.fillMaxWidth().height(1.dp),
+                    color      = AccentGreen,
+                    trackColor = DimWhite08,
+                )
+            }
         }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// EXIT CONFIRM OVERLAY
+// EXIT CONFIRM — minimal, no animations
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun ExitConfirmOverlay(onConfirm: () -> Unit, onDismiss: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.8f))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = onDismiss,
-            ),
+            .background(Color(0xCC000000))
+            .clickable(interactionSource = remember { MutableInteractionSource() },
+                indication = null, onClick = onDismiss),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -370,35 +356,26 @@ private fun ExitConfirmOverlay(onConfirm: () -> Unit, onDismiss: () -> Unit) {
                 .clip(RoundedCornerShape(20.dp))
                 .background(Color(0xFF1C1C1E))
                 .padding(28.dp)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = {},
-                ),
+                .clickable(interactionSource = remember { MutableInteractionSource() },
+                    indication = null, onClick = {}),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Text("End focus session?", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium)
             Text(
                 "Screen timeout will be restored\nto its original setting.",
-                color     = Color.White.copy(alpha = 0.45f),
-                fontSize  = 13.sp,
-                textAlign = TextAlign.Center,
-                lineHeight = 20.sp,
+                color = DimWhite40, fontSize = 13.sp, textAlign = TextAlign.Center, lineHeight = 20.sp,
             )
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White.copy(alpha = 0.5f)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
+                    onClick = onDismiss, modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = DimWhite40),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, DimWhite12),
                 ) { Text("Stay") }
-
                 Button(
-                    onClick = onConfirm,
-                    modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF453A)),
+                    onClick = onConfirm, modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.buttonColors(containerColor = DangerRed),
                 ) { Text("Exit", color = Color.White, fontWeight = FontWeight.SemiBold) }
             }
         }
@@ -406,11 +383,8 @@ private fun ExitConfirmOverlay(onConfirm: () -> Unit, onDismiss: () -> Unit) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
 private enum class PomodoroPhase { SETUP, RUNNING }
-
-private fun currentTimeString(): String {
+private fun clockStr(): String {
     val c = Calendar.getInstance()
     return "%02d:%02d".format(c.get(Calendar.HOUR_OF_DAY), c.get(Calendar.MINUTE))
 }

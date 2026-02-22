@@ -1,5 +1,7 @@
 package id.satria.launcher.ui.screen
 
+import android.app.Activity
+import android.content.pm.ActivityInfo
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.tween
@@ -10,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import id.satria.launcher.MainViewModel
 import id.satria.launcher.ui.component.*
@@ -17,6 +20,8 @@ import id.satria.launcher.ui.theme.SatriaColors
 
 @Composable
 fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
+    val context       = LocalContext.current
+    val activity      = context as? Activity
     val userName      by vm.userName.collectAsState()
     val avatarPath    by vm.avatarPath.collectAsState()
     val todos         by vm.todos.collectAsState()
@@ -25,6 +30,18 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
     var activeTool    by remember { mutableStateOf<String?>(null) }
     var showChat      by remember { mutableStateOf(false) }
     var showPomodoro  by remember { mutableStateOf(false) }
+
+    // Unlock rotation when Pomodoro is visible, lock portrait otherwise
+    DisposableEffect(showPomodoro) {
+        if (showPomodoro) {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        } else {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+        onDispose {
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        }
+    }
 
     BackHandler {
         when {
