@@ -8,7 +8,9 @@ import android.os.BatteryManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
@@ -16,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -28,8 +31,6 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
-import androidx.compose.ui.platform.LocalConfiguration
-
 @Composable
 fun DashboardHeader(
     avatarPath: String?,
@@ -38,17 +39,15 @@ fun DashboardHeader(
     onAvatarClick: () -> Unit,
     onClose: () -> Unit,
 ) {
-    val context = LocalContext.current
+    val context         = LocalContext.current
+    val screenHeightDp  = LocalConfiguration.current.screenHeightDp.dp
+    val avatarHeightDp  = screenHeightDp / 3
 
     // ── Clock & Date ───────────────────────────────────────────────────────
     var clockStr by remember { mutableStateOf(getClockStr()) }
     var dateStr  by remember { mutableStateOf(getDateStr()) }
     LaunchedEffect(Unit) {
-        while (true) {
-            delay(30_000)
-            clockStr = getClockStr()
-            dateStr  = getDateStr()
-        }
+        while (true) { delay(30_000); clockStr = getClockStr(); dateStr = getDateStr() }
     }
 
     // ── Message ────────────────────────────────────────────────────────────
@@ -57,35 +56,35 @@ fun DashboardHeader(
         while (true) { delay(60_000); message = getAssistantMessage(userName) }
     }
 
-    // ── Battery — BroadcastReceiver, zero polling ──────────────────────────
+    // ── Battery — zero polling via BroadcastReceiver ───────────────────────
     var batteryPct by remember { mutableIntStateOf(getBatteryLevel(context)) }
     var isCharging by remember { mutableStateOf(getBatteryCharging(context)) }
     DisposableEffect(Unit) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
-                val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
-                val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-                if (level >= 0 && scale > 0) batteryPct = level * 100 / scale
-                val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-                isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                             status == BatteryManager.BATTERY_STATUS_FULL
+                val l = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
+                val s = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
+                if (l >= 0 && s > 0) batteryPct = l * 100 / s
+                val st = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
+                isCharging = st == BatteryManager.BATTERY_STATUS_CHARGING ||
+                             st == BatteryManager.BATTERY_STATUS_FULL
             }
         }
         context.registerReceiver(receiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
         onDispose { context.unregisterReceiver(receiver) }
     }
 
-    val batteryIcon = if (isCharging) "⚡" else when {
-        batteryPct <= 20 -> "🪫"
-        else             -> "🔋"
-    }
+    // battery text — hanya persen, tanpa simbol
+    val batteryText = if (isCharging) "$batteryPct% ·  charging" else "$batteryPct%"
 
-    val screenHeightDp = LocalConfiguration.current.screenHeightDp.dp
-    val avatarHeightDp = screenHeightDp / 3
+    // ── Scrollable column ──────────────────────────────────────────────────
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+    ) {
 
-    Column(modifier = Modifier.fillMaxWidth()) {
-
-        // ── Avatar — full width, 1/3 screen height, fade bottom ───────────
+        // ── Avatar full-width, tinggi 1/3 layar ───────────────────────────
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -94,40 +93,34 @@ fun DashboardHeader(
         ) {
             if (avatarPath != null) {
                 AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(avatarPath)
-                        .crossfade(true)
-                        .build(),
+                    model            = ImageRequest.Builder(context)
+                        .data(avatarPath).crossfade(true).build(),
                     contentDescription = null,
-                    contentScale       = ContentScale.Crop,
-                    modifier           = Modifier.fillMaxSize(),
+                    contentScale     = ContentScale.Crop,
+                    modifier         = Modifier.fillMaxSize(),
                 )
             } else {
-                // Placeholder jika belum ada avatar
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(SatriaColors.SurfaceMid),
+                    modifier         = Modifier.fillMaxSize()
+                        .background(SatriaColors.Surface),
                     contentAlignment = Alignment.Center,
-                ) {
-                    Text("👤", fontSize = 64.sp)
-                }
+                ) { Text("👤", fontSize = 64.sp) }
             }
 
-            // Fade gradient di bagian bawah avatar — berbatasan dengan jam
+            // Fade gradient bawah berbatasan dengan jam
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.45f)
+                    .fillMaxHeight(0.5f)
                     .align(Alignment.BottomCenter)
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(Color.Transparent, Color(0xFF000000)),
+                            listOf(Color.Transparent, SatriaColors.ScreenBackground)
                         )
                     )
             )
 
-            // Close button — pojok kanan atas
+            // Close button
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -141,13 +134,13 @@ fun DashboardHeader(
                 Text("✕", color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp)
             }
 
-            // Assistant name di pojok kiri bawah avatar
+            // Assistant name bawah avatar
             Text(
-                text       = assistantName,
-                color      = Color.White.copy(alpha = 0.80f),
-                fontSize   = 13.sp,
+                text     = assistantName,
+                color    = Color.White.copy(alpha = 0.80f),
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                modifier   = Modifier
+                modifier = Modifier
                     .align(Alignment.BottomStart)
                     .padding(start = 20.dp, bottom = 12.dp),
             )
@@ -158,9 +151,8 @@ fun DashboardHeader(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
-                .padding(top = 16.dp, bottom = 4.dp),
+                .padding(top = 14.dp, bottom = 4.dp),
         ) {
-            // Big clock
             Text(
                 text          = clockStr,
                 color         = SatriaColors.TextPrimary,
@@ -168,60 +160,32 @@ fun DashboardHeader(
                 fontWeight    = FontWeight.Thin,
                 letterSpacing = 2.sp,
             )
-
-            // Date + battery inline — font sama persis
+            // Date · battery% — font/warna sama persis
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
             ) {
-                Text(
-                    text       = dateStr,
-                    color      = SatriaColors.TextSecondary,
-                    fontSize   = 14.sp,
-                    fontWeight = FontWeight.Normal,
-                )
-                Text(
-                    text       = "·",
-                    color      = SatriaColors.TextTertiary,
-                    fontSize   = 14.sp,
-                    fontWeight = FontWeight.Normal,
-                )
-                Text(
-                    text       = "$batteryIcon $batteryPct%",
-                    color      = SatriaColors.TextSecondary,
-                    fontSize   = 14.sp,
-                    fontWeight = FontWeight.Normal,
-                )
+                Text(dateStr, color = SatriaColors.TextSecondary, fontSize = 14.sp)
+                Text("·",    color = SatriaColors.TextTertiary,   fontSize = 14.sp)
+                Text(batteryText, color = SatriaColors.TextSecondary, fontSize = 14.sp)
             }
-
             Spacer(Modifier.height(8.dp))
-
-            Text(
-                text       = message,
-                color      = SatriaColors.TextTertiary,
-                fontSize   = 12.sp,
-                lineHeight  = 18.sp,
-            )
+            Text(message, color = SatriaColors.TextTertiary, fontSize = 12.sp, lineHeight = 18.sp)
         }
     }
 }
 
-private fun getClockStr(): String =
-    SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+private fun getClockStr() = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+private fun getDateStr()  = SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(Date())
 
-private fun getDateStr(): String =
-    SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()).format(Date())
-
-private fun getBatteryLevel(context: Context): Int {
-    val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-    val level  = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-    val scale  = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-    return if (level >= 0 && scale > 0) level * 100 / scale else 0
+private fun getBatteryLevel(ctx: Context): Int {
+    val i = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+    val l = i?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+    val s = i?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+    return if (l >= 0 && s > 0) l * 100 / s else 0
 }
-
-private fun getBatteryCharging(context: Context): Boolean {
-    val intent = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-    val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
-    return status == BatteryManager.BATTERY_STATUS_CHARGING ||
-           status == BatteryManager.BATTERY_STATUS_FULL
+private fun getBatteryCharging(ctx: Context): Boolean {
+    val i  = ctx.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+    val st = i?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+    return st == BatteryManager.BATTERY_STATUS_CHARGING || st == BatteryManager.BATTERY_STATUS_FULL
 }

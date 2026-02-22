@@ -35,6 +35,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val notes            = prefs.notes.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val habits           = prefs.habits.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    val themeAccent = prefs.themeAccent.stateIn(viewModelScope, SharingStarted.Eagerly, "FF27AE60")
+    val themeBg     = prefs.themeBg.stateIn(viewModelScope, SharingStarted.Eagerly, "FF000000")
+    val themeBorder = prefs.themeBorder.stateIn(viewModelScope, SharingStarted.Eagerly, "FF1A1A1A")
+    val themeFont   = prefs.themeFont.stateIn(viewModelScope, SharingStarted.Eagerly, "FFFFFFFF")
+
     private val _avatarVersion = MutableStateFlow(0)
     val avatarVersion: StateFlow<Int> = _avatarVersion.asStateFlow()
 
@@ -72,6 +77,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         prefs.setDockPackages(dock)
     }
+
+    fun setThemeAccent(v: String) = viewModelScope.launch { prefs.setThemeAccent(v) }
+    fun setThemeBg(v: String)     = viewModelScope.launch { prefs.setThemeBg(v) }
+    fun setThemeBorder(v: String) = viewModelScope.launch { prefs.setThemeBorder(v) }
+    fun setThemeFont(v: String)   = viewModelScope.launch { prefs.setThemeFont(v) }
 
     fun saveUserName(v: String)      = viewModelScope.launch { prefs.setUserName(v) }
     fun saveAssistantName(v: String) = viewModelScope.launch { prefs.setAssistantName(v) }

@@ -87,7 +87,7 @@ fun HomeScreen(vm: MainViewModel) {
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 94.dp)
+                .padding(bottom = 106.dp)
                 .width(120.dp)
                 .height(32.dp)
                 .combinedClickable(
