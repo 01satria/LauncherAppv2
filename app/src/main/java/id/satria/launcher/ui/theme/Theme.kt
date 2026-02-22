@@ -8,51 +8,50 @@ import androidx.compose.ui.graphics.Color
 // Color Palettes
 // ─────────────────────────────────────────────────────────────────────────────
 
-private object DarkPalette {
-    val Accent       = Color(0xFF27AE60)
-    val Bg           = Color(0xFF000000)
-    val Border       = Color(0xFF1A1A1A)
-    val Font         = Color(0xFFFFFFFF)
-    val Surface      = Color(0xFF1C1C1E)
-    val SurfaceMid   = Color(0xFF2C2C2E)
-    val SurfaceHigh  = Color(0xFF3A3A3C)
-    val Danger       = Color(0xFFFF453A)
-}
+private val darkAccent      = Color(0xFF27AE60)
+private val darkBg          = Color(0xFF000000)
+private val darkBorder      = Color(0xFF1A1A1A)
+private val darkFont        = Color(0xFFFFFFFF)
+private val darkSurface     = Color(0xFF1C1C1E)
+private val darkSurfaceMid  = Color(0xFF2C2C2E)
+private val darkSurfaceHigh = Color(0xFF3A3A3C)
+private val darkDanger      = Color(0xFFFF453A)
 
-private object LightPalette {
-    val Accent       = Color(0xFF1E8449)
-    val Bg           = Color(0xFFF2F2F7)
-    val Border       = Color(0xFFD1D1D6)
-    val Font         = Color(0xFF000000)
-    val Surface      = Color(0xFFFFFFFF)
-    val SurfaceMid   = Color(0xFFE5E5EA)
-    val SurfaceHigh  = Color(0xFFD1D1D6)
-    val Danger       = Color(0xFFD93025)
-}
+private val lightAccent      = Color(0xFF1E8449)
+private val lightBg          = Color(0xFFF2F2F7)
+private val lightBorder      = Color(0xFFD1D1D6)
+private val lightFont        = Color(0xFF000000)
+private val lightSurface     = Color(0xFFFFFFFF)
+private val lightSurfaceMid  = Color(0xFFE5E5EA)
+private val lightSurfaceHigh = Color(0xFFD1D1D6)
+private val lightDanger      = Color(0xFFD93025)
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AppThemeColors — resolved per mode, no mutation needed
+// AppThemeColors — resolved per mode
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Stable
 class AppThemeColors(val darkMode: Boolean) {
-    private val p = if (darkMode) DarkPalette else LightPalette
 
-    val Accent      : Color = p.Accent
-    val Surface     : Color = p.Surface
-    val SurfaceMid  : Color = p.SurfaceMid
-    val SurfaceHigh : Color = p.SurfaceHigh
-    val Danger      : Color = p.Danger
+    val Accent      : Color = if (darkMode) darkAccent      else lightAccent
+    val Surface     : Color = if (darkMode) darkSurface     else lightSurface
+    val SurfaceMid  : Color = if (darkMode) darkSurfaceMid  else lightSurfaceMid
+    val SurfaceHigh : Color = if (darkMode) darkSurfaceHigh else lightSurfaceHigh
+    val Danger      : Color = if (darkMode) darkDanger      else lightDanger
 
-    fun accentColor()      = p.Accent
-    fun bgColor()          = p.Bg
-    fun borderColor()      = p.Border
-    fun fontColor()        = p.Font
-    fun accentDimColor()   = p.Accent.copy(alpha = 0.75f)
-    fun dockBgColor()      = p.Bg.copy(alpha = 0.92f)
-    fun borderLightColor() = p.Font.copy(alpha = 0.08f)
-    fun textSecondary()    = p.Font.copy(alpha = 0.55f)
-    fun textTertiary()     = p.Font.copy(alpha = 0.28f)
+    private val bg     : Color = if (darkMode) darkBg     else lightBg
+    private val border : Color = if (darkMode) darkBorder else lightBorder
+    private val font   : Color = if (darkMode) darkFont   else lightFont
+
+    fun accentColor()      = Accent
+    fun bgColor()          = bg
+    fun borderColor()      = border
+    fun fontColor()        = font
+    fun accentDimColor()   = Accent.copy(alpha = 0.75f)
+    fun dockBgColor()      = bg.copy(alpha = 0.92f)
+    fun borderLightColor() = font.copy(alpha = 0.08f)
+    fun textSecondary()    = font.copy(alpha = 0.55f)
+    fun textTertiary()     = font.copy(alpha = 0.28f)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
