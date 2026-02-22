@@ -20,7 +20,8 @@ import id.satria.launcher.ui.theme.SatriaColors
 import java.text.SimpleDateFormat
 import java.util.*
 
-private val FULLSCREEN_TOOLS = setOf("calculator", "stopwatch")
+// Calculator is the only fullscreen tool now
+private val FULLSCREEN_TOOLS = setOf("calculator")
 
 @Composable
 fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
@@ -31,9 +32,7 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
     val avatarPath    by vm.avatarPath.collectAsState()
     val todos         by vm.todos.collectAsState()
     val countdowns    by vm.countdowns.collectAsState()
-    val notes         by vm.notes.collectAsState()
     val habits        by vm.habits.collectAsState()
-
     var activeTool   by remember { mutableStateOf<String?>(null) }
     var showChat     by remember { mutableStateOf(false) }
     var showPomodoro by remember { mutableStateOf(false) }
@@ -63,11 +62,10 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
             modifier = Modifier
                 .fillMaxSize()
                 .background(SatriaColors.ScreenBackground)
-                .navigationBarsPadding()   // hanya nav bar, bukan status bar
+                .navigationBarsPadding()
         ) {
             when (activeTool) {
                 "calculator" -> CalculatorTool()
-                "stopwatch"  -> StopwatchTool()
             }
             Box(
                 modifier = Modifier
@@ -86,9 +84,6 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
         return
     }
 
-    // ── Main dashboard — fillMaxSize, NO systemBarsPadding so status bar
-    //   visibility never shifts layout. Content already starts below the
-    //   avatar image; scroll handles the rest.
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -101,7 +96,6 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
             Column(modifier = Modifier.fillMaxSize()) {
 
                 if (activeTool == null) {
-                    // Scrollable dashboard — avatar bleeds edge-to-edge naturally
                     Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                         DashboardHeader(
                             avatarPath    = avatarPath,
@@ -114,7 +108,6 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                         ToolGridNoScroll(
                             todoPending  = todos.count { !it.done }.takeIf { it > 0 },
                             cdFirst      = countdowns.firstOrNull(),
-                            noteCount    = notes.size,
                             habitDone    = habits.count { it.doneToday(todayKey) },
                             habitTotal   = habits.size,
                             onWeather    = { activeTool = "weather" },
@@ -123,10 +116,9 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                             onCountdown  = { activeTool = "countdown" },
                             onPomodoro   = { showPomodoro = true },
                             onCalculator = { activeTool = "calculator" },
-                            onStopwatch  = { activeTool = "stopwatch" },
-                            onNotes      = { activeTool = "notes" },
                             onConverter  = { activeTool = "converter" },
                             onHabits     = { activeTool = "habits" },
+                            onPrayer     = { activeTool = "prayer" },
                         )
                         Spacer(Modifier.height(16.dp))
                     }
@@ -152,16 +144,17 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                                     onAdd = { vm.addTodo(it) }, onToggle = { vm.toggleTodo(it) }, onRemove = { vm.removeTodo(it) })
                                 "countdown" -> CountdownTool(countdowns = countdowns,
                                     onAdd = { n, d -> vm.addCountdown(n, d) }, onRemove = { vm.removeCountdown(it) })
-                                "notes"     -> NotesTool(notes = notes,
-                                    onAdd = { vm.addNote(it) }, onUpdate = { i, t -> vm.updateNote(i, t) }, onDelete = { vm.deleteNote(it) })
                                 "converter" -> ConverterTool()
+                                "prayer"    -> PrayerTool(
+                                    savedCities   = vm.prayerCities.collectAsState().value,
+                                    onAddCity     = { vm.addPrayerCity(it) },
+                                    onRemoveCity  = { vm.removePrayerCity(it) })
                                 "habits"    -> HabitTool(habits = habits,
                                     onAdd = { n, e -> vm.addHabit(n, e) }, onToggle = { vm.checkHabit(it) }, onDelete = { vm.deleteHabit(it) })
                                 else        -> {}
                             }
                         }
                     }
-                    // Back button — nav bar aware
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

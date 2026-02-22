@@ -7,10 +7,13 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerSnapDistance
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
@@ -175,13 +178,15 @@ fun HomeScreen(vm: MainViewModel) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PagedGrid — horizontal pager seperti iOS / One UI
+// PagedGrid — horizontal pager responsif & smooth
 //
-// Strategi hemat RAM:
+// Optimasi RAM & performa:
 //   * beyondViewportPageCount = 0  → hanya halaman aktif yang di-compose
-//   * Grid statis Column+Row per halaman — tidak ada nested lazy scroll
-//   * subList() adalah view ke list asli, nol alokasi
-//   * Dot indicator = Box+CircleShape, nol overhead
+//   * flingBehavior dengan PagerSnapDistance.atMost(1) → snap ke 1 halaman
+//     per gesture, tidak lewat beberapa halaman sekaligus
+//   * spring() damping rendah → feel iOS-like yang fluid
+//   * Grid statis Column+Row per halaman (bukan LazyGrid) → nol nested scroll
+//   * subList() view ke list asli, nol alokasi copy
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -203,11 +208,22 @@ private fun PagedGrid(
     }
     val pagerState = rememberPagerState(pageCount = { pageCount })
 
+    // Fling behavior: snap ke satu halaman per swipe, spring yang fluid
+    val flingBehavior = PagerDefaults.flingBehavior(
+        state           = pagerState,
+        pagerSnapDistance = PagerSnapDistance.atMost(1),
+        snapAnimationSpec = spring(
+            dampingRatio = Spring.DampingRatioLowBouncy,   // feel iOS
+            stiffness    = Spring.StiffnessMediumLow,
+        ),
+    )
+
     Box(modifier = Modifier.fillMaxSize()) {
 
         HorizontalPager(
             state                   = pagerState,
             beyondViewportPageCount = 0,
+            flingBehavior           = flingBehavior,
             modifier                = Modifier
                 .fillMaxSize()
                 .padding(bottom = 148.dp),
@@ -241,7 +257,7 @@ private fun PagedGrid(
     }
 }
 
-// Grid statis per halaman — tepat center horizontal
+// Grid statis per halaman — center horizontal, nol nested scroll
 @Composable
 private fun GridPage(
     apps          : List<AppData>,
@@ -253,31 +269,30 @@ private fun GridPage(
     onPress       : (String) -> Unit,
     onLongPress   : (String) -> Unit,
 ) {
-    // BoxWithConstraints untuk kalkulasi ukuran cell yang responsif
     BoxWithConstraints(
-        modifier          = Modifier.fillMaxSize(),
-        contentAlignment  = Alignment.TopCenter,   // pastikan konten center horizontal
+        modifier         = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.TopCenter,
     ) {
         val cellWidth  = maxWidth  / cols
-        val cellHeight = (maxHeight - 32.dp) / rows  // 32dp top padding
+        val cellHeight = (maxHeight - 32.dp) / rows
 
         Column(
-            modifier              = Modifier
+            modifier            = Modifier
                 .fillMaxSize()
                 .padding(top = 16.dp, bottom = 16.dp),
-            horizontalAlignment   = Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             for (row in 0 until rows) {
                 Row(
                     modifier              = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,   // CENTER — fix condong kiri
+                    horizontalArrangement = Arrangement.Center,
                 ) {
                     for (col in 0 until cols) {
                         val idx = row * cols + col
                         if (idx < apps.size) {
                             Box(
-                                modifier          = Modifier.size(cellWidth, cellHeight),
-                                contentAlignment  = Alignment.Center,
+                                modifier         = Modifier.size(cellWidth, cellHeight),
+                                contentAlignment = Alignment.Center,
                             ) {
                                 AppGridItem(
                                     app         = apps[idx],
@@ -297,7 +312,7 @@ private fun GridPage(
     }
 }
 
-// Dot indicator — minimal
+// Dot indicator — Box+CircleShape, nol overhead
 @Composable
 private fun PageIndicator(
     pageCount   : Int,

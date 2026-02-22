@@ -23,7 +23,6 @@ private data class ToolEntry(val icon: String, val label: String, val badge: Str
 fun ToolGrid(
     todoPending  : Int?,
     cdFirst      : CountdownItem?,
-    noteCount    : Int,
     habitDone    : Int,
     habitTotal   : Int,
     onWeather    : () -> Unit,
@@ -32,10 +31,9 @@ fun ToolGrid(
     onCountdown  : () -> Unit,
     onPomodoro   : () -> Unit,
     onCalculator : () -> Unit,
-    onStopwatch  : () -> Unit,
-    onNotes      : () -> Unit,
     onConverter  : () -> Unit,
     onHabits     : () -> Unit,
+    onPrayer     : () -> Unit,
 ) {
     val group1 = listOf(
         ToolEntry("🌤️", "Weather",   null,                                   onWeather),
@@ -45,9 +43,8 @@ fun ToolGrid(
         ToolEntry("🍅",  "Pomodoro",  "Focus timer",                          onPomodoro),
     )
     val group2 = listOf(
+        ToolEntry("🕌",  "Prayer",    "Waktu Sholat",                         onPrayer),
         ToolEntry("🧮",  "Calculator","",                                     onCalculator),
-        ToolEntry("⏱️",  "Stopwatch", "& Timer",                             onStopwatch),
-        ToolEntry("🗒️",  "Notes",     if (noteCount > 0) "$noteCount notes" else null, onNotes),
         ToolEntry("📐",  "Converter", "Length · Weight · Temp…",              onConverter),
         ToolEntry("💪",  "Habits",    if (habitTotal > 0) "$habitDone/$habitTotal today" else null, onHabits),
     )

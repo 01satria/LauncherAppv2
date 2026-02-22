@@ -32,7 +32,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val todos            = prefs.todos.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val countdowns       = prefs.countdowns.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val weatherLocations = prefs.weatherLocations.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val notes            = prefs.notes.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val prayerCities     = prefs.prayerCities.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val habits           = prefs.habits.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val darkMode    = prefs.darkMode.stateIn(viewModelScope, SharingStarted.Eagerly, true)
@@ -113,15 +113,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun removeWeatherLocation(loc: String) = viewModelScope.launch { prefs.setWeatherLocations(weatherLocations.value.filter { it != loc }) }
 
-    // ── Notes ──────────────────────────────────────────────────────────────
-    fun addNote(text: String) = viewModelScope.launch {
-        val now = System.currentTimeMillis()
-        prefs.setNotes(listOf(NoteItem(makeId(), text, now, now)) + notes.value)
+    // ── Prayer ─────────────────────────────────────────────────────────────
+    fun addPrayerCity(city: String) = viewModelScope.launch {
+        if (prayerCities.value.contains(city)) return@launch
+        if (prayerCities.value.size >= 8) return@launch
+        prefs.setPrayerCities(prayerCities.value + city)
     }
-    fun updateNote(id: String, text: String) = viewModelScope.launch {
-        prefs.setNotes(notes.value.map { if (it.id == id) it.copy(text = text, updatedAt = System.currentTimeMillis()) else it })
-    }
-    fun deleteNote(id: String) = viewModelScope.launch { prefs.setNotes(notes.value.filter { it.id != id }) }
+    fun removePrayerCity(city: String) = viewModelScope.launch { prefs.setPrayerCities(prayerCities.value.filter { it != city }) }
 
     // ── Habits ─────────────────────────────────────────────────────────────
     fun addHabit(name: String, emoji: String) = viewModelScope.launch {

@@ -43,15 +43,6 @@ data class WeatherResult(
     val forecast: List<WeatherForecast>,
 )
 
-// ── Notes ─────────────────────────────────────────────────────────────────────
-@Serializable
-data class NoteItem(
-    val id        : String,
-    val text      : String,
-    val createdAt : Long,
-    val updatedAt : Long,
-)
-
 // ── Habits ────────────────────────────────────────────────────────────────────
 @Serializable
 data class HabitItem(

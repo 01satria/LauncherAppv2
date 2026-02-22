@@ -21,7 +21,6 @@ private data class TE(val icon: String, val label: String, val badge: String?, v
 fun ToolGridNoScroll(
     todoPending  : Int?,
     cdFirst      : CountdownItem?,
-    noteCount    : Int,
     habitDone    : Int,
     habitTotal   : Int,
     onWeather    : () -> Unit,
@@ -30,10 +29,9 @@ fun ToolGridNoScroll(
     onCountdown  : () -> Unit,
     onPomodoro   : () -> Unit,
     onCalculator : () -> Unit,
-    onStopwatch  : () -> Unit,
-    onNotes      : () -> Unit,
     onConverter  : () -> Unit,
     onHabits     : () -> Unit,
+    onPrayer     : () -> Unit,
 ) {
     val g1 = listOf(
         TE("🌤️", "Weather",   null,                                   onWeather),
@@ -43,9 +41,8 @@ fun ToolGridNoScroll(
         TE("🍅",  "Pomodoro",  "Focus timer",                         onPomodoro),
     )
     val g2 = listOf(
+        TE("🕌",  "Prayer",    "Waktu Sholat",                        onPrayer),
         TE("🧮",  "Calculator","",                                    onCalculator),
-        TE("⏱️",  "Stopwatch", "& Timer",                            onStopwatch),
-        TE("🗒️",  "Notes",     if (noteCount > 0) "$noteCount notes" else null, onNotes),
         TE("📐",  "Converter", "Length · Weight · Temp…",             onConverter),
         TE("💪",  "Habits",    if (habitTotal > 0) "$habitDone/$habitTotal today" else null, onHabits),
     )
