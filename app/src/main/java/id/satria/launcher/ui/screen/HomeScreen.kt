@@ -27,11 +27,6 @@ import id.satria.launcher.ui.theme.SatriaColors
 import id.satria.launcher.ui.theme.LocalAppTheme
 import kotlin.math.ceil
 
-// Berapa ikon per halaman (4 kolom x 5 baris = 20)
-private const val COLS = 4
-private const val ROWS = 5
-private const val ITEMS_PER_PAGE = COLS * ROWS   // 20
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(vm: MainViewModel) {
@@ -44,6 +39,8 @@ fun HomeScreen(vm: MainViewModel) {
     val iconSize       by vm.iconSize.collectAsState()
     val dockIconSize   by vm.dockIconSize.collectAsState()
     val hiddenPackages by vm.hiddenPackages.collectAsState()
+    val gridCols       by vm.gridCols.collectAsState()
+    val gridRows       by vm.gridRows.collectAsState()
 
     var showDashboard by remember { mutableStateOf(false) }
     var showSettings  by remember { mutableStateOf(false) }
@@ -67,6 +64,8 @@ fun HomeScreen(vm: MainViewModel) {
                 apps          = filteredApps,
                 showNames     = showNames,
                 iconSize      = iconSize,
+                cols          = gridCols,
+                rows          = gridRows,
                 overlayActive = overlayActive,
                 onPress       = { if (!overlayActive) vm.launchApp(it) },
                 onLongPress   = { if (!overlayActive) actionTarget = it },
@@ -106,12 +105,10 @@ fun HomeScreen(vm: MainViewModel) {
             val darkMode = LocalAppTheme.current.darkMode
             Canvas(modifier = Modifier.matchParentSize()) {
                 drawRoundRect(
-                    color = if (darkMode) Color(0xEB000000)
-                            else         Color(0xEBFFFFFF),
+                    color = if (darkMode) Color(0xEB000000) else Color(0xEBFFFFFF),
                     cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx()),
                 )
             }
-            // Warna solid kontras tinggi — putih di dark mode, hitam di light mode
             Text(
                 text          = "✦  Brief",
                 color         = if (LocalAppTheme.current.darkMode) Color.White else Color(0xFF1C1C1E),
@@ -182,10 +179,9 @@ fun HomeScreen(vm: MainViewModel) {
 //
 // Strategi hemat RAM:
 //   * beyondViewportPageCount = 0  → hanya halaman aktif yang di-compose
-//   * Tiap halaman pakai Grid statis (Column+Row) bukan LazyVerticalGrid
-//     sehingga tidak ada dua scroll-state bertumpuk
-//   * subList() tanpa alokasi list baru (view ke list asli)
-//   * PageIndicator pakai Canvas dots, nol Composable tambahan per dot
+//   * Grid statis Column+Row per halaman — tidak ada nested lazy scroll
+//   * subList() adalah view ke list asli, nol alokasi
+//   * Dot indicator = Box+CircleShape, nol overhead
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -193,14 +189,17 @@ private fun PagedGrid(
     apps          : List<AppData>,
     showNames     : Boolean,
     iconSize      : Int,
+    cols          : Int,
+    rows          : Int,
     overlayActive : Boolean,
     onPress       : (String) -> Unit,
     onLongPress   : (String) -> Unit,
 ) {
     if (apps.isEmpty()) return
 
-    val pageCount  = remember(apps.size) {
-        ceil(apps.size / ITEMS_PER_PAGE.toFloat()).toInt().coerceAtLeast(1)
+    val itemsPerPage = cols * rows
+    val pageCount    = remember(apps.size, itemsPerPage) {
+        ceil(apps.size / itemsPerPage.toFloat()).toInt().coerceAtLeast(1)
     }
     val pagerState = rememberPagerState(pageCount = { pageCount })
 
@@ -208,27 +207,28 @@ private fun PagedGrid(
 
         HorizontalPager(
             state                   = pagerState,
-            beyondViewportPageCount = 0,          // compose halaman aktif saja
+            beyondViewportPageCount = 0,
             modifier                = Modifier
                 .fillMaxSize()
                 .padding(bottom = 148.dp),
             key                     = { it },
         ) { page ->
-            val from     = page * ITEMS_PER_PAGE
-            val to       = minOf(from + ITEMS_PER_PAGE, apps.size)
-            val pageApps = apps.subList(from, to)  // view, bukan copy
+            val from     = page * itemsPerPage
+            val to       = minOf(from + itemsPerPage, apps.size)
+            val pageApps = apps.subList(from, to)
 
             GridPage(
                 apps          = pageApps,
                 showNames     = showNames,
                 iconSize      = iconSize,
+                cols          = cols,
+                rows          = rows,
                 overlayActive = overlayActive,
                 onPress       = onPress,
                 onLongPress   = onLongPress,
             )
         }
 
-        // Indicator halaman — muncul hanya jika lebih dari 1 halaman
         if (pageCount > 1) {
             PageIndicator(
                 pageCount   = pageCount,
@@ -241,36 +241,44 @@ private fun PagedGrid(
     }
 }
 
-// Grid statis per halaman — Column + Row tanpa LazyGrid
+// Grid statis per halaman — tepat center horizontal
 @Composable
 private fun GridPage(
     apps          : List<AppData>,
     showNames     : Boolean,
     iconSize      : Int,
+    cols          : Int,
+    rows          : Int,
     overlayActive : Boolean,
     onPress       : (String) -> Unit,
     onLongPress   : (String) -> Unit,
 ) {
+    // BoxWithConstraints untuk kalkulasi ukuran cell yang responsif
     BoxWithConstraints(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 8.dp, vertical = 16.dp)
+        modifier          = Modifier.fillMaxSize(),
+        contentAlignment  = Alignment.TopCenter,   // pastikan konten center horizontal
     ) {
-        val cellWidth  = maxWidth  / COLS
-        val cellHeight = maxHeight / ROWS
+        val cellWidth  = maxWidth  / cols
+        val cellHeight = (maxHeight - 32.dp) / rows  // 32dp top padding
 
-        Column(modifier = Modifier.fillMaxSize()) {
-            for (row in 0 until ROWS) {
+        Column(
+            modifier              = Modifier
+                .fillMaxSize()
+                .padding(top = 16.dp, bottom = 16.dp),
+            horizontalAlignment   = Alignment.CenterHorizontally,
+        ) {
+            for (row in 0 until rows) {
                 Row(
-                    modifier              = Modifier
-                        .fillMaxWidth()
-                        .height(cellHeight),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    modifier              = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,   // CENTER — fix condong kiri
                 ) {
-                    for (col in 0 until COLS) {
-                        val idx = row * COLS + col
+                    for (col in 0 until cols) {
+                        val idx = row * cols + col
                         if (idx < apps.size) {
-                            Box(modifier = Modifier.size(cellWidth, cellHeight)) {
+                            Box(
+                                modifier          = Modifier.size(cellWidth, cellHeight),
+                                contentAlignment  = Alignment.Center,
+                            ) {
                                 AppGridItem(
                                     app         = apps[idx],
                                     showName    = showNames,
@@ -289,7 +297,7 @@ private fun GridPage(
     }
 }
 
-// Dot indicator — minimal Canvas dots
+// Dot indicator — minimal
 @Composable
 private fun PageIndicator(
     pageCount   : Int,

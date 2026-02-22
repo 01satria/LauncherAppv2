@@ -25,6 +25,9 @@ object PrefKeys {
     val DOCK_ICON_SIZE    = intPreferencesKey("dock_icon_size")
     val NOTES             = stringPreferencesKey("notes")
     val HABITS            = stringPreferencesKey("habits")
+    // ── Grid layout ───────────────────────────────────────────────────────
+    val GRID_COLS         = intPreferencesKey("grid_cols")
+    val GRID_ROWS         = intPreferencesKey("grid_rows")
     // ── Theme mode ────────────────────────────────────────────────────────
     val DARK_MODE         = booleanPreferencesKey("dark_mode")
 }
@@ -35,6 +38,12 @@ const val MIN_ICON_SIZE          = 36
 const val MAX_ICON_SIZE          = 72
 const val MIN_DOCK_ICON_SIZE     = 40
 const val MAX_DOCK_ICON_SIZE     = 72
+const val DEFAULT_GRID_COLS      = 4
+const val DEFAULT_GRID_ROWS      = 5
+const val MIN_GRID_COLS          = 3
+const val MAX_GRID_COLS          = 6
+const val MIN_GRID_ROWS          = 3
+const val MAX_GRID_ROWS          = 7
 
 class Prefs(private val context: Context) {
 
@@ -65,6 +74,10 @@ class Prefs(private val context: Context) {
     // ── Theme mode — stored as boolean (true = dark, default = true) ──────
     val darkMode     = ds.data.map { it[PrefKeys.DARK_MODE] ?: true }
 
+    // ── Grid layout ───────────────────────────────────────────────────────
+    val gridCols     = ds.data.map { it[PrefKeys.GRID_COLS] ?: DEFAULT_GRID_COLS }
+    val gridRows     = ds.data.map { it[PrefKeys.GRID_ROWS] ?: DEFAULT_GRID_ROWS }
+
     // ── Write helpers ──────────────────────────────────────────────────────
     suspend fun setUserName(v: String)      = ds.edit { it[PrefKeys.USER_NAME] = v }
     suspend fun setAssistantName(v: String) = ds.edit { it[PrefKeys.ASSISTANT_NAME] = v }
@@ -83,4 +96,6 @@ class Prefs(private val context: Context) {
     suspend fun setNotes(v: List<NoteItem>)           = ds.edit { it[PrefKeys.NOTES]             = json.encodeToString(v) }
     suspend fun setHabits(v: List<HabitItem>)         = ds.edit { it[PrefKeys.HABITS]            = json.encodeToString(v) }
     suspend fun setDarkMode(v: Boolean)                        = ds.edit { it[PrefKeys.DARK_MODE]      = v }
+    suspend fun setGridCols(v: Int)      = ds.edit { it[PrefKeys.GRID_COLS] = v }
+    suspend fun setGridRows(v: Int)      = ds.edit { it[PrefKeys.GRID_ROWS] = v }
 }

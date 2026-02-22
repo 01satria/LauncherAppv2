@@ -38,6 +38,8 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
     val iconSize      by vm.iconSize.collectAsState()
     val dockIconSize  by vm.dockIconSize.collectAsState()
     val darkMode      by vm.darkMode.collectAsState()
+    val gridCols      by vm.gridCols.collectAsState()
+    val gridRows      by vm.gridRows.collectAsState()
 
     var tempIconSize     by remember(iconSize)     { mutableStateOf(iconSize.toFloat()) }
     var tempDockIconSize by remember(dockIconSize) { mutableStateOf(dockIconSize.toFloat()) }
@@ -126,6 +128,67 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
                     valueRange = MIN_DOCK_ICON_SIZE.toFloat()..MAX_DOCK_ICON_SIZE.toFloat(), steps = (MAX_DOCK_ICON_SIZE - MIN_DOCK_ICON_SIZE) / 2 - 1,
                     colors = SliderDefaults.colors(thumbColor = SatriaColors.Accent, activeTrackColor = SatriaColors.Accent, inactiveTrackColor = SatriaColors.SurfaceMid),
                     modifier = Modifier.fillMaxWidth())
+
+                // ── Grid layout selector (hanya muncul di mode grid) ──────
+                if (layoutMode == "grid") {
+                    SLabel("GRID COLUMNS  ($gridCols)")
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        (MIN_GRID_COLS..MAX_GRID_COLS).forEach { v ->
+                            val active = gridCols == v
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (active) SatriaColors.Accent else SatriaColors.SurfaceMid)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication        = null,
+                                    ) { vm.setGridCols(v) }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    "$v",
+                                    color      = if (active) androidx.compose.ui.graphics.Color.White else SatriaColors.TextSecondary,
+                                    fontSize   = 14.sp,
+                                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                                )
+                            }
+                        }
+                    }
+
+                    SLabel("GRID ROWS  ($gridRows)")
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        (MIN_GRID_ROWS..MAX_GRID_ROWS).forEach { v ->
+                            val active = gridRows == v
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (active) SatriaColors.Accent else SatriaColors.SurfaceMid)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication        = null,
+                                    ) { vm.setGridRows(v) }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    "$v",
+                                    color      = if (active) androidx.compose.ui.graphics.Color.White else SatriaColors.TextSecondary,
+                                    fontSize   = 14.sp,
+                                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
+                                )
+                            }
+                        }
+                    }
+                }
 
                 // ── Theme Mode ─────────────────────────────────────────────
                 SLabel("APPEARANCE")

@@ -36,6 +36,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val habits           = prefs.habits.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val darkMode    = prefs.darkMode.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val gridCols    = prefs.gridCols.stateIn(viewModelScope, SharingStarted.Eagerly, id.satria.launcher.data.DEFAULT_GRID_COLS)
+    val gridRows    = prefs.gridRows.stateIn(viewModelScope, SharingStarted.Eagerly, id.satria.launcher.data.DEFAULT_GRID_ROWS)
 
     private val _avatarVersion = MutableStateFlow(0)
     val avatarVersion: StateFlow<Int> = _avatarVersion.asStateFlow()
@@ -76,6 +78,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setDarkMode(v: Boolean)   = viewModelScope.launch { prefs.setDarkMode(v) }
+    fun setGridCols(v: Int)       = viewModelScope.launch { prefs.setGridCols(v) }
+    fun setGridRows(v: Int)       = viewModelScope.launch { prefs.setGridRows(v) }
 
     fun saveUserName(v: String)      = viewModelScope.launch { prefs.setUserName(v) }
     fun saveAssistantName(v: String) = viewModelScope.launch { prefs.setAssistantName(v) }

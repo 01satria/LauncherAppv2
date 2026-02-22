@@ -6,6 +6,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -32,7 +33,6 @@ private fun fmtMs(ms: Long): String {
 private val GREEN  = Color(0xFF30D158)
 private val ORANGE = Color(0xFFFF9F0A)
 private val RED    = Color(0xFFFF453A)
-
 
 private enum class SwState  { IDLE, RUNNING, PAUSED }
 private enum class TmrState { IDLE, RUNNING, PAUSED, DONE }
@@ -62,11 +62,17 @@ fun StopwatchTool() {
 
 @Composable
 private fun StopwatchPanel() {
-    var state     by remember { mutableStateOf(SwState.IDLE) }
-    var elapsed   by remember { mutableLongStateOf(0L) }
-    var baseMs    by remember { mutableLongStateOf(0L) }
-    var startAt   by remember { mutableLongStateOf(0L) }
-    val laps      = remember { mutableStateListOf<Long>() }
+    var state   by remember { mutableStateOf(SwState.IDLE) }
+    var elapsed by remember { mutableLongStateOf(0L) }
+    var baseMs  by remember { mutableLongStateOf(0L) }
+    var startAt by remember { mutableLongStateOf(0L) }
+    val laps    = remember { mutableStateListOf<Long>() }
+    val listState = rememberLazyListState()
+
+    // Auto-scroll ke lap terbaru saat lap ditambah
+    LaunchedEffect(laps.size) {
+        if (laps.isNotEmpty()) listState.animateScrollToItem(0)
+    }
 
     LaunchedEffect(state) {
         if (state == SwState.RUNNING) {
@@ -78,21 +84,65 @@ private fun StopwatchPanel() {
         }
     }
 
+    // Layout: lap list (scrollable, weight) → timer display → buttons
     Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Spacer(Modifier.weight(1f))
 
-        Text(fmtMs(elapsed), color = SatriaColors.TextPrimary, fontSize = 52.sp,
-            fontWeight = FontWeight.Thin, letterSpacing = 2.sp, textAlign = TextAlign.Center)
+        // ── Lap list — di atas, scrollable, mengambil sisa ruang ──────────
+        if (laps.isNotEmpty()) {
+            LazyColumn(
+                state          = listState,
+                reverseLayout  = true,
+                modifier       = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(horizontal = 20.dp),
+            ) {
+                itemsIndexed(laps) { i, lapMs ->
+                    val delta = if (i == 0) lapMs else lapMs - laps[i - 1]
+                    Row(
+                        modifier              = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text("Lap ${i + 1}", color = SatriaColors.TextSecondary, fontSize = 14.sp)
+                        Text(fmtMs(delta), color = SatriaColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                    }
+                    if (i < laps.lastIndex)
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(SatriaColors.Divider))
+                }
+            }
+        } else {
+            Spacer(Modifier.weight(1f))
+        }
+
+        // ── Timer display ─────────────────────────────────────────────────
+        Spacer(Modifier.height(20.dp))
+
+        Text(
+            fmtMs(elapsed),
+            color = SatriaColors.TextPrimary,
+            fontSize = 52.sp,
+            fontWeight = FontWeight.Thin,
+            letterSpacing = 2.sp,
+            textAlign = TextAlign.Center,
+        )
 
         if (laps.isNotEmpty()) {
             val lapDelta = elapsed - laps.last()
-            Text("Lap  +${fmtMs(lapDelta)}", color = SatriaColors.TextTertiary,
-                fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+            Text(
+                "Lap  +${fmtMs(lapDelta)}",
+                color = SatriaColors.TextTertiary,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 6.dp),
+            )
         }
 
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(32.dp))
 
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.padding(horizontal = 32.dp)) {
+        // ── Buttons ───────────────────────────────────────────────────────
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.padding(horizontal = 32.dp),
+        ) {
             when (state) {
                 SwState.IDLE -> {
                     RoundBtn("Start", GREEN) { state = SwState.RUNNING }
@@ -109,23 +159,6 @@ private fun StopwatchPanel() {
         }
 
         Spacer(Modifier.height(24.dp))
-
-        if (laps.isNotEmpty()) {
-            LazyColumn(modifier = Modifier.fillMaxWidth().weight(1f).padding(horizontal = 20.dp), reverseLayout = true) {
-                itemsIndexed(laps) { i, lapMs ->
-                    val delta = if (i == 0) lapMs else lapMs - laps[i - 1]
-                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Lap ${i + 1}", color = SatriaColors.TextSecondary, fontSize = 14.sp)
-                        Text(fmtMs(delta), color = SatriaColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
-                    }
-                    if (i < laps.lastIndex)
-                        Box(Modifier.fillMaxWidth().height(1.dp).background(SatriaColors.Divider))
-                }
-            }
-        } else {
-            Spacer(Modifier.weight(1f))
-        }
     }
 }
 
