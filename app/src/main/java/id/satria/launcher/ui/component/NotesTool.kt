@@ -101,7 +101,7 @@ private fun NoteCard(
     val dateFmt = remember { SimpleDateFormat("d MMM, HH:mm", Locale.getDefault()) }
     val dateStr = remember(note.updatedAt) { dateFmt.format(Date(note.updatedAt)) }
 
-    Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(NOTE_CARD)
+    Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(SatriaColors.CardBg)
         .clickable(interactionSource = remember{MutableInteractionSource()}, indication = null, onClick = onEditStart)
         .padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (isEditing) {
