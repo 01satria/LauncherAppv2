@@ -6,7 +6,7 @@
 ![Min SDK](https://img.shields.io/badge/min%20SDK-26%20(Oreo)-3DDC84?style=flat-square&logo=android&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-27AE60?style=flat-square)
 ![RAM](https://img.shields.io/badge/RAM-~50%20MB-27AE60?style=flat-square&logo=memory&logoColor=white)
-![Latest Release](https://img.shields.io/github/v/release/01satria/SatriaLauncher?style=flat-square&color=27AE60&label=latest)
+![Latest Release](https://img.shields.io/github/v/release/01satria/LauncherAppv2?style=flat-square&color=27AE60&label=latest)
 
 Your wallpaper shines through. Your apps load fast. Your phone feels like yours again.
 
