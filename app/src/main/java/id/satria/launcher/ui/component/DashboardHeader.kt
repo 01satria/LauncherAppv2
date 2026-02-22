@@ -28,16 +28,20 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
+// Pill height constant — all three pills share the same height
+private val PILL_HEIGHT = 36.dp
+
 @Composable
 fun DashboardHeader(
     avatarPath: String?,
+    assistantName: String,
     userName: String,
     onAvatarClick: () -> Unit,
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
 
-    // ── Clock ──────────────────────────────────────────────────────────────
+    // ── Clock & Date ───────────────────────────────────────────────────────
     var clockStr by remember { mutableStateOf(getClockStr()) }
     var dateStr  by remember { mutableStateOf(getDateStr()) }
     LaunchedEffect(Unit) {
@@ -54,15 +58,15 @@ fun DashboardHeader(
         while (true) { delay(60_000); message = getAssistantMessage(userName) }
     }
 
-    // ── Battery — BroadcastReceiver, zero polling ─────────────────────────
-    var batteryPct   by remember { mutableIntStateOf(getBatteryLevel(context)) }
-    var isCharging   by remember { mutableStateOf(getBatteryCharging(context)) }
+    // ── Battery via BroadcastReceiver (zero polling) ───────────────────────
+    var batteryPct by remember { mutableIntStateOf(getBatteryLevel(context)) }
+    var isCharging by remember { mutableStateOf(getBatteryCharging(context)) }
     DisposableEffect(Unit) {
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
                 val level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
                 val scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
-                if (level >= 0 && scale > 0) batteryPct = (level * 100 / scale)
+                if (level >= 0 && scale > 0) batteryPct = level * 100 / scale
                 val status = intent.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
                 isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
                              status == BatteryManager.BATTERY_STATUS_FULL
@@ -73,42 +77,43 @@ fun DashboardHeader(
     }
 
     val batteryColor = when {
-        isCharging        -> Color(0xFF27AE60)
-        batteryPct <= 20  -> Color(0xFFFF453A)
-        batteryPct <= 50  -> Color(0xFFFFB74D)
-        else              -> SatriaColors.TextSecondary
+        isCharging       -> Color(0xFF30D158)
+        batteryPct <= 20 -> Color(0xFFFF453A)
+        batteryPct <= 50 -> Color(0xFFFFB74D)
+        else             -> SatriaColors.TextSecondary
     }
-    val batteryIcon = when {
-        isCharging       -> "⚡"
+    val batteryIcon = if (isCharging) "⚡" else when {
         batteryPct <= 20 -> "🪫"
         else             -> "🔋"
     }
 
-    // ── Layout ─────────────────────────────────────────────────────────────
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 20.dp),
     ) {
-        // Top row: avatar + close button
+        // ── Top bar: three equal-height pills ─────────────────────────────
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(PILL_HEIGHT),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            // Avatar pill
+            // Pill 1 — Avatar + assistant name
             Row(
                 modifier = Modifier
+                    .height(PILL_HEIGHT)
                     .clip(RoundedCornerShape(50.dp))
                     .background(SatriaColors.SurfaceMid)
                     .clickable { onAvatarClick() }
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                    .padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(7.dp),
             ) {
                 Box(
                     modifier = Modifier
-                        .size(28.dp)
+                        .size(22.dp)
                         .clip(CircleShape)
                         .background(SatriaColors.Surface),
                     contentAlignment = Alignment.Center,
@@ -122,44 +127,46 @@ fun DashboardHeader(
                             modifier = Modifier.fillMaxSize().clip(CircleShape),
                         )
                     } else {
-                        Text("👤", fontSize = 14.sp)
+                        Text("🤖", fontSize = 12.sp)
                     }
                 }
                 Text(
-                    userName,
-                    color = SatriaColors.TextPrimary,
-                    fontSize = 13.sp,
+                    assistantName,
+                    color      = SatriaColors.TextPrimary,
+                    fontSize   = 13.sp,
                     fontWeight = FontWeight.Medium,
                 )
             }
 
-            // Right side: battery + close
+            // Right side pills
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // Battery pill
+                // Pill 2 — Battery
                 Row(
                     modifier = Modifier
+                        .height(PILL_HEIGHT)
                         .clip(RoundedCornerShape(50.dp))
                         .background(SatriaColors.SurfaceMid)
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                        .padding(horizontal = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
                 ) {
                     Text(batteryIcon, fontSize = 12.sp)
                     Text(
                         "$batteryPct%",
-                        color = batteryColor,
-                        fontSize = 13.sp,
+                        color      = batteryColor,
+                        fontSize   = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                     )
                 }
 
-                // Close button
+                // Pill 3 — Close (same height as other pills, consistent shape)
                 Box(
                     modifier = Modifier
-                        .size(34.dp)
+                        .height(PILL_HEIGHT)
+                        .aspectRatio(1f)
                         .clip(CircleShape)
                         .background(SatriaColors.SurfaceMid)
                         .clickable { onClose() },
@@ -170,33 +177,31 @@ fun DashboardHeader(
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(28.dp))
 
-        // Big clock
+        // ── Big clock ──────────────────────────────────────────────────────
         Text(
-            text = clockStr,
-            color = SatriaColors.TextPrimary,
-            fontSize = 56.sp,
-            fontWeight = FontWeight.Thin,
+            text          = clockStr,
+            color         = SatriaColors.TextPrimary,
+            fontSize      = 56.sp,
+            fontWeight    = FontWeight.Thin,
             letterSpacing = 2.sp,
         )
 
-        // Date
         Text(
-            text = dateStr,
-            color = SatriaColors.TextSecondary,
-            fontSize = 14.sp,
+            text       = dateStr,
+            color      = SatriaColors.TextSecondary,
+            fontSize   = 14.sp,
             fontWeight = FontWeight.Normal,
         )
 
         Spacer(Modifier.height(10.dp))
 
-        // Message
         Text(
-            text = message,
-            color = SatriaColors.TextTertiary,
-            fontSize = 12.sp,
-            lineHeight = 18.sp,
+            text       = message,
+            color      = SatriaColors.TextTertiary,
+            fontSize   = 12.sp,
+            lineHeight  = 18.sp,
         )
     }
 }

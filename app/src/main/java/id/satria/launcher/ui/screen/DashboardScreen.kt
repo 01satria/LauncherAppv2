@@ -18,70 +18,63 @@ import id.satria.launcher.MainViewModel
 import id.satria.launcher.ui.component.*
 import id.satria.launcher.ui.theme.SatriaColors
 
+private val PureBgColor = Color(0xFF000000)
+
 @Composable
 fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
-    val context       = LocalContext.current
-    val activity      = context as? Activity
-    val userName      by vm.userName.collectAsState()
-    val avatarPath    by vm.avatarPath.collectAsState()
-    val todos         by vm.todos.collectAsState()
-    val countdowns    by vm.countdowns.collectAsState()
+    val context        = LocalContext.current
+    val activity       = context as? Activity
+    val userName       by vm.userName.collectAsState()
+    val assistantName  by vm.assistantName.collectAsState()
+    val avatarPath     by vm.avatarPath.collectAsState()
+    val todos          by vm.todos.collectAsState()
+    val countdowns     by vm.countdowns.collectAsState()
 
     var activeTool   by remember { mutableStateOf<String?>(null) }
     var showChat     by remember { mutableStateOf(false) }
     var showPomodoro by remember { mutableStateOf(false) }
 
-    // Unlock rotation when Pomodoro is visible, lock portrait otherwise
     DisposableEffect(showPomodoro) {
-        if (showPomodoro) {
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        } else {
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
-        onDispose {
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        }
+        activity?.requestedOrientation = if (showPomodoro)
+            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        else
+            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        onDispose { activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
     }
 
     BackHandler {
         when {
-            showPomodoro       -> { /* exit via button only */ }
+            showPomodoro       -> { }
             showChat           -> showChat = false
             activeTool != null -> activeTool = null
             else               -> onClose()
         }
     }
 
-    // ── Pomodoro fullscreen ───────────────────────────────────────────────────
     if (showPomodoro) {
         PomodoroScreen(onExit = { showPomodoro = false })
         return
     }
 
-    // ── Normal Dashboard ──────────────────────────────────────────────────────
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SatriaColors.ScreenBackground)
-            .clickable(
-                indication = null,
-                interactionSource = remember { MutableInteractionSource() }
-            ) { /* block passthrough */ },
+            .background(PureBgColor)
+            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { },
     ) {
         if (showChat) {
             ChatScreen(vm = vm, onClose = { showChat = false })
         } else {
             Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
 
-                // ── Header ─────────────────────────────────────────────────
                 DashboardHeader(
                     avatarPath    = avatarPath,
+                    assistantName = assistantName,
                     userName      = userName,
                     onAvatarClick = { showChat = true },
                     onClose       = onClose,
                 )
 
-                // Subtle separator line
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -89,7 +82,6 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                         .background(SatriaColors.BorderLight)
                 )
 
-                // ── Tool area ──────────────────────────────────────────────
                 Box(modifier = Modifier.weight(1f)) {
                     AnimatedContent(
                         targetState = activeTool,
@@ -136,7 +128,6 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                     }
                 }
 
-                // ── Back bar (shown when a tool is active) ─────────────────
                 AnimatedVisibility(
                     visible = activeTool != null,
                     enter   = slideInVertically { it } + fadeIn(tween(200)),
@@ -152,17 +143,15 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(SatriaColors.ScreenBackground)
+                                .background(PureBgColor)
                                 .padding(horizontal = 20.dp, vertical = 10.dp)
                                 .navigationBarsPadding()
                         ) {
                             Button(
-                                onClick = { activeTool = null },
+                                onClick  = { activeTool = null },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors   = ButtonDefaults.buttonColors(containerColor = SatriaColors.Surface),
-                            ) {
-                                Text("← Back", color = SatriaColors.TextPrimary)
-                            }
+                            ) { Text("← Back", color = SatriaColors.TextPrimary) }
                         }
                     }
                 }
