@@ -64,3 +64,16 @@ data class HabitItem(
 ) {
     fun doneToday(todayKey: String): Boolean = doneDates.contains(todayKey)
 }
+
+// ── Home layout items ─────────────────────────────────────────────────────────
+// type: "app" | "widget_clock" | "widget_date" | "widget_battery" | "widget_steps"
+@Serializable
+data class HomeItemData(
+    val id       : String,
+    val type     : String,          // "app" or "widget_*"
+    val pkg      : String = "",     // only for type=="app"
+    val row      : Int    = 0,
+    val col      : Int    = 0,
+    val spanCols : Int    = 1,      // 1..4
+    val spanRows : Int    = 1,
+)

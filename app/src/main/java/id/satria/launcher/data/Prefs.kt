@@ -23,9 +23,10 @@ object PrefKeys {
     val WEATHER_LOCATIONS = stringPreferencesKey("weather_locations")
     val ICON_SIZE         = intPreferencesKey("icon_size")
     val DOCK_ICON_SIZE    = intPreferencesKey("dock_icon_size")
-    // ── New features ──────────────────────────────────────────────────────
     val NOTES             = stringPreferencesKey("notes")
     val HABITS            = stringPreferencesKey("habits")
+    // ── Home layout (widgets + app positions) ─────────────────────────────
+    val HOME_ITEMS        = stringPreferencesKey("home_items")
 }
 
 const val DEFAULT_ICON_SIZE      = 54
@@ -60,6 +61,7 @@ class Prefs(private val context: Context) {
     val weatherLocations = ds.data.map { decode(it[PrefKeys.WEATHER_LOCATIONS], emptyList()) { s -> json.decodeFromString<List<String>>(s) } }
     val notes            = ds.data.map { decode(it[PrefKeys.NOTES],             emptyList()) { s -> json.decodeFromString<List<NoteItem>>(s) } }
     val habits           = ds.data.map { decode(it[PrefKeys.HABITS],            emptyList()) { s -> json.decodeFromString<List<HabitItem>>(s) } }
+    val homeItems        = ds.data.map { decode(it[PrefKeys.HOME_ITEMS],        emptyList()) { s -> json.decodeFromString<List<HomeItemData>>(s) } }
 
     // ── Write helpers ──────────────────────────────────────────────────────
     suspend fun setUserName(v: String)      = ds.edit { it[PrefKeys.USER_NAME] = v }
@@ -78,4 +80,5 @@ class Prefs(private val context: Context) {
     suspend fun setWeatherLocations(v: List<String>)  = ds.edit { it[PrefKeys.WEATHER_LOCATIONS] = json.encodeToString(v) }
     suspend fun setNotes(v: List<NoteItem>)           = ds.edit { it[PrefKeys.NOTES]             = json.encodeToString(v) }
     suspend fun setHabits(v: List<HabitItem>)         = ds.edit { it[PrefKeys.HABITS]            = json.encodeToString(v) }
+    suspend fun setHomeItems(v: List<HomeItemData>)   = ds.edit { it[PrefKeys.HOME_ITEMS]        = json.encodeToString(v) }
 }

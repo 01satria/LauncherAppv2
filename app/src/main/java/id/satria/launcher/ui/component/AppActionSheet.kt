@@ -119,7 +119,7 @@ fun AppActionSheet(
             // Dock
             val dockLabel = when {
                 isDocked -> "Unpin from Dock"
-                dockFull -> "Dock is full (max 4)"
+                dockFull -> "Dock is full (max 5)"
                 else     -> "Pin to Dock"
             }
             SheetButton(dockLabel, enabled = isDocked || !dockFull) { onDock(); dismiss() }

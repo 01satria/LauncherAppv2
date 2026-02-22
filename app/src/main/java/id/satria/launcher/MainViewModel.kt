@@ -46,8 +46,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val dockApps = combine(allApps, dockPackages) { apps, dock ->
-        dock.mapNotNull { pkg -> apps.find { it.packageName == pkg } }.take(4)
+        dock.mapNotNull { pkg -> apps.find { it.packageName == pkg } }.take(5)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val homeItems = prefs.homeItems.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init { refreshApps() }
 
@@ -66,11 +68,24 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val dock = dockPackages.value.toMutableList()
         if (dock.contains(pkg)) { dock.remove(pkg) }
         else {
-            if (dock.size >= 4) return@launch
+            if (dock.size >= 5) return@launch
             dock.add(pkg)
             if (hiddenPackages.value.contains(pkg)) prefs.setHiddenPackages(hiddenPackages.value.filter { it != pkg })
         }
         prefs.setDockPackages(dock)
+    }
+
+    // ── Home layout ────────────────────────────────────────────────────────
+    fun saveHomeItems(items: List<HomeItemData>) = viewModelScope.launch { prefs.setHomeItems(items) }
+    fun addWidget(type: String) = viewModelScope.launch {
+        val current = homeItems.value.toMutableList()
+        val id = makeId()
+        val nextRow = (current.maxOfOrNull { it.row + it.spanRows } ?: 0)
+        current.add(HomeItemData(id = id, type = type, row = nextRow, col = 0, spanCols = 4, spanRows = if (type == "widget_clock") 2 else 1))
+        prefs.setHomeItems(current)
+    }
+    fun removeWidget(itemId: String) = viewModelScope.launch {
+        prefs.setHomeItems(homeItems.value.filter { it.id != itemId })
     }
 
     fun saveUserName(v: String)      = viewModelScope.launch { prefs.setUserName(v) }
