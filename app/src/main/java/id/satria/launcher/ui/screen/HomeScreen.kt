@@ -7,14 +7,15 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.*
 import androidx.compose.foundation.lazy.grid.*
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
+import androidx.compose.foundation.Canvas
+import androidx.compose.material3.Text
 import id.satria.launcher.MainViewModel
 import id.satria.launcher.ui.component.*
 import id.satria.launcher.ui.theme.SatriaColors
@@ -24,6 +25,7 @@ import id.satria.launcher.ui.theme.SatriaColors
 fun HomeScreen(vm: MainViewModel) {
     val filteredApps   by vm.filteredApps.collectAsState()
     val dockApps       by vm.dockApps.collectAsState()
+    val layoutMode     by vm.layoutMode.collectAsState()
     val showNames      by vm.showNames.collectAsState()
     val avatarPath     by vm.avatarPath.collectAsState()
     val avatarVersion  by vm.avatarVersion.collectAsState()
@@ -47,20 +49,37 @@ fun HomeScreen(vm: MainViewModel) {
 
     Box(modifier = Modifier.fillMaxSize()) {
 
-        // ── App grid Samsung-style 4-col ───────────────────────────────────
-        LazyVerticalGrid(
-            columns            = GridCells.Fixed(4),
-            contentPadding     = PaddingValues(top = 16.dp, bottom = 148.dp, start = 8.dp, end = 8.dp),
-            modifier           = Modifier.fillMaxSize(),
-        ) {
-            items(filteredApps, key = { it.packageName }) { app ->
-                AppGridItem(
-                    app         = app,
-                    showName    = showNames,
-                    iconSizeDp  = iconSize,
-                    onPress     = { if (!overlayActive) vm.launchApp(it) },
-                    onLongPress = { if (!overlayActive) actionTarget = it },
-                )
+        // ── App list / grid ────────────────────────────────────────────────
+        if (layoutMode == "grid") {
+            LazyVerticalGrid(
+                columns        = GridCells.Fixed(4),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 148.dp, start = 8.dp, end = 8.dp),
+                modifier       = Modifier.fillMaxSize(),
+            ) {
+                items(filteredApps, key = { it.packageName }) { app ->
+                    AppGridItem(
+                        app         = app,
+                        showName    = showNames,
+                        iconSizeDp  = iconSize,
+                        onPress     = { if (!overlayActive) vm.launchApp(it) },
+                        onLongPress = { if (!overlayActive) actionTarget = it },
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(top = 16.dp, bottom = 148.dp),
+                modifier       = Modifier.fillMaxSize(),
+            ) {
+                items(filteredApps, key = { it.packageName }) { app ->
+                    AppListItem(
+                        app         = app,
+                        showName    = showNames,
+                        iconSizeDp  = iconSize,
+                        onPress     = { if (!overlayActive) vm.launchApp(it) },
+                        onLongPress = { if (!overlayActive) actionTarget = it },
+                    )
+                }
             }
         }
 
@@ -68,9 +87,9 @@ fun HomeScreen(vm: MainViewModel) {
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
-                .padding(bottom = 100.dp)
-                .width(160.dp)
-                .height(34.dp)
+                .padding(bottom = 94.dp)
+                .width(120.dp)
+                .height(32.dp)
                 .combinedClickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication        = null,
@@ -79,17 +98,16 @@ fun HomeScreen(vm: MainViewModel) {
                 ),
             contentAlignment = Alignment.Center,
         ) {
-            // pill background drawn separately so it doesn't interfere with gesture detection
-            androidx.compose.foundation.Canvas(modifier = Modifier.matchParentSize()) {
+            Canvas(modifier = Modifier.matchParentSize()) {
                 drawRoundRect(
-                    color         = Color(0xCC1C1C1E),
-                    cornerRadius  = androidx.compose.ui.geometry.CornerRadius(17.dp.toPx()),
+                    color        = Color(0xEB000000), // sama dengan DockBg
+                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(16.dp.toPx()),
                 )
             }
             Text(
                 text          = "✦  Brief",
                 color         = SatriaColors.TextSecondary,
-                fontSize      = 13.sp,
+                fontSize      = 12.sp,
                 fontWeight    = FontWeight.Medium,
                 letterSpacing = 0.5.sp,
             )
@@ -108,7 +126,7 @@ fun HomeScreen(vm: MainViewModel) {
             modifier            = Modifier.align(Alignment.BottomCenter),
         )
 
-        // ── Dashboard — slide in from bottom ───────────────────────────────
+        // ── Dashboard ──────────────────────────────────────────────────────
         AnimatedVisibility(
             visible = showDashboard,
             enter   = slideInVertically { it } + fadeIn(tween(250)),
@@ -117,7 +135,7 @@ fun HomeScreen(vm: MainViewModel) {
             DashboardScreen(vm = vm, onClose = { showDashboard = false })
         }
 
-        // ── Settings modal ─────────────────────────────────────────────────
+        // ── Settings ───────────────────────────────────────────────────────
         AnimatedVisibility(
             visible = showSettings,
             enter   = fadeIn(tween(220)) + scaleIn(initialScale = 0.92f, animationSpec = tween(220)),
@@ -141,9 +159,9 @@ fun HomeScreen(vm: MainViewModel) {
                     isDocked    = dockApps.any { it.packageName == pkg },
                     dockFull    = dockApps.size >= 5,
                     onClose     = { actionTarget = null },
-                    onHide      = { vm.hideApp(pkg);     actionTarget = null },
-                    onUnhide    = { vm.unhideApp(pkg);   actionTarget = null },
-                    onDock      = { vm.toggleDock(pkg);  actionTarget = null },
+                    onHide      = { vm.hideApp(pkg);      actionTarget = null },
+                    onUnhide    = { vm.unhideApp(pkg);    actionTarget = null },
+                    onDock      = { vm.toggleDock(pkg);   actionTarget = null },
                     onUninstall = { vm.uninstallApp(pkg); actionTarget = null },
                 )
             }

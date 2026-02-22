@@ -34,7 +34,8 @@ fun Dock(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 10.dp, top = 6.dp),
         contentAlignment = Alignment.Center,
     ) {
         Row(

@@ -9,11 +9,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -28,8 +28,7 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
 
-// Pill height constant — all three pills share the same height
-private val PILL_HEIGHT = 36.dp
+import androidx.compose.ui.platform.LocalConfiguration
 
 @Composable
 fun DashboardHeader(
@@ -58,7 +57,7 @@ fun DashboardHeader(
         while (true) { delay(60_000); message = getAssistantMessage(userName) }
     }
 
-    // ── Battery via BroadcastReceiver (zero polling) ───────────────────────
+    // ── Battery — BroadcastReceiver, zero polling ──────────────────────────
     var batteryPct by remember { mutableIntStateOf(getBatteryLevel(context)) }
     var isCharging by remember { mutableStateOf(getBatteryCharging(context)) }
     DisposableEffect(Unit) {
@@ -76,133 +75,134 @@ fun DashboardHeader(
         onDispose { context.unregisterReceiver(receiver) }
     }
 
-    val batteryColor = when {
-        isCharging       -> Color(0xFF30D158)
-        batteryPct <= 20 -> Color(0xFFFF453A)
-        batteryPct <= 50 -> Color(0xFFFFB74D)
-        else             -> SatriaColors.TextSecondary
-    }
     val batteryIcon = if (isCharging) "⚡" else when {
         batteryPct <= 20 -> "🪫"
         else             -> "🔋"
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 20.dp),
-    ) {
-        // ── Top bar: three equal-height pills ─────────────────────────────
-        Row(
+    val screenHeightDp = LocalConfiguration.current.screenHeightDp.dp
+    val avatarHeightDp = screenHeightDp / 3
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+
+        // ── Avatar — full width, 1/3 screen height, fade bottom ───────────
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(PILL_HEIGHT),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .height(avatarHeightDp)
+                .clickable { onAvatarClick() },
         ) {
-            // Pill 1 — Avatar + assistant name
-            Row(
-                modifier = Modifier
-                    .height(PILL_HEIGHT)
-                    .clip(RoundedCornerShape(50.dp))
-                    .background(SatriaColors.SurfaceMid)
-                    .clickable { onAvatarClick() }
-                    .padding(horizontal = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
-            ) {
+            if (avatarPath != null) {
+                AsyncImage(
+                    model = ImageRequest.Builder(context)
+                        .data(avatarPath)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale       = ContentScale.Crop,
+                    modifier           = Modifier.fillMaxSize(),
+                )
+            } else {
+                // Placeholder jika belum ada avatar
                 Box(
                     modifier = Modifier
-                        .size(22.dp)
-                        .clip(CircleShape)
-                        .background(SatriaColors.Surface),
+                        .fillMaxSize()
+                        .background(SatriaColors.SurfaceMid),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (avatarPath != null) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(avatarPath).crossfade(true).build(),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize().clip(CircleShape),
-                        )
-                    } else {
-                        Text("🤖", fontSize = 12.sp)
-                    }
+                    Text("👤", fontSize = 64.sp)
                 }
+            }
+
+            // Fade gradient di bagian bawah avatar — berbatasan dengan jam
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.45f)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color(0xFF000000)),
+                        )
+                    )
+            )
+
+            // Close button — pojok kanan atas
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(12.dp)
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(Color.Black.copy(alpha = 0.45f))
+                    .clickable { onClose() },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("✕", color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp)
+            }
+
+            // Assistant name di pojok kiri bawah avatar
+            Text(
+                text       = assistantName,
+                color      = Color.White.copy(alpha = 0.80f),
+                fontSize   = 13.sp,
+                fontWeight = FontWeight.Medium,
+                modifier   = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 20.dp, bottom = 12.dp),
+            )
+        }
+
+        // ── Clock + date + battery ─────────────────────────────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(top = 16.dp, bottom = 4.dp),
+        ) {
+            // Big clock
+            Text(
+                text          = clockStr,
+                color         = SatriaColors.TextPrimary,
+                fontSize      = 56.sp,
+                fontWeight    = FontWeight.Thin,
+                letterSpacing = 2.sp,
+            )
+
+            // Date + battery inline — font sama persis
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 Text(
-                    assistantName,
-                    color      = SatriaColors.TextPrimary,
-                    fontSize   = 13.sp,
-                    fontWeight = FontWeight.Medium,
+                    text       = dateStr,
+                    color      = SatriaColors.TextSecondary,
+                    fontSize   = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                )
+                Text(
+                    text       = "·",
+                    color      = SatriaColors.TextTertiary,
+                    fontSize   = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                )
+                Text(
+                    text       = "$batteryIcon $batteryPct%",
+                    color      = SatriaColors.TextSecondary,
+                    fontSize   = 14.sp,
+                    fontWeight = FontWeight.Normal,
                 )
             }
 
-            // Right side pills
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                // Pill 2 — Battery
-                Row(
-                    modifier = Modifier
-                        .height(PILL_HEIGHT)
-                        .clip(RoundedCornerShape(50.dp))
-                        .background(SatriaColors.SurfaceMid)
-                        .padding(horizontal = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp),
-                ) {
-                    Text(batteryIcon, fontSize = 12.sp)
-                    Text(
-                        "$batteryPct%",
-                        color      = batteryColor,
-                        fontSize   = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
+            Spacer(Modifier.height(8.dp))
 
-                // Pill 3 — Close (same height as other pills, consistent shape)
-                Box(
-                    modifier = Modifier
-                        .height(PILL_HEIGHT)
-                        .aspectRatio(1f)
-                        .clip(CircleShape)
-                        .background(SatriaColors.SurfaceMid)
-                        .clickable { onClose() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("✕", color = SatriaColors.TextSecondary, fontSize = 13.sp)
-                }
-            }
+            Text(
+                text       = message,
+                color      = SatriaColors.TextTertiary,
+                fontSize   = 12.sp,
+                lineHeight  = 18.sp,
+            )
         }
-
-        Spacer(Modifier.height(28.dp))
-
-        // ── Big clock ──────────────────────────────────────────────────────
-        Text(
-            text          = clockStr,
-            color         = SatriaColors.TextPrimary,
-            fontSize      = 56.sp,
-            fontWeight    = FontWeight.Thin,
-            letterSpacing = 2.sp,
-        )
-
-        Text(
-            text       = dateStr,
-            color      = SatriaColors.TextSecondary,
-            fontSize   = 14.sp,
-            fontWeight = FontWeight.Normal,
-        )
-
-        Spacer(Modifier.height(10.dp))
-
-        Text(
-            text       = message,
-            color      = SatriaColors.TextTertiary,
-            fontSize   = 12.sp,
-            lineHeight  = 18.sp,
-        )
     }
 }
 
