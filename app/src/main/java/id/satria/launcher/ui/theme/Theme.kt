@@ -5,90 +5,110 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AppThemeColors
-// Store colors as Long (ULong bits) to avoid JVM inline-class signature clash.
-// Color is an inline class over Long — two properties returning Color in the
-// same class produce identical JVM signatures → "Platform declaration clash".
-// Storing as Long sidesteps this entirely.
+// Helpers — hex AARRGGBB (8 chars) ↔ Color
+// Color(Long) constructor takes ARGB packed as signed Long — same as 0xFFRRGGBB literals
+// ─────────────────────────────────────────────────────────────────────────────
+fun hexToColor(hex: String, default: Color): Color {
+    val cleaned = hex.trimStart('#').padStart(8, 'F')
+    return runCatching {
+        val long = cleaned.toLong(16)
+        // Color(long) uses ARGB packed — same convention as Color(0xFF......L)
+        Color(
+            alpha = ((long shr 24) and 0xFF) / 255f,
+            red   = ((long shr 16) and 0xFF) / 255f,
+            green = ((long shr  8) and 0xFF) / 255f,
+            blue  = ((long       ) and 0xFF) / 255f,
+        )
+    }.getOrDefault(default)
+}
+
+fun colorToHex(c: Color): String {
+    val a = (c.alpha * 255 + .5f).toInt()
+    val r = (c.red   * 255 + .5f).toInt()
+    val g = (c.green * 255 + .5f).toInt()
+    val b = (c.blue  * 255 + .5f).toInt()
+    return "%02X%02X%02X%02X".format(a, r, g, b)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AppThemeColors — mutable snapshot state, no inline-class clash
+// Store as Float components (alpha/red/green/blue) to avoid Color JVM mangling
 // ─────────────────────────────────────────────────────────────────────────────
 @Stable
-class AppThemeColors(
-    accentInit : Color,
-    bgInit     : Color,
-    borderInit : Color,
-    fontInit   : Color,
-) {
-    private var accentBits by mutableLongStateOf(accentInit.value.toLong())
-    private var bgBits     by mutableLongStateOf(bgInit.value.toLong())
-    private var borderBits by mutableLongStateOf(borderInit.value.toLong())
-    private var fontBits   by mutableLongStateOf(fontInit.value.toLong())
+class AppThemeColors(init: ThemePalette) {
 
-    fun updateAccent(c: Color) { accentBits = c.value.toLong() }
-    fun updateBg    (c: Color) { bgBits     = c.value.toLong() }
-    fun updateBorder(c: Color) { borderBits = c.value.toLong() }
-    fun updateFont  (c: Color) { fontBits   = c.value.toLong() }
+    private var accentA by mutableFloatStateOf(init.accent.alpha)
+    private var accentR by mutableFloatStateOf(init.accent.red)
+    private var accentG by mutableFloatStateOf(init.accent.green)
+    private var accentB by mutableFloatStateOf(init.accent.blue)
 
-    // Static structural — no conflict, these are val (not Color getters with mangling)
-    val Surface    = Color(0xFF1C1C1E)
-    val SurfaceMid = Color(0xFF2C2C2E)
-    val SurfaceHigh= Color(0xFF3A3A3C)
-    val Danger     = Color(0xFFFF453A)
+    private var bgA by mutableFloatStateOf(init.bg.alpha)
+    private var bgR by mutableFloatStateOf(init.bg.red)
+    private var bgG by mutableFloatStateOf(init.bg.green)
+    private var bgB by mutableFloatStateOf(init.bg.blue)
 
-    // Derived — computed from Long bits, returned as Color
-    // Functions instead of val to avoid any getter mangling issue
-    fun accent()        : Color = Color(accentBits.toULong())
-    fun bg()            : Color = Color(bgBits.toULong())
-    fun border()        : Color = Color(borderBits.toULong())
-    fun font()          : Color = Color(fontBits.toULong())
-    fun accentDim()     : Color = Color(accentBits.toULong()).copy(alpha = 0.75f)
-    fun borderLight()   : Color = Color(fontBits.toULong()).copy(alpha = 0.08f)
-    fun dockBg()        : Color = Color(bgBits.toULong()).copy(alpha = 0.92f)
-    fun screenBg()      : Color = Color(bgBits.toULong())
-    fun textPrimary()   : Color = Color(fontBits.toULong())
-    fun textSecondary() : Color = Color(fontBits.toULong()).copy(alpha = 0.55f)
-    fun textTertiary()  : Color = Color(fontBits.toULong()).copy(alpha = 0.28f)
+    private var borderA by mutableFloatStateOf(init.border.alpha)
+    private var borderR by mutableFloatStateOf(init.border.red)
+    private var borderG by mutableFloatStateOf(init.border.green)
+    private var borderB by mutableFloatStateOf(init.border.blue)
+
+    private var fontA by mutableFloatStateOf(init.font.alpha)
+    private var fontR by mutableFloatStateOf(init.font.red)
+    private var fontG by mutableFloatStateOf(init.font.green)
+    private var fontB by mutableFloatStateOf(init.font.blue)
+
+    fun updateAccent(c: Color) { accentA=c.alpha; accentR=c.red; accentG=c.green; accentB=c.blue }
+    fun updateBg    (c: Color) { bgA=c.alpha;     bgR=c.red;     bgG=c.green;     bgB=c.blue }
+    fun updateBorder(c: Color) { borderA=c.alpha; borderR=c.red; borderG=c.green; borderB=c.blue }
+    fun updateFont  (c: Color) { fontA=c.alpha;   fontR=c.red;   fontG=c.green;   fontB=c.blue }
+
+    // Static structural colors (never change)
+    val Surface     = Color(0xFF1C1C1E)
+    val SurfaceMid  = Color(0xFF2C2C2E)
+    val SurfaceHigh = Color(0xFF3A3A3C)
+    val Danger      = Color(0xFFFF453A)
+
+    // Dynamic — computed from float components (no Color return mangling issue)
+    fun accentColor()      = Color(accentA, accentR, accentG, accentB)
+    fun bgColor()          = Color(bgA, bgR, bgG, bgB)
+    fun borderColor()      = Color(borderA, borderR, borderG, borderB)
+    fun fontColor()        = Color(fontA, fontR, fontG, fontB)
+    fun accentDimColor()   = Color(accentA * .75f, accentR, accentG, accentB)
+    fun dockBgColor()      = Color(bgA * .92f, bgR, bgG, bgB)
+    fun borderLightColor() = Color(fontA * .08f, fontR, fontG, fontB)
+    fun textSecondary()    = Color(fontA * .55f, fontR, fontG, fontB)
+    fun textTertiary()     = Color(fontA * .28f, fontR, fontG, fontB)
 }
+
+data class ThemePalette(
+    val accent : Color = Color(0xFF27AE60),
+    val bg     : Color = Color(0xFF000000),
+    val border : Color = Color(0xFF1A1A1A),
+    val font   : Color = Color(0xFFFFFFFF),
+)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CompositionLocal
 // ─────────────────────────────────────────────────────────────────────────────
-val LocalAppTheme = staticCompositionLocalOf<AppThemeColors> {
-    error("No AppTheme provided")
-}
+val LocalAppTheme = staticCompositionLocalOf { AppThemeColors(ThemePalette()) }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SatriaColors — @Composable getters delegating to LocalAppTheme
+// SatriaColors — @Composable getters, delegates to LocalAppTheme
 // ─────────────────────────────────────────────────────────────────────────────
 object SatriaColors {
-    val Background   : Color @Composable get() = Color(0x00000000)
     val Surface      : Color @Composable get() = LocalAppTheme.current.Surface
     val SurfaceMid   : Color @Composable get() = LocalAppTheme.current.SurfaceMid
     val SurfaceHigh  : Color @Composable get() = LocalAppTheme.current.SurfaceHigh
     val Danger       : Color @Composable get() = LocalAppTheme.current.Danger
-    val Accent       : Color @Composable get() = LocalAppTheme.current.accent()
-    val AccentDim    : Color @Composable get() = LocalAppTheme.current.accentDim()
-    val Border       : Color @Composable get() = LocalAppTheme.current.border()
-    val BorderLight  : Color @Composable get() = LocalAppTheme.current.borderLight()
-    val DockBg       : Color @Composable get() = LocalAppTheme.current.dockBg()
-    val ScreenBackground: Color @Composable get() = LocalAppTheme.current.screenBg()
-    val TextPrimary  : Color @Composable get() = LocalAppTheme.current.textPrimary()
+    val Accent       : Color @Composable get() = LocalAppTheme.current.accentColor()
+    val AccentDim    : Color @Composable get() = LocalAppTheme.current.accentDimColor()
+    val Border       : Color @Composable get() = LocalAppTheme.current.borderColor()
+    val BorderLight  : Color @Composable get() = LocalAppTheme.current.borderLightColor()
+    val DockBg       : Color @Composable get() = LocalAppTheme.current.dockBgColor()
+    val ScreenBackground: Color @Composable get() = LocalAppTheme.current.bgColor()
+    val TextPrimary  : Color @Composable get() = LocalAppTheme.current.fontColor()
     val TextSecondary: Color @Composable get() = LocalAppTheme.current.textSecondary()
     val TextTertiary : Color @Composable get() = LocalAppTheme.current.textTertiary()
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-fun hexToColor(hex: String, default: Color): Color = runCatching {
-    Color(java.lang.Long.parseLong(hex, 16).toInt())
-}.getOrDefault(default)
-
-fun colorToHex(color: Color): String {
-    val a = (color.alpha * 255).toInt()
-    val r = (color.red   * 255).toInt()
-    val g = (color.green * 255).toInt()
-    val b = (color.blue  * 255).toInt()
-    return "%02X%02X%02X%02X".format(a, r, g, b)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -102,29 +122,32 @@ fun SatriaTheme(
     fontHex   : String = "FFFFFFFF",
     content   : @Composable () -> Unit,
 ) {
-    val theme = remember {
-        AppThemeColors(
-            accentInit = hexToColor(accentHex, Color(0xFF27AE60)),
-            bgInit     = hexToColor(bgHex,     Color(0xFF000000)),
-            borderInit = hexToColor(borderHex, Color(0xFF1A1A1A)),
-            fontInit   = hexToColor(fontHex,   Color(0xFFFFFFFF)),
-        )
+    val palette = ThemePalette(
+        accent = hexToColor(accentHex, Color(0xFF27AE60)),
+        bg     = hexToColor(bgHex,     Color(0xFF000000)),
+        border = hexToColor(borderHex, Color(0xFF1A1A1A)),
+        font   = hexToColor(fontHex,   Color(0xFFFFFFFF)),
+    )
+
+    // remember with no key — update in-place via SideEffect every recomposition
+    val theme = remember { AppThemeColors(palette) }
+    SideEffect {
+        theme.updateAccent(palette.accent)
+        theme.updateBg    (palette.bg)
+        theme.updateBorder(palette.border)
+        theme.updateFont  (palette.font)
     }
-    LaunchedEffect(accentHex) { theme.updateAccent(hexToColor(accentHex, Color(0xFF27AE60))) }
-    LaunchedEffect(bgHex)     { theme.updateBg    (hexToColor(bgHex,     Color(0xFF000000))) }
-    LaunchedEffect(borderHex) { theme.updateBorder(hexToColor(borderHex, Color(0xFF1A1A1A))) }
-    LaunchedEffect(fontHex)   { theme.updateFont  (hexToColor(fontHex,   Color(0xFFFFFFFF))) }
 
     val colorScheme = darkColorScheme(
         background     = Color.Transparent,
         surface        = theme.Surface,
         surfaceVariant = theme.SurfaceMid,
-        primary        = theme.accent(),
+        primary        = palette.accent,
         onPrimary      = Color.White,
-        onBackground   = theme.textPrimary(),
-        onSurface      = theme.textPrimary(),
+        onBackground   = palette.font,
+        onSurface      = palette.font,
         error          = theme.Danger,
-        outline        = theme.border(),
+        outline        = palette.border,
     )
 
     CompositionLocalProvider(LocalAppTheme provides theme) {

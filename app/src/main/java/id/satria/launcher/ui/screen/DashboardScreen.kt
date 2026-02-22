@@ -20,9 +20,7 @@ import id.satria.launcher.ui.theme.SatriaColors
 import java.text.SimpleDateFormat
 import java.util.*
 
-private val BLACK = Color(0xFF000000)
-
-// Tools that render fullscreen (extreme RAM saving — no composable stack underneath)
+private val BLACK @Composable get() = SatriaColors.ScreenBackground
 private val FULLSCREEN_TOOLS = setOf("calculator", "stopwatch")
 
 @Composable
@@ -44,38 +42,31 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
     val todayKey = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) }
 
     DisposableEffect(showPomodoro) {
-        activity?.requestedOrientation = if (showPomodoro)
-            ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        else
-            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        activity?.requestedOrientation = if (showPomodoro) ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         onDispose { activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT }
     }
 
     BackHandler {
         when {
-            showPomodoro                           -> { }
-            showChat                               -> showChat = false
-            activeTool != null                     -> activeTool = null
-            else                                   -> onClose()
+            showPomodoro   -> {}
+            showChat       -> showChat = false
+            activeTool != null -> activeTool = null
+            else           -> onClose()
         }
     }
 
-    if (showPomodoro) {
-        PomodoroScreen(onExit = { showPomodoro = false })
-        return
-    }
+    if (showPomodoro) { PomodoroScreen(onExit = { showPomodoro = false }); return }
 
-    // Fullscreen tools — render exclusively to save RAM (no header/grid underneath)
+    // Fullscreen tools — render exclusively (no composable stack)
     if (activeTool in FULLSCREEN_TOOLS) {
-        Box(modifier = Modifier.fillMaxSize().background(BLACK).systemBarsPadding()) {
+        Box(modifier = Modifier.fillMaxSize().background(SatriaColors.ScreenBackground).systemBarsPadding()) {
             when (activeTool) {
                 "calculator" -> CalculatorTool()
                 "stopwatch"  -> StopwatchTool()
             }
-            // Minimal back button overlay at bottom
             Box(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                .background(Color(0xCC000000)).padding(horizontal = 20.dp, vertical = 10.dp)
-                .navigationBarsPadding()) {
+                .background(Color(0xCC000000)).padding(horizontal = 20.dp, vertical = 10.dp).navigationBarsPadding()) {
                 Button(onClick = { activeTool = null }, modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.buttonColors(containerColor = SatriaColors.Surface)) {
                     Text("Back", color = SatriaColors.TextPrimary)
@@ -85,93 +76,86 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
         return
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(BLACK)
-        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) { }) {
+    Box(modifier = Modifier.fillMaxSize().background(SatriaColors.ScreenBackground)
+        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {}) {
+
         if (showChat) {
             ChatScreen(vm = vm, onClose = { showChat = false })
         } else {
+            // ── Seluruh konten dashboard dalam satu LazyColumn ─────────────
+            // activeTool == null → tampil header + tool grid (scrollable)
+            // activeTool != null → tampil tool screen (dengan back button)
             Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
 
-                DashboardHeader(
-                    avatarPath    = avatarPath,
-                    assistantName = assistantName,
-                    userName      = userName,
-                    onAvatarClick = { showChat = true },
-                    onClose       = onClose,
-                )
-
-                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(SatriaColors.BorderLight))
-
-                Box(modifier = Modifier.weight(1f)) {
-                    AnimatedContent(
-                        targetState = activeTool,
-                        transitionSpec = {
-                            if (targetState != null)
-                                (slideInHorizontally { it / 4 } + fadeIn(tween(200))).togetherWith(slideOutHorizontally { -it / 4 } + fadeOut(tween(150)))
-                            else
-                                (slideInHorizontally { -it / 4 } + fadeIn(tween(200))).togetherWith(slideOutHorizontally { it / 4 } + fadeOut(tween(150)))
-                        },
-                        label = "toolAnim",
-                    ) { tool ->
-                        when (tool) {
-                            "weather"   -> WeatherTool(
-                                savedLocations   = vm.weatherLocations.collectAsState().value,
-                                onAddLocation    = { vm.addWeatherLocation(it) },
-                                onRemoveLocation = { vm.removeWeatherLocation(it) })
-                            "money"     -> MoneyTool()
-                            "todo"      -> TodoTool(
-                                todos    = todos,
-                                onAdd    = { vm.addTodo(it) },
-                                onToggle = { vm.toggleTodo(it) },
-                                onRemove = { vm.removeTodo(it) })
-                            "countdown" -> CountdownTool(
-                                countdowns = countdowns,
-                                onAdd      = { name, date -> vm.addCountdown(name, date) },
-                                onRemove   = { vm.removeCountdown(it) })
-                            "notes"     -> NotesTool(
-                                notes    = notes,
-                                onAdd    = { vm.addNote(it) },
-                                onUpdate = { id, text -> vm.updateNote(id, text) },
-                                onDelete = { vm.deleteNote(it) })
-                            "converter" -> ConverterTool()
-                            "habits"    -> HabitTool(
-                                habits   = habits,
-                                onAdd    = { name, emoji -> vm.addHabit(name, emoji) },
-                                onToggle = { vm.checkHabit(it) },
-                                onDelete = { vm.deleteHabit(it) })
-                            else -> ToolGrid(
-                                todoPending  = todos.count { !it.done }.takeIf { it > 0 },
-                                cdFirst      = countdowns.firstOrNull(),
-                                noteCount    = notes.size,
-                                habitDone    = habits.count { it.doneToday(todayKey) },
-                                habitTotal   = habits.size,
-                                onWeather    = { activeTool = "weather" },
-                                onMoney      = { activeTool = "money" },
-                                onTodo       = { activeTool = "todo" },
-                                onCountdown  = { activeTool = "countdown" },
-                                onPomodoro   = { showPomodoro = true },
-                                onCalculator = { activeTool = "calculator" },
-                                onStopwatch  = { activeTool = "stopwatch" },
-                                onNotes      = { activeTool = "notes" },
-                                onConverter  = { activeTool = "converter" },
-                                onHabits     = { activeTool = "habits" })
+                if (activeTool == null) {
+                    // Scrollable dashboard utama
+                    Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                        DashboardHeader(
+                            avatarPath    = avatarPath,
+                            assistantName = assistantName,
+                            userName      = userName,
+                            onAvatarClick = { showChat = true },
+                            onClose       = onClose,
+                        )
+                        Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(SatriaColors.BorderLight))
+                        // Tool grid (tidak punya internal scroll — parent yang scroll)
+                        ToolGridNoScroll(
+                            todoPending  = todos.count { !it.done }.takeIf { it > 0 },
+                            cdFirst      = countdowns.firstOrNull(),
+                            noteCount    = notes.size,
+                            habitDone    = habits.count { it.doneToday(todayKey) },
+                            habitTotal   = habits.size,
+                            onWeather    = { activeTool = "weather" },
+                            onMoney      = { activeTool = "money" },
+                            onTodo       = { activeTool = "todo" },
+                            onCountdown  = { activeTool = "countdown" },
+                            onPomodoro   = { showPomodoro = true },
+                            onCalculator = { activeTool = "calculator" },
+                            onStopwatch  = { activeTool = "stopwatch" },
+                            onNotes      = { activeTool = "notes" },
+                            onConverter  = { activeTool = "converter" },
+                            onHabits     = { activeTool = "habits" },
+                        )
+                        Spacer(Modifier.height(16.dp))
+                    }
+                } else {
+                    // Tool screen — pakai weight supaya back button tetap di bawah
+                    Box(modifier = Modifier.weight(1f)) {
+                        AnimatedContent(
+                            targetState = activeTool,
+                            transitionSpec = {
+                                if (targetState != null)
+                                    (slideInHorizontally { it / 4 } + fadeIn(tween(200))).togetherWith(slideOutHorizontally { -it / 4 } + fadeOut(tween(150)))
+                                else
+                                    (slideInHorizontally { -it / 4 } + fadeIn(tween(200))).togetherWith(slideOutHorizontally { it / 4 } + fadeOut(tween(150)))
+                            },
+                            label = "toolAnim",
+                        ) { tool ->
+                            when (tool) {
+                                "weather"   -> WeatherTool(
+                                    savedLocations   = vm.weatherLocations.collectAsState().value,
+                                    onAddLocation    = { vm.addWeatherLocation(it) },
+                                    onRemoveLocation = { vm.removeWeatherLocation(it) })
+                                "money"     -> MoneyTool()
+                                "todo"      -> TodoTool(todos = todos,
+                                    onAdd = { vm.addTodo(it) }, onToggle = { vm.toggleTodo(it) }, onRemove = { vm.removeTodo(it) })
+                                "countdown" -> CountdownTool(countdowns = countdowns,
+                                    onAdd = { n, d -> vm.addCountdown(n, d) }, onRemove = { vm.removeCountdown(it) })
+                                "notes"     -> NotesTool(notes = notes,
+                                    onAdd = { vm.addNote(it) }, onUpdate = { i, t -> vm.updateNote(i, t) }, onDelete = { vm.deleteNote(it) })
+                                "converter" -> ConverterTool()
+                                "habits"    -> HabitTool(habits = habits,
+                                    onAdd = { n, e -> vm.addHabit(n, e) }, onToggle = { vm.checkHabit(it) }, onDelete = { vm.deleteHabit(it) })
+                                else        -> {}
+                            }
                         }
                     }
-                }
-
-                AnimatedVisibility(
-                    visible = activeTool != null && activeTool !in FULLSCREEN_TOOLS,
-                    enter   = slideInVertically { it } + fadeIn(tween(200)),
-                    exit    = slideOutVertically { it } + fadeOut(tween(150)),
-                ) {
-                    Column {
-                        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(SatriaColors.BorderLight))
-                        Box(modifier = Modifier.fillMaxWidth().background(BLACK)
-                            .padding(horizontal = 20.dp, vertical = 10.dp).navigationBarsPadding()) {
-                            Button(onClick = { activeTool = null }, modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = SatriaColors.Surface)) {
-                                Text("Back", color = SatriaColors.TextPrimary)
-                            }
+                    // Back button
+                    Box(modifier = Modifier.fillMaxWidth().background(SatriaColors.ScreenBackground)
+                        .padding(horizontal = 20.dp, vertical = 10.dp).navigationBarsPadding()) {
+                        Button(onClick = { activeTool = null }, modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = SatriaColors.Surface)) {
+                            Text("Back", color = SatriaColors.TextPrimary)
                         }
                     }
                 }
