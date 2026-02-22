@@ -12,9 +12,9 @@ Your wallpaper shines through. Your apps load fast. Your phone feels like yours 
 
 ---
 
-## Why Satria?
+## Why Satria Launcher?
 
-Most launchers are either cluttered with features you'll never use, or so minimal they're useless. Satria sits in the sweet spot — a clean home screen with a quiet set of tools ready when you actually need them.
+Most launchers are either cluttered with features you'll never use, or so minimal they're useless. Satria Launcher sits in the sweet spot, a clean home screen with a quiet set of tools ready when you actually need them.
 
 - **Transparent background** — your wallpaper is the design
 - **Blazing fast** — lightweight and smooth on any device
