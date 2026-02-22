@@ -5,7 +5,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AppTheme — mutable, di-compose dari ViewModel, persisted via Prefs
+// AppThemeColors — mutable state, di-update dari ViewModel
 // ─────────────────────────────────────────────────────────────────────────────
 @Stable
 class AppThemeColors(
@@ -19,46 +19,71 @@ class AppThemeColors(
     var border  by mutableStateOf(border)
     var font    by mutableStateOf(font)
 
-    // Derived static colors — tidak ikut user palette (structural / accessibility)
-    val Surface         get() = Color(0xFF1C1C1E)
-    val SurfaceMid      get() = Color(0xFF2C2C2E)
-    val SurfaceHigh     get() = Color(0xFF3A3A3C)
-    val TextPrimary     get() = font
-    val TextSecondary   get() = font.copy(alpha = 0.55f)
-    val TextTertiary    get() = font.copy(alpha = 0.30f)
-    val Accent          get() = accent
-    val AccentDim       get() = accent.copy(alpha = 0.75f)
-    val Danger          get() = Color(0xFFFF453A)
-    val DockBg          get() = bg.copy(alpha = 0.92f)
-    val Border          get() = border
-    val BorderLight     get() = font.copy(alpha = 0.08f)
+    val Surface          = Color(0xFF1C1C1E)
+    val SurfaceMid       = Color(0xFF2C2C2E)
+    val SurfaceHigh      = Color(0xFF3A3A3C)
+    val Danger           = Color(0xFFFF453A)
+    val Background       = Color(0x00000000)
+
+    val TextPrimary      get() = font
+    val TextSecondary    get() = font.copy(alpha = 0.55f)
+    val TextTertiary     get() = font.copy(alpha = 0.28f)
+    val Accent           get() = accent
+    val AccentDim        get() = accent.copy(alpha = 0.75f)
+    val DockBg           get() = bg.copy(alpha = 0.92f)
+    val Border           get() = border
+    val BorderLight      get() = font.copy(alpha = 0.08f)
     val ScreenBackground get() = bg
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CompositionLocal
+// ─────────────────────────────────────────────────────────────────────────────
 val LocalAppTheme = staticCompositionLocalOf<AppThemeColors> {
     error("No AppTheme provided")
 }
 
-// Convenience accessor
+// ─────────────────────────────────────────────────────────────────────────────
+// SatriaColors — @Composable accessor, no allocation, delegates to LocalAppTheme
+// Usage in composables: SatriaColors.Accent, SatriaColors.TextPrimary, etc.
+// ─────────────────────────────────────────────────────────────────────────────
 object SatriaColors {
-    // These are accessed statically from composables — delegate to local theme
-    val Background      = Color(0x00000000)
-    val Surface         get() = Color(0xFF1C1C1E)
-    val SurfaceMid      get() = Color(0xFF2C2C2E)
-    val SurfaceHigh     get() = Color(0xFF3A3A3C)
-    val TextPrimary     get() = LocalAppTheme.current.TextPrimary
-    val TextSecondary   get() = LocalAppTheme.current.TextSecondary
-    val TextTertiary    get() = LocalAppTheme.current.TextTertiary
-    val Accent          get() = LocalAppTheme.current.Accent
-    val AccentDim       get() = LocalAppTheme.current.AccentDim
-    val Danger          get() = Color(0xFFFF453A)
-    val DockBg          get() = LocalAppTheme.current.DockBg
-    val Border          get() = LocalAppTheme.current.Border
-    val BorderLight     get() = LocalAppTheme.current.BorderLight
-    val ScreenBackground get() = LocalAppTheme.current.ScreenBackground
+    val current: AppThemeColors
+        @Composable get() = LocalAppTheme.current
+
+    val Background: Color
+        @Composable get() = Color(0x00000000)
+    val Surface: Color
+        @Composable get() = LocalAppTheme.current.Surface
+    val SurfaceMid: Color
+        @Composable get() = LocalAppTheme.current.SurfaceMid
+    val SurfaceHigh: Color
+        @Composable get() = LocalAppTheme.current.SurfaceHigh
+    val TextPrimary: Color
+        @Composable get() = LocalAppTheme.current.TextPrimary
+    val TextSecondary: Color
+        @Composable get() = LocalAppTheme.current.TextSecondary
+    val TextTertiary: Color
+        @Composable get() = LocalAppTheme.current.TextTertiary
+    val Accent: Color
+        @Composable get() = LocalAppTheme.current.Accent
+    val AccentDim: Color
+        @Composable get() = LocalAppTheme.current.AccentDim
+    val Danger: Color
+        @Composable get() = Color(0xFFFF453A)
+    val DockBg: Color
+        @Composable get() = LocalAppTheme.current.DockBg
+    val Border: Color
+        @Composable get() = LocalAppTheme.current.Border
+    val BorderLight: Color
+        @Composable get() = LocalAppTheme.current.BorderLight
+    val ScreenBackground: Color
+        @Composable get() = LocalAppTheme.current.ScreenBackground
 }
 
-// Parse AARRGGBB hex string → Color, fallback to default
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
 fun hexToColor(hex: String, default: Color): Color = runCatching {
     Color(java.lang.Long.parseLong(hex, 16).toInt())
 }.getOrDefault(default)
@@ -71,6 +96,9 @@ fun colorToHex(color: Color): String {
     return "%02X%02X%02X%02X".format(a, r, g, b)
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SatriaTheme — root composable, provide theme + MaterialTheme
+// ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun SatriaTheme(
     accentHex : String = "FF27AE60",
@@ -87,7 +115,7 @@ fun SatriaTheme(
             font   = hexToColor(fontHex,   Color(0xFFFFFFFF)),
         )
     }
-    // Update only when hex values change — no reallocation
+    // Update state in-place when hex values change (no reallocation)
     LaunchedEffect(accentHex) { theme.accent = hexToColor(accentHex, Color(0xFF27AE60)) }
     LaunchedEffect(bgHex)     { theme.bg     = hexToColor(bgHex,     Color(0xFF000000)) }
     LaunchedEffect(borderHex) { theme.border = hexToColor(borderHex, Color(0xFF1A1A1A)) }
@@ -97,12 +125,12 @@ fun SatriaTheme(
         background     = Color.Transparent,
         surface        = theme.Surface,
         surfaceVariant = theme.SurfaceMid,
-        primary        = theme.Accent,
+        primary        = theme.accent,
         onPrimary      = Color.White,
-        onBackground   = theme.TextPrimary,
-        onSurface      = theme.TextPrimary,
+        onBackground   = theme.font,
+        onSurface      = theme.font,
         error          = theme.Danger,
-        outline        = theme.Border,
+        outline        = theme.border,
     )
 
     CompositionLocalProvider(LocalAppTheme provides theme) {
