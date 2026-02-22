@@ -77,19 +77,19 @@ fun CalculatorTool() {
         }
     }
 
-    Column(modifier=Modifier.fillMaxSize().background(Color.Black), verticalArrangement=Arrangement.Bottom) {
-        Box(modifier=Modifier.fillMaxWidth().weight(1f).padding(horizontal=24.dp,vertical=8.dp), contentAlignment=Alignment.BottomEnd) {
+    Column(modifier=Modifier.fillMaxWidth().background(Color.Black), verticalArrangement=Arrangement.Bottom) {
+        Box(modifier=Modifier.fillMaxWidth().padding(horizontal=24.dp, vertical=8.dp), contentAlignment=Alignment.BottomEnd) {
             Column(horizontalAlignment=Alignment.End) {
                 if(expr.isNotEmpty()&&!justEqual&&expr!=display)
-                    Text(expr, color=SatriaColors.TextTertiary, fontSize=15.sp, maxLines=1, overflow=TextOverflow.Ellipsis)
+                    Text(expr, color=SatriaColors.TextTertiary, fontSize=13.sp, maxLines=1, overflow=TextOverflow.Ellipsis)
                 Text(display, color=Color.White,
-                    fontSize=when{display.length>14->32.sp;display.length>9->44.sp;else->60.sp},
+                    fontSize=when{display.length>14->28.sp;display.length>9->36.sp;else->48.sp},
                     fontWeight=FontWeight.Thin, textAlign=TextAlign.End, maxLines=1, overflow=TextOverflow.Ellipsis)
             }
         }
-        Column(modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp).padding(bottom=16.dp), verticalArrangement=Arrangement.spacedBy(10.dp)) {
+        Column(modifier=Modifier.fillMaxWidth().padding(horizontal=10.dp).padding(bottom=12.dp), verticalArrangement=Arrangement.spacedBy(8.dp)) {
             ROWS.forEach { row ->
-                Row(modifier=Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+                Row(modifier=Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     row.forEach { btn -> CalcButton(btn=btn, modifier=Modifier.weight(1f), onClick={press(btn)}) }
                 }
             }
