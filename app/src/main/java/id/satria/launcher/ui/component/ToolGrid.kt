@@ -31,20 +31,63 @@ fun ToolGrid(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(20.dp),
+            .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        // Section label
+        Text(
+            "TOOLS",
+            color = SatriaColors.TextTertiary,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.2.sp,
+        )
+
+        Spacer(Modifier.height(2.dp))
+
+        // Row 1: Weather + Money
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ToolCard(icon = "🌤️", label = "Weather",        preview = null,                      onClick = onWeather,   modifier = Modifier.weight(1f))
-            ToolCard(icon = "💱", label = "Money Exchange", preview = null,                      onClick = onMoney,     modifier = Modifier.weight(1f))
+            ToolCard(
+                icon    = "🌤️",
+                label   = "Weather",
+                preview = null,
+                onClick = onWeather,
+                modifier = Modifier.weight(1f),
+            )
+            ToolCard(
+                icon    = "💱",
+                label   = "Exchange",
+                preview = null,
+                onClick = onMoney,
+                modifier = Modifier.weight(1f),
+            )
         }
+
+        // Row 2: Todo + Countdown
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ToolCard(icon = "📝", label = "To Do",      preview = todoPending?.let { "$it task${if (it > 1) "s" else ""} pending" }, onClick = onTodo,      modifier = Modifier.weight(1f))
-            ToolCard(icon = "⏳", label = "Countdown",  preview = cdFirst?.let { cdPreview(it) },                                    onClick = onCountdown, modifier = Modifier.weight(1f))
+            ToolCard(
+                icon    = "📝",
+                label   = "To Do",
+                preview = todoPending?.let { "$it task${if (it > 1) "s" else ""} pending" },
+                onClick = onTodo,
+                modifier = Modifier.weight(1f),
+            )
+            ToolCard(
+                icon    = "⏳",
+                label   = "Countdown",
+                preview = cdFirst?.let { cdPreview(it) },
+                onClick = onCountdown,
+                modifier = Modifier.weight(1f),
+            )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            ToolCard(icon = "🍅", label = "Pomodoro", preview = "Focus mode", onClick = onPomodoro, modifier = Modifier.weight(1f))
-        }
+
+        // Row 3: Pomodoro — wide card
+        ToolCardWide(
+            icon    = "🍅",
+            label   = "Pomodoro",
+            preview = "Start a focus session",
+            onClick = onPomodoro,
+        )
     }
 }
 
@@ -58,20 +101,58 @@ private fun ToolCard(
 ) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(SatriaColors.Surface)
             .clickable(onClick = onClick)
-            .padding(14.dp)
-            .defaultMinSize(minHeight = 88.dp),
-        verticalArrangement = Arrangement.Center,
+            .padding(16.dp)
+            .defaultMinSize(minHeight = 90.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(icon, fontSize = 24.sp)
-        Spacer(Modifier.height(6.dp))
-        Text(label, color = SatriaColors.TextPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-        if (preview != null) {
-            Spacer(Modifier.height(4.dp))
-            Text(preview, color = SatriaColors.TextTertiary, fontSize = 10.sp, lineHeight = 14.sp, maxLines = 2)
+        Text(icon, fontSize = 26.sp)
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                label,
+                color      = SatriaColors.TextPrimary,
+                fontSize   = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            if (preview != null) {
+                Text(
+                    preview,
+                    color    = SatriaColors.TextTertiary,
+                    fontSize = 11.sp,
+                    maxLines = 2,
+                    lineHeight = 15.sp,
+                )
+            }
         }
+    }
+}
+
+@Composable
+private fun ToolCardWide(
+    icon: String,
+    label: String,
+    preview: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(SatriaColors.Surface)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(icon, fontSize = 28.sp)
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(label, color = SatriaColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Text(preview, color = SatriaColors.TextTertiary, fontSize = 11.sp)
+        }
+        Spacer(Modifier.weight(1f))
+        Text("→", color = SatriaColors.TextTertiary, fontSize = 18.sp)
     }
 }
 
@@ -83,7 +164,7 @@ private fun cdPreview(item: CountdownItem): String {
         val diff   = target - now
         val days   = TimeUnit.MILLISECONDS.toDays(diff)
         when {
-            days > 0  -> "${item.name}: ${days}d left"
+            days > 0   -> "${item.name}: ${days}d left"
             days == 0L -> "${item.name}: Today!"
             else       -> "${item.name}: ${-days}d ago"
         }

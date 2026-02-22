@@ -27,9 +27,9 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
     val todos         by vm.todos.collectAsState()
     val countdowns    by vm.countdowns.collectAsState()
 
-    var activeTool    by remember { mutableStateOf<String?>(null) }
-    var showChat      by remember { mutableStateOf(false) }
-    var showPomodoro  by remember { mutableStateOf(false) }
+    var activeTool   by remember { mutableStateOf<String?>(null) }
+    var showChat     by remember { mutableStateOf(false) }
+    var showPomodoro by remember { mutableStateOf(false) }
 
     // Unlock rotation when Pomodoro is visible, lock portrait otherwise
     DisposableEffect(showPomodoro) {
@@ -45,14 +45,14 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
 
     BackHandler {
         when {
-            showPomodoro       -> { /* Pomodoro: tidak bisa back, harus pakai exit button */ }
+            showPomodoro       -> { /* exit via button only */ }
             showChat           -> showChat = false
             activeTool != null -> activeTool = null
             else               -> onClose()
         }
     }
 
-    // ── Pomodoro mode: render HANYA PomodoroScreen, semua lainnya dibuang ─────
+    // ── Pomodoro fullscreen ───────────────────────────────────────────────────
     if (showPomodoro) {
         PomodoroScreen(onExit = { showPomodoro = false })
         return
@@ -63,24 +63,33 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .background(SatriaColors.ScreenBackground)
-            // Intercept semua sentuhan agar tidak tembus ke HomeScreen
             .clickable(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() }
-            ) { /* Block */ },
+            ) { /* block passthrough */ },
     ) {
         if (showChat) {
             ChatScreen(vm = vm, onClose = { showChat = false })
         } else {
             Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+
+                // ── Header ─────────────────────────────────────────────────
                 DashboardHeader(
                     avatarPath    = avatarPath,
                     userName      = userName,
                     onAvatarClick = { showChat = true },
                     onClose       = onClose,
                 )
-                HorizontalDivider(color = SatriaColors.Border, thickness = 1.dp)
 
+                // Subtle separator line
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(SatriaColors.BorderLight)
+                )
+
+                // ── Tool area ──────────────────────────────────────────────
                 Box(modifier = Modifier.weight(1f)) {
                     AnimatedContent(
                         targetState = activeTool,
@@ -127,20 +136,33 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                     }
                 }
 
+                // ── Back bar (shown when a tool is active) ─────────────────
                 AnimatedVisibility(
                     visible = activeTool != null,
                     enter   = slideInVertically { it } + fadeIn(tween(200)),
                     exit    = slideOutVertically { it } + fadeOut(tween(150)),
                 ) {
                     Column {
-                        HorizontalDivider(color = SatriaColors.Border)
-                        Box(modifier = Modifier.fillMaxWidth().background(SatriaColors.ScreenBackground)
-                            .padding(horizontal = 20.dp, vertical = 10.dp).navigationBarsPadding()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .background(SatriaColors.BorderLight)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(SatriaColors.ScreenBackground)
+                                .padding(horizontal = 20.dp, vertical = 10.dp)
+                                .navigationBarsPadding()
+                        ) {
                             Button(
                                 onClick = { activeTool = null },
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = SatriaColors.Surface),
-                            ) { Text("Back", color = SatriaColors.TextPrimary) }
+                                colors   = ButtonDefaults.buttonColors(containerColor = SatriaColors.Surface),
+                            ) {
+                                Text("← Back", color = SatriaColors.TextPrimary)
+                            }
                         }
                     }
                 }

@@ -175,8 +175,7 @@ private fun TimePickerRow(
         PickerCard(label = "HRS", value = hour,
             onUp = { if (hour < 5)  onHour(hour + 1) },
             onDown = { if (hour > 0) onHour(hour - 1) })
-        Text(":", color = DimWhite40, fontSize = 44.sp, fontWeight = FontWeight.Thin,
-            modifier = Modifier.padding(bottom = 8.dp))
+        Spacer(Modifier.width(8.dp))
         PickerCard(label = "MIN", value = minute,
             onUp = { if (minute < 59) onMinute(minute + 1) },
             onDown = { if (minute > 0)  onMinute(minute - 1) })
