@@ -26,6 +26,8 @@ Most launchers are either cluttered with features you'll never use, or so minima
 ### 🏠 Home Screen
 Grid or list layout, toggle app names on/off, hide apps you don't want cluttering your drawer. Long press any app for quick actions such as pin, hide, or uninstall without ever leaving the home screen.
 
+In **Grid mode**, apps are organized into pages you swipe left and right — just like iOS or One UI. A page indicator appears above the Brief pill so you always know which page you're on. The number of columns and rows per page is fully customizable from Settings.
+
 ### 📌 Dock
 Pin up to 4 favorite apps for instant access. Your avatar lives here too, tap to open the Dashboard, long press for Settings.
 
@@ -54,7 +56,7 @@ A fullscreen focus timer built around the Pomodoro technique. Set your own work 
 A built-in calculator that handles everyday arithmetic with no internet required. Supports addition, subtraction, multiplication, and division with a clean, tap-friendly button layout.
 
 ### ⏱️ Stopwatch & Timer
-A dual-purpose time tool. The **Stopwatch** records lap splits in a scrollable list so you can compare times at a glance. The **Timer** lets you set any countdown duration and alerts you when time is up.
+A dual-purpose time tool. The **Stopwatch** records lap splits in a scrollable list displayed above the controls, so you can compare all your times at a glance without anything being hidden behind the interface. The **Timer** lets you set any countdown duration and alerts you when time is up.
 
 ### 🗒️ Notes
 Jot down anything quickly. Notes are saved locally with a timestamp. Tap any note to edit or delete it. The Dashboard badge shows how many notes you have at a glance.
@@ -72,6 +74,7 @@ Build streaks that stick. Add daily habits, tap to mark them done, and watch a �
 Long press your avatar in the Dock to open Settings at any time. Everything about your home screen is adjustable:
 
 - **Layout** — switch between Grid and List view
+- **Grid size** — when in Grid mode, choose how many columns (3–6) and rows (3–7) fit on each page using a tap selector; your choice is saved and restored after a restart
 - **App names** — show or hide labels under icons
 - **Icon size** — slider for both home screen and Dock icons independently
 - **Dark / Light mode** — toggle the app theme globally
