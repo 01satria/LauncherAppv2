@@ -165,7 +165,7 @@ fun DashboardHeader(
             Spacer(Modifier.height(6.dp))
             Text(
                 message,
-                color = SatriaColors.TextTertiary,
+                color = SatriaColors.TextSecondary,
                 fontSize = 12.sp,
                 lineHeight = 18.sp,
             )
