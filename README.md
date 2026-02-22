@@ -1,6 +1,6 @@
 # Satria Launcher
 
-**A launcher that stays out of your way — until you need it.**
+**A launcher that stays out of your way, until you need it.**
 
 ![Platform](https://img.shields.io/badge/platform-Android-3DDC84?style=flat-square&logo=android&logoColor=white)
 ![Min SDK](https://img.shields.io/badge/min%20SDK-26%20(Oreo)-3DDC84?style=flat-square&logo=android&logoColor=white)
@@ -25,16 +25,16 @@ Most launchers are either cluttered with features you'll never use, or so minima
 ## Features
 
 ### 🏠 Home Screen
-Grid or list layout, toggle app names on/off, hide apps you don't want cluttering your drawer. Long-press any app for quick actions — pin, hide, or uninstall without ever leaving the home screen.
+Grid or list layout, toggle app names on/off, hide apps you don't want cluttering your drawer. Long press any app for quick actions such pin, hide, or uninstall without ever leaving the home screen.
 
 ### 📌 Dock
-Pin up to 4 favorite apps for instant access. Your avatar lives here too, tap to open the Dashboard, long-press for Settings.
+Pin up to 4 favorite apps for instant access. Your avatar lives here too, tap to open the Dashboard, long press for Settings.
 
 ### 💬 Chat
 A lightweight personal assistant that knows your name, greets you by time of day, and keeps your conversation alive throughout the session.
 
 ### 🌤️ Weather
-Real-time weather for any city in the world — no account, no API key, completely free. Save up to 8 locations and check an hourly forecast for the rest of the day.
+Realtime weather for any city in the world, no account, no API key, completely free. Save up to 8 locations and check an hourly forecast for the rest of the day.
 
 ### 💱 Currency
 Live exchange rates for 14 currencies including USD, EUR, IDR, JPY, SGD, and more. Convert instantly, anytime.
@@ -43,7 +43,7 @@ Live exchange rates for 14 currencies including USD, EUR, IDR, JPY, SGD, and mor
 A minimal task list that remembers everything. Check things off with a satisfying animated tick. No accounts, no sync, no nonsense.
 
 ### ⏳ Countdown
-Track what matters — birthdays, deadlines, trips. Color-coded so you always know how close you are.
+Track what matters like birthdays, deadlines, trips. Color coded so you always know how close you are.
 
 ---
 
@@ -53,9 +53,9 @@ Download the APK for your device from the [Releases](../../releases) page:
 
 | APK | Device |
 |---|---|
-| `*-arm64-v8a.apk` | Most Android phones (2017 and newer) — **pick this if unsure** |
-| `*-armeabi-v7a.apk` | Older 32-bit Android phones |
-| `*-x86_64.apk` | Emulators and ChromeOS |
+| `arm64-v8a.apk` | Most Android phones (2017 and newer) — **pick this if unsure** |
+| `armeabi-v7a.apk` | Older 32-bit Android phones |
+| `x86_64.apk` | Emulators and ChromeOS |
 
 1. Download the right APK
 2. Enable **Install from unknown sources** in your Settings
