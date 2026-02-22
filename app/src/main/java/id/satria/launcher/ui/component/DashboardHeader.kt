@@ -71,10 +71,6 @@ fun DashboardHeader(
     val closeBg    = if (darkMode) Color(0x55000000) else Color(0x55FFFFFF)
     val closeColor = if (darkMode) Color.White       else Color.Black
 
-    // Assistant name & message — high contrast overlay at bottom of photo
-    val overlayBg      = if (darkMode) Color(0x88000000) else Color(0x88FFFFFF)
-    val overlayFont    = if (darkMode) Color.White       else Color(0xFF1C1C1E)
-    val overlaySubfont = if (darkMode) Color(0xCCFFFFFF) else Color(0xFF444444)
 
     Column(modifier = Modifier.fillMaxWidth()) {
 
@@ -135,39 +131,22 @@ fun DashboardHeader(
                 )
             }
 
-            // Assistant name + message — semi-opaque pill at bottom of photo
-            // Wrapped in its own Box so text is never clipped by the fade
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 14.dp, bottom = 14.dp, end = 56.dp)
-                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp))
-                    .background(overlayBg)
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                verticalArrangement = Arrangement.spacedBy(1.dp),
-            ) {
-                Text(
-                    assistantName,
-                    color = overlayFont,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                )
-                Text(
-                    message,
-                    color = overlaySubfont,
-                    fontSize = 11.sp,
-                    lineHeight = 15.sp,
-                )
-            }
         }
 
-        // ── Clock / date / battery ─────────────────────────────────────────
+        // ── Nama assistant · Jam · Tanggal · Message ──────────────────────
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .padding(top = 12.dp, bottom = 16.dp),
         ) {
+            Text(
+                assistantName,
+                color = SatriaColors.TextSecondary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+            )
+            Spacer(Modifier.height(2.dp))
             Text(
                 clockStr,
                 color = SatriaColors.TextPrimary,
@@ -183,6 +162,13 @@ fun DashboardHeader(
                 Text("·",     color = SatriaColors.TextTertiary,   fontSize = 14.sp)
                 Text(batText,  color = SatriaColors.TextSecondary, fontSize = 14.sp)
             }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                message,
+                color = SatriaColors.TextTertiary,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+            )
         }
     }
 }
