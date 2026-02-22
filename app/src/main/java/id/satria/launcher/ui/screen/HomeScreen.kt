@@ -29,6 +29,7 @@ import id.satria.launcher.ui.theme.SatriaColors
 // ── Grid config ───────────────────────────────────────────────────────────────
 private const val COLS = 4
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(vm: MainViewModel) {
     val filteredApps   by vm.filteredApps.collectAsState()
