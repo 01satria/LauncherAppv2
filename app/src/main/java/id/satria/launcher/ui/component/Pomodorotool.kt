@@ -13,15 +13,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-
-// ── Pomodoro fixed dark palette — always night mode ─────────────────────────
-private val POM_BG = androidx.compose.ui.graphics.Color.Black
-private val POM_SURFACE  = androidx.compose.ui.graphics.Color(0xFF1C1C1E)
-private val POM_ACCENT   = androidx.compose.ui.graphics.Color(0xFF27AE60)
-private val POM_DIM40    = androidx.compose.ui.graphics.Color(0x66FFFFFF)
-private val POM_DIM12    = androidx.compose.ui.graphics.Color(0x1FFFFFFF)
-private val POM_DIM08    = androidx.compose.ui.graphics.Color(0x14FFFFFF)
-private val POM_WHITE    = androidx.compose.ui.graphics.Color.White
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +21,15 @@ import androidx.compose.ui.unit.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.util.Calendar
+
+// ── Pomodoro fixed dark palette — always night mode ─────────────────────────
+private val POM_BG      = Color.Black
+private val POM_SURFACE = Color(0xFF1C1C1E)
+private val POM_ACCENT  = Color(0xFF27AE60)
+private val POM_DIM40   = Color(0x66FFFFFF)
+private val POM_DIM12   = Color(0x1FFFFFFF)
+private val POM_DIM08   = Color(0x14FFFFFF)
+private val POM_WHITE   = Color.White
 
 // ── Screen keep-alive helper ──────────────────────────────────────────────────
 private fun Activity.keepScreenOn(on: Boolean) {
