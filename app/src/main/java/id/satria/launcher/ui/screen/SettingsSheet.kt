@@ -23,6 +23,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.ImageLoader
+import id.satria.launcher.data.DEFAULT_DOCK_ICON_SIZE
+import id.satria.launcher.data.DEFAULT_ICON_SIZE
+import id.satria.launcher.data.MAX_DOCK_ICON_SIZE
+import id.satria.launcher.data.MAX_ICON_SIZE
+import id.satria.launcher.data.MIN_DOCK_ICON_SIZE
+import id.satria.launcher.data.MIN_ICON_SIZE
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import id.satria.launcher.MainViewModel
@@ -37,6 +43,13 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
     val showNames     by vm.showNames.collectAsState()
     val layoutMode    by vm.layoutMode.collectAsState()
     val avatarPath    by vm.avatarPath.collectAsState()
+
+    val iconSize      by vm.iconSize.collectAsState()
+    val dockIconSize  by vm.dockIconSize.collectAsState()
+
+    // Slider state — local untuk real-time preview, simpan saat user angkat jari
+    var tempIconSize     by remember(iconSize)     { mutableStateOf(iconSize.toFloat()) }
+    var tempDockIconSize by remember(dockIconSize) { mutableStateOf(dockIconSize.toFloat()) }
 
     var tempName   by remember(userName)      { mutableStateOf(userName) }
     var tempAssist by remember(assistantName) { mutableStateOf(assistantName) }
@@ -161,6 +174,37 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
 
                 SettingsToggleRow("Show hidden apps", showHidden) { vm.setShowHidden(it) }
                 SettingsToggleRow("Show app names",   showNames)  { vm.setShowNames(it) }
+
+                // ── Icon size sliders ────────────────────────────────────
+                SettingsLabel("APP ICON SIZE  (${tempIconSize.toInt()} dp)")
+                Slider(
+                    value = tempIconSize,
+                    onValueChange = { tempIconSize = it },
+                    onValueChangeFinished = { vm.setIconSize(tempIconSize.toInt()) },
+                    valueRange = MIN_ICON_SIZE.toFloat()..MAX_ICON_SIZE.toFloat(),
+                    steps = (MAX_ICON_SIZE - MIN_ICON_SIZE) / 2 - 1,
+                    colors = SliderDefaults.colors(
+                        thumbColor       = SatriaColors.Accent,
+                        activeTrackColor = SatriaColors.Accent,
+                        inactiveTrackColor = SatriaColors.SurfaceMid,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                SettingsLabel("DOCK ICON SIZE  (${tempDockIconSize.toInt()} dp)")
+                Slider(
+                    value = tempDockIconSize,
+                    onValueChange = { tempDockIconSize = it },
+                    onValueChangeFinished = { vm.setDockIconSize(tempDockIconSize.toInt()) },
+                    valueRange = MIN_DOCK_ICON_SIZE.toFloat()..MAX_DOCK_ICON_SIZE.toFloat(),
+                    steps = (MAX_DOCK_ICON_SIZE - MIN_DOCK_ICON_SIZE) / 2 - 1,
+                    colors = SliderDefaults.colors(
+                        thumbColor       = SatriaColors.Accent,
+                        activeTrackColor = SatriaColors.Accent,
+                        inactiveTrackColor = SatriaColors.SurfaceMid,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     OutlinedButton(onClick = onClose, modifier = Modifier.weight(1f),

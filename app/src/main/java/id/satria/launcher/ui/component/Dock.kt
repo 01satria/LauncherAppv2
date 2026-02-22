@@ -33,6 +33,7 @@ fun Dock(
     dockApps: List<AppData>,
     avatarPath: String?,
     avatarVersion: Int = 0,
+    dockIconSize: Int = 56,
     onAvatarClick: () -> Unit,
     onAppPress: (String) -> Unit,
     onAppLongPress: (String) -> Unit,
