@@ -158,7 +158,8 @@ private fun StopwatchPanel() {
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        // Margin bawah setinggi back button (48dp tombol + 10dp padding atas + 10dp bawah + nav bar ~20dp)
+        Spacer(Modifier.height(88.dp))
     }
 }
 
