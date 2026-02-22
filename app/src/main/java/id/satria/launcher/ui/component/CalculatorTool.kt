@@ -29,10 +29,11 @@ private fun calculate(src: String): String {
             while (peek().isDigit() || peek() == '.') i++
             return s.substring(start, i).toDouble()
         }
-        fun parseExpr(): Double
-        fun parseFactor(): Double = if (peek() == '(') { i++; val v = parseExpr(); if (peek() == ')') i++; v } else parseDouble()
+        var parseExprRef: () -> Double = { 0.0 }
+        fun parseFactor(): Double = if (peek() == '(') { i++; val v = parseExprRef(); if (peek() == ')') i++; v } else parseDouble()
         fun parseTerm(): Double { var v = parseFactor(); while (peek() == '*' || peek() == '/') { val op = s[i++]; val r = parseFactor(); v = if (op == '*') v * r else v / r }; return v }
         fun parseExpr(): Double { var v = if (peek() == '-') { i++; -parseTerm() } else parseTerm(); while (peek() == '+' || peek() == '-') { val op = s[i++]; val r = parseTerm(); v = if (op == '+') v + r else v - r }; return v }
+        parseExprRef = ::parseExpr
         val r = parseExpr()
         if (r.isNaN() || r.isInfinite()) "Error"
         else if (r == r.toLong().toDouble() && r in -1e15..1e15) r.toLong().toString()

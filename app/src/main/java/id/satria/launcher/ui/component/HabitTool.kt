@@ -116,7 +116,7 @@ fun HabitTool(
             return@Column
         }
 
-        LazyColumn(contentPadding = PaddingValues(horizontal = 20.dp, bottom = 20.dp),
+        LazyColumn(contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 0.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(habits, key = { it.id }) { habit ->
                 HabitRow(
