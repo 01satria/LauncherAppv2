@@ -12,9 +12,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import id.satria.launcher.ui.theme.SatriaColors
 import id.satria.launcher.utils.getAssistantMessage
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.*
@@ -52,8 +55,16 @@ fun DashboardHeader(
             contentAlignment = Alignment.Center,
         ) {
             if (avatarPath != null) {
-                AsyncImage(model = avatarPath, contentDescription = null,
-                    modifier = Modifier.fillMaxSize().clip(CircleShape))
+                val ctx = LocalContext.current
+                AsyncImage(
+                    model = ImageRequest.Builder(ctx)
+                        .data(avatarPath)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize().clip(CircleShape),
+                )
             } else {
                 Text("👤", fontSize = 22.sp)
             }

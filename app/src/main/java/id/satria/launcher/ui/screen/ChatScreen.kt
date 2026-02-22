@@ -17,7 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import id.satria.launcher.MainViewModel
 import id.satria.launcher.ui.theme.SatriaColors
 import kotlinx.coroutines.delay
@@ -151,7 +153,15 @@ fun ChatScreen(vm: MainViewModel, onClose: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 if (avatarPath != null) {
-                    AsyncImage(model = avatarPath, contentDescription = null, modifier = Modifier.fillMaxSize())
+                    AsyncImage(
+                        model = ImageRequest.Builder(LocalContext.current)
+                            .data(avatarPath)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().clip(androidx.compose.foundation.shape.CircleShape),
+                    )
                 } else {
                     Text("🤖", fontSize = 20.sp)
                 }
