@@ -28,7 +28,7 @@ Most launchers are either cluttered with features you'll never use, or so minima
 Grid or list layout, toggle app names on/off, hide apps you don't want cluttering your drawer. Long-press any app for quick actions — pin, hide, or uninstall without ever leaving the home screen.
 
 ### 📌 Dock
-Pin up to 4 favorite apps for instant access. Your avatar lives here too — tap to open the Dashboard, long-press for Settings.
+Pin up to 4 favorite apps for instant access. Your avatar lives here too, tap to open the Dashboard, long-press for Settings.
 
 ### 💬 Chat
 A lightweight personal assistant that knows your name, greets you by time of day, and keeps your conversation alive throughout the session.
