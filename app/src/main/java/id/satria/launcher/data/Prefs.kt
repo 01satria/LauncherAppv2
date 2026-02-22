@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
-// Satu DataStore per app — pengganti semua RNFS.writeFile di storage.ts
 private val Context.dataStore by preferencesDataStore("satria_prefs")
 
 object PrefKeys {
@@ -22,7 +21,18 @@ object PrefKeys {
     val TODOS             = stringPreferencesKey("todos")
     val COUNTDOWNS        = stringPreferencesKey("countdowns")
     val WEATHER_LOCATIONS = stringPreferencesKey("weather_locations")
+    // ── Icon size (stored as Int dp) ──────────────────────────────────────
+    val ICON_SIZE         = intPreferencesKey("icon_size")       // home screen icon
+    val DOCK_ICON_SIZE    = intPreferencesKey("dock_icon_size")  // dock icon
 }
+
+// Default icon sizes (dp)
+const val DEFAULT_ICON_SIZE      = 54
+const val DEFAULT_DOCK_ICON_SIZE = 56
+const val MIN_ICON_SIZE          = 36
+const val MAX_ICON_SIZE          = 72
+const val MIN_DOCK_ICON_SIZE     = 40
+const val MAX_DOCK_ICON_SIZE     = 72
 
 class Prefs(private val context: Context) {
 
@@ -30,12 +40,14 @@ class Prefs(private val context: Context) {
     private val json = Json { ignoreUnknownKeys = true }
 
     // ── Read flows ─────────────────────────────────────────────────────────
-    val userName        = ds.data.map { it[PrefKeys.USER_NAME] ?: "User" }
-    val assistantName   = ds.data.map { it[PrefKeys.ASSISTANT_NAME] ?: "Assistant" }
-    val showHidden      = ds.data.map { it[PrefKeys.SHOW_HIDDEN] ?: false }
-    val showNames       = ds.data.map { it[PrefKeys.SHOW_NAMES] ?: true }
-    val layoutMode      = ds.data.map { it[PrefKeys.LAYOUT_MODE] ?: "grid" }
-    val avatarPath      = ds.data.map { it[PrefKeys.AVATAR_PATH] }
+    val userName         = ds.data.map { it[PrefKeys.USER_NAME] ?: "User" }
+    val assistantName    = ds.data.map { it[PrefKeys.ASSISTANT_NAME] ?: "Assistant" }
+    val showHidden       = ds.data.map { it[PrefKeys.SHOW_HIDDEN] ?: false }
+    val showNames        = ds.data.map { it[PrefKeys.SHOW_NAMES] ?: true }
+    val layoutMode       = ds.data.map { it[PrefKeys.LAYOUT_MODE] ?: "grid" }
+    val avatarPath       = ds.data.map { it[PrefKeys.AVATAR_PATH] }
+    val iconSize         = ds.data.map { it[PrefKeys.ICON_SIZE] ?: DEFAULT_ICON_SIZE }
+    val dockIconSize     = ds.data.map { it[PrefKeys.DOCK_ICON_SIZE] ?: DEFAULT_DOCK_ICON_SIZE }
 
     val hiddenPackages  = ds.data.map {
         it[PrefKeys.HIDDEN_PACKAGES]
@@ -70,10 +82,12 @@ class Prefs(private val context: Context) {
     suspend fun setShowNames(v: Boolean)    = ds.edit { it[PrefKeys.SHOW_NAMES] = v }
     suspend fun setLayoutMode(v: String)    = ds.edit { it[PrefKeys.LAYOUT_MODE] = v }
     suspend fun setAvatarPath(v: String)    = ds.edit { it[PrefKeys.AVATAR_PATH] = v }
+    suspend fun setIconSize(v: Int)         = ds.edit { it[PrefKeys.ICON_SIZE] = v }
+    suspend fun setDockIconSize(v: Int)     = ds.edit { it[PrefKeys.DOCK_ICON_SIZE] = v }
 
-    suspend fun setHiddenPackages(v: List<String>)     = ds.edit { it[PrefKeys.HIDDEN_PACKAGES]   = json.encodeToString(v) }
-    suspend fun setDockPackages(v: List<String>)       = ds.edit { it[PrefKeys.DOCK_PACKAGES]     = json.encodeToString(v) }
-    suspend fun setTodos(v: List<TodoItem>)             = ds.edit { it[PrefKeys.TODOS]             = json.encodeToString(v) }
-    suspend fun setCountdowns(v: List<CountdownItem>)   = ds.edit { it[PrefKeys.COUNTDOWNS]       = json.encodeToString(v) }
-    suspend fun setWeatherLocations(v: List<String>)    = ds.edit { it[PrefKeys.WEATHER_LOCATIONS] = json.encodeToString(v) }
+    suspend fun setHiddenPackages(v: List<String>)   = ds.edit { it[PrefKeys.HIDDEN_PACKAGES]   = json.encodeToString(v) }
+    suspend fun setDockPackages(v: List<String>)     = ds.edit { it[PrefKeys.DOCK_PACKAGES]     = json.encodeToString(v) }
+    suspend fun setTodos(v: List<TodoItem>)           = ds.edit { it[PrefKeys.TODOS]             = json.encodeToString(v) }
+    suspend fun setCountdowns(v: List<CountdownItem>) = ds.edit { it[PrefKeys.COUNTDOWNS]       = json.encodeToString(v) }
+    suspend fun setWeatherLocations(v: List<String>)  = ds.edit { it[PrefKeys.WEATHER_LOCATIONS] = json.encodeToString(v) }
 }

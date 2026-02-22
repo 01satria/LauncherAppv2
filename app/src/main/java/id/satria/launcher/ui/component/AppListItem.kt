@@ -27,6 +27,7 @@ import id.satria.launcher.ui.theme.SatriaColors
 fun AppListItem(
     app: AppData,
     showName: Boolean,
+    iconSizeDp: Int = 50,
     onPress: (String) -> Unit,
     onLongPress: (String) -> Unit,
 ) {
@@ -54,7 +55,8 @@ fun AppListItem(
         // Pakai 96px sama seperti AppGridItem — share cache, tidak realokasi
         val bitmap = remember(app.packageName) {
             iconCache.get(app.packageName) ?: run {
-                val bmp = app.icon.toBitmap(96, 96, Bitmap.Config.ARGB_8888).asImageBitmap()
+                val px = (iconSizeDp * 2).coerceIn(72, 96)
+                val bmp = app.icon.toBitmap(px, px, Bitmap.Config.ARGB_8888).asImageBitmap()
                 iconCache.put(app.packageName, bmp)
                 bmp
             }
@@ -65,8 +67,8 @@ fun AppListItem(
             contentScale       = ContentScale.Fit,
             filterQuality      = FilterQuality.Medium,
             modifier           = Modifier
-                .size(50.dp)
-                .clip(RoundedCornerShape(12.dp)),
+                .size(iconSizeDp.dp)
+                .clip(RoundedCornerShape((iconSizeDp * 0.24f).dp)),
         )
         if (showName) {
             Text(

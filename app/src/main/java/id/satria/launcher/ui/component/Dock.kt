@@ -58,7 +58,7 @@ fun Dock(
             // ── Avatar ──────────────────────────────────────────────────────
             Box(
                 modifier = Modifier
-                    .size(58.dp)
+                    .size((dockIconSize + 2).dp)
                     .clip(CircleShape)
                     .background(SatriaColors.Surface)
                     // pointerInput lebih reliable untuk long press + tap
@@ -80,7 +80,7 @@ fun Dock(
                                 .diskCacheKey("avatar_$avatarVersion")
                                 .memoryCacheKey("avatar_$avatarVersion")
                                 .crossfade(true)
-                                .scale(Scale.FILL)
+                                .scale(Scale.FIT)
                                 .build(),
                             contentDescription = null,
                             contentScale       = ContentScale.Crop,
@@ -104,7 +104,7 @@ fun Dock(
 
             // ── Dock apps ────────────────────────────────────────────────────
             dockApps.forEach { app ->
-                DockIcon(app = app, onPress = onAppPress, onLongPress = onAppLongPress)
+                DockIcon(app = app, dockIconSize = dockIconSize, onPress = onAppPress, onLongPress = onAppLongPress)
             }
         }
     }
@@ -114,6 +114,7 @@ fun Dock(
 @Composable
 private fun DockIcon(
     app: AppData,
+    dockIconSize: Int = 56,
     onPress: (String) -> Unit,
     onLongPress: (String) -> Unit,
 ) {
@@ -147,10 +148,10 @@ private fun DockIcon(
         contentScale       = ContentScale.Fit,
         filterQuality      = FilterQuality.Medium,
         modifier           = Modifier
-            .size(56.dp)
+            .size(dockIconSize.dp)
             .scale(scale)
             .alpha(alpha)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape((dockIconSize * 0.25f).dp))
             .combinedClickable(
                 interactionSource = interactionSource,
                 indication        = null,

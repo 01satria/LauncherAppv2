@@ -29,6 +29,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // u2500u2500 avatarVersion u2014 increment setiap ganti foto, dipakai sebagai cache-bust key di Dock u2500u2500
     private val _avatarVersion = MutableStateFlow(0)
     val avatarVersion: StateFlow<Int> = _avatarVersion.asStateFlow()
+
+    // ── Icon sizes ─────────────────────────────────────────────────────────
+    val iconSize     = prefs.iconSize.stateIn(viewModelScope, SharingStarted.Eagerly, 54)
+    val dockIconSize = prefs.dockIconSize.stateIn(viewModelScope, SharingStarted.Eagerly, 56)
     val hiddenPackages  = prefs.hiddenPackages.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val dockPackages    = prefs.dockPackages.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val todos           = prefs.todos.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -97,6 +101,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setShowHidden(v: Boolean)    = viewModelScope.launch { prefs.setShowHidden(v) }
     fun setShowNames(v: Boolean)     = viewModelScope.launch { prefs.setShowNames(v) }
     fun setLayoutMode(v: String)     = viewModelScope.launch { prefs.setLayoutMode(v) }
+    fun setIconSize(v: Int)          = viewModelScope.launch { prefs.setIconSize(v) }
+    fun setDockIconSize(v: Int)      = viewModelScope.launch { prefs.setDockIconSize(v) }
 
     fun saveAvatar(bitmap: Bitmap) = viewModelScope.launch {
         val file = File(getApplication<Application>().filesDir, "avatar.jpg")

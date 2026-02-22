@@ -20,6 +20,8 @@ fun HomeScreen(vm: MainViewModel) {
     val showNames      by vm.showNames.collectAsState()
     val avatarPath     by vm.avatarPath.collectAsState()
     val avatarVersion  by vm.avatarVersion.collectAsState()
+    val iconSize       by vm.iconSize.collectAsState()
+    val dockIconSize   by vm.dockIconSize.collectAsState()
     val hiddenPackages by vm.hiddenPackages.collectAsState()
 
     var showDashboard by remember { mutableStateOf(false) }
@@ -47,7 +49,7 @@ fun HomeScreen(vm: MainViewModel) {
             ) {
                 items(filteredApps, key = { it.packageName }) { app ->
                     AppGridItem(
-                        app = app, showName = showNames,
+                        app = app, showName = showNames, iconSizeDp = iconSize,
                         onPress = { if (!overlayActive) vm.launchApp(it) },
                         onLongPress = { if (!overlayActive) actionTarget = it },
                     )
@@ -60,7 +62,7 @@ fun HomeScreen(vm: MainViewModel) {
             ) {
                 items(filteredApps, key = { it.packageName }) { app ->
                     AppListItem(
-                        app = app, showName = showNames,
+                        app = app, showName = showNames, iconSizeDp = iconSize,
                         onPress = { if (!overlayActive) vm.launchApp(it) },
                         onLongPress = { if (!overlayActive) actionTarget = it },
                     )
@@ -73,6 +75,7 @@ fun HomeScreen(vm: MainViewModel) {
             dockApps            = dockApps,
             avatarPath          = avatarPath,
             avatarVersion       = avatarVersion,
+            dockIconSize        = dockIconSize,
             onAvatarClick       = { if (!overlayActive) showDashboard = true },
             onAppPress          = { if (!overlayActive) vm.launchApp(it) },
             onAppLongPress      = { if (!overlayActive) actionTarget = it },
