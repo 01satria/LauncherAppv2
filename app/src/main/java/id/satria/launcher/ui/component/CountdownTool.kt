@@ -183,12 +183,7 @@ private fun CountdownRow(item: CountdownItem, onRemove: () -> Unit) {
     val days = daysLeft(item.targetDate)
     val past = days < 0
 
-    val bgColor = when {
-        days == 0 -> Color(0xFF1A2A1A)
-        past      -> Color(0xFF2A1A1A)
-        days <= 7 -> Color(0xFF1A1A2A)
-        else      -> SatriaColors.Surface
-    }
+    val bgColor = SatriaColors.CardBg
     val daysLabel = when {
         past      -> "${Math.abs(days)}d ago"
         days == 0 -> "Today! 🎉"

@@ -30,13 +30,8 @@ private fun Activity.keepScreenOn(on: Boolean) {
 }
 
 // ── Color constants — allocated once, never recreated ────────────────────────
-private val BgColor     = Color.Black
-private val AccentGreen = Color(0xFF27AE60)
-private val DimWhite40  = Color(0x66FFFFFF)
-private val DimWhite12  = Color(0x1FFFFFFF)
-private val DimWhite08  = Color(0x14FFFFFF)
 
-private val DangerRed   = Color(0xFFFF453A)
+private val DangerRed = Color(0xFFFF453A)
 
 @Composable
 fun PomodoroScreen(onExit: () -> Unit) {
@@ -71,7 +66,7 @@ fun PomodoroScreen(onExit: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(BgColor),
+            .background(androidx.compose.ui.graphics.Color.Black),
     ) {
         when (phase) {
             PomodoroPhase.SETUP -> SetupPanel(
@@ -158,9 +153,9 @@ private fun SetupPanel(
 @Composable
 private fun SetupTitle() {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("🍅  Pomodoro", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Light, letterSpacing = 2.sp)
+        Text("🍅  Pomodoro", color = SatriaColors.TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.Light, letterSpacing = 2.sp)
         Spacer(Modifier.height(6.dp))
-        Text("Set focus duration", color = DimWhite40, fontSize = 13.sp)
+        Text("Set focus duration", color = SatriaColors.TextSecondary, fontSize = 13.sp)
     }
 }
 
@@ -194,7 +189,7 @@ private fun PickerCard(label: String, value: Int, onUp: () -> Unit, onDown: () -
             .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(label, color = DimWhite40, fontSize = 11.sp, letterSpacing = 2.sp,
+        Text(label, color = SatriaColors.TextSecondary, fontSize = 11.sp, letterSpacing = 2.sp,
             modifier = Modifier.padding(top = 10.dp, bottom = 2.dp))
 
         // UP — large touch target (54dp height)
@@ -204,11 +199,11 @@ private fun PickerCard(label: String, value: Int, onUp: () -> Unit, onDown: () -
                     indication = null, onClick = onUp),
             contentAlignment = Alignment.Center,
         ) {
-            Text("▲", color = AccentGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text("▲", color = SatriaColors.Accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
 
         // Value
-        Text("%02d".format(value), color = Color.White, fontSize = 54.sp,
+        Text("%02d".format(value), color = SatriaColors.TextPrimary, fontSize = 54.sp,
             fontWeight = FontWeight.Thin, letterSpacing = 2.sp)
 
         // DOWN — large touch target (54dp height)
@@ -218,7 +213,7 @@ private fun PickerCard(label: String, value: Int, onUp: () -> Unit, onDown: () -
                     indication = null, onClick = onDown),
             contentAlignment = Alignment.Center,
         ) {
-            Text("▼", color = AccentGreen, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text("▼", color = SatriaColors.Accent, fontSize = 20.sp, fontWeight = FontWeight.Bold)
         }
 
         Spacer(Modifier.height(8.dp))
@@ -232,8 +227,8 @@ private fun StartButton(enabled: Boolean, onClick: () -> Unit) {
         enabled  = enabled,
         modifier = Modifier.fillMaxWidth().height(54.dp),
         colors   = ButtonDefaults.buttonColors(
-            containerColor         = AccentGreen,
-            disabledContainerColor = DimWhite08,
+            containerColor = SatriaColors.Accent,
+            disabledContainerColor = SatriaColors.BorderLight,
         ),
         shape = RoundedCornerShape(16.dp),
     ) { Text("Start Focus", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
@@ -242,7 +237,7 @@ private fun StartButton(enabled: Boolean, onClick: () -> Unit) {
 @Composable
 private fun CancelButton(onClick: () -> Unit) {
     TextButton(onClick = onClick) {
-        Text("Cancel", color = DimWhite40, fontSize = 14.sp)
+        Text("Cancel", color = SatriaColors.TextSecondary, fontSize = 14.sp)
     }
 }
 
@@ -280,11 +275,11 @@ private fun ClockPanel(
                 .padding(18.dp)
                 .size(38.dp)
                 .clip(CircleShape)
-                .background(DimWhite08)
+                .background(SatriaColors.BorderLight)
                 .clickable(interactionSource = remember { MutableInteractionSource() },
                     indication = null, onClick = onExitRequest),
             contentAlignment = Alignment.Center,
-        ) { Text("✕", color = DimWhite40, fontSize = 14.sp) }
+        ) { Text("✕", color = SatriaColors.TextSecondary, fontSize = 14.sp) }
 
         if (isLandscape) {
             Row(
@@ -294,21 +289,21 @@ private fun ClockPanel(
             ) {
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(if (isDone) "Done! 🎉" else "Focus",
-                        color = DimWhite40, fontSize = 12.sp, letterSpacing = 3.sp)
+                        color = SatriaColors.TextSecondary, fontSize = 12.sp, letterSpacing = 3.sp)
                     Spacer(Modifier.height(10.dp))
-                    Text(currentTime, color = Color.White, fontSize = 64.sp,
+                    Text(currentTime, color = SatriaColors.TextPrimary, fontSize = 64.sp,
                         fontWeight = FontWeight.Thin, letterSpacing = 4.sp, textAlign = TextAlign.Center)
                 }
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center) {
-                    Text(remStr, color = if (isDone) AccentGreen else DimWhite40,
+                    Text(remStr, color = if (isDone) SatriaColors.Accent else SatriaColors.TextSecondary,
                         fontSize = 28.sp, fontWeight = FontWeight.Light, letterSpacing = 2.sp)
                     Spacer(Modifier.height(20.dp))
                     LinearProgressIndicator(
                         progress   = { progress },
                         modifier   = Modifier.fillMaxWidth().height(1.dp),
-                        color      = AccentGreen,
-                        trackColor = DimWhite08,
+                        color = SatriaColors.Accent,
+                        trackColor = SatriaColors.BorderLight,
                     )
                 }
             }
@@ -319,19 +314,19 @@ private fun ClockPanel(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(if (isDone) "Done! 🎉" else "Focus",
-                    color = DimWhite40, fontSize = 12.sp, letterSpacing = 3.sp)
+                    color = SatriaColors.TextSecondary, fontSize = 12.sp, letterSpacing = 3.sp)
                 Spacer(Modifier.height(20.dp))
                 Text(currentTime, color = Color.White, fontSize = 72.sp,
                     fontWeight = FontWeight.Thin, letterSpacing = 4.sp, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(28.dp))
-                Text(remStr, color = if (isDone) AccentGreen else DimWhite40,
+                Text(remStr, color = if (isDone) SatriaColors.Accent else SatriaColors.TextSecondary,
                     fontSize = 24.sp, fontWeight = FontWeight.Light, letterSpacing = 2.sp)
                 Spacer(Modifier.height(28.dp))
                 LinearProgressIndicator(
                     progress   = { progress },
                     modifier   = Modifier.fillMaxWidth().height(1.dp),
-                    color      = AccentGreen,
-                    trackColor = DimWhite08,
+                    color = SatriaColors.Accent,
+                    trackColor = SatriaColors.BorderLight,
                 )
             }
         }
@@ -361,17 +356,17 @@ private fun ExitConfirmOverlay(onConfirm: () -> Unit, onDismiss: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("End focus session?", color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Medium)
+            Text("End focus session?", color = SatriaColors.TextPrimary, fontSize = 17.sp, fontWeight = FontWeight.Medium)
             Text(
                 "Screen timeout will be restored\nto its original setting.",
-                color = DimWhite40, fontSize = 13.sp, textAlign = TextAlign.Center, lineHeight = 20.sp,
+                color = SatriaColors.TextSecondary, fontSize = 13.sp, textAlign = TextAlign.Center, lineHeight = 20.sp,
             )
             Spacer(Modifier.height(8.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(
                     onClick = onDismiss, modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = DimWhite40),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, DimWhite12),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = SatriaColors.TextSecondary),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, SatriaColors.BorderLight),
                 ) { Text("Stay") }
                 Button(
                     onClick = onConfirm, modifier = Modifier.weight(1f),

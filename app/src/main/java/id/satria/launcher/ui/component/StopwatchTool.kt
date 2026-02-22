@@ -41,7 +41,7 @@ private enum class TmrState { IDLE, RUNNING, PAUSED, DONE }
 fun StopwatchTool() {
     var tab by remember { mutableIntStateOf(0) }
 
-    Column(modifier = Modifier.fillMaxSize().background(Color.Black)) {
+    Column(modifier = Modifier.fillMaxSize().background(SatriaColors.ScreenBackground)) {
         // Tab bar
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -81,7 +81,7 @@ private fun StopwatchPanel() {
     Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally) {
         Spacer(Modifier.weight(1f))
 
-        Text(fmtMs(elapsed), color = Color.White, fontSize = 52.sp,
+        Text(fmtMs(elapsed), color = SatriaColors.TextPrimary, fontSize = 52.sp,
             fontWeight = FontWeight.Thin, letterSpacing = 2.sp, textAlign = TextAlign.Center)
 
         if (laps.isNotEmpty()) {
@@ -162,7 +162,7 @@ private fun TimerPanel() {
             }
         } else {
             val done = state == TmrState.DONE
-            Text(fmtMs(remaining), color = if (done) GREEN else Color.White,
+            Text(fmtMs(remaining), color = if (done) GREEN else SatriaColors.TextPrimary,
                 fontSize = 52.sp, fontWeight = FontWeight.Thin, letterSpacing = 2.sp)
             Spacer(Modifier.height(16.dp))
             Box(modifier = Modifier.fillMaxWidth(0.7f).height(3.dp).clip(RoundedCornerShape(2.dp)).background(SatriaColors.Divider)) {
@@ -211,7 +211,7 @@ private fun TimerPicker(label: String, value: Int, min: Int, max: Int, onChange:
             .clickable(interactionSource = remember{MutableInteractionSource()}, indication = null) { if (value < max) onChange(value + 1) },
             contentAlignment = Alignment.Center) { Text("▲", color = SatriaColors.Accent, fontSize = 11.sp) }
         Spacer(Modifier.height(6.dp))
-        Text("%02d".format(value), color = Color.White, fontSize = 42.sp, fontWeight = FontWeight.Thin)
+        Text("%02d".format(value), color = SatriaColors.TextPrimary, fontSize = 42.sp, fontWeight = FontWeight.Thin)
         Spacer(Modifier.height(6.dp))
         Box(modifier = Modifier.size(32.dp).clip(RoundedCornerShape(8.dp)).background(SatriaColors.SurfaceMid)
             .clickable(interactionSource = remember{MutableInteractionSource()}, indication = null) { if (value > min) onChange(value - 1) },

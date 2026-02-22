@@ -20,7 +20,6 @@ import id.satria.launcher.ui.theme.SatriaColors
 import java.text.SimpleDateFormat
 import java.util.*
 
-private val BLACK @Composable get() = SatriaColors.ScreenBackground
 private val FULLSCREEN_TOOLS = setOf("calculator", "stopwatch")
 
 @Composable
@@ -49,46 +48,60 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
 
     BackHandler {
         when {
-            showPomodoro   -> {}
-            showChat       -> showChat = false
+            showPomodoro       -> {}
+            showChat           -> showChat = false
             activeTool != null -> activeTool = null
-            else           -> onClose()
+            else               -> onClose()
         }
     }
 
     if (showPomodoro) { PomodoroScreen(onExit = { showPomodoro = false }); return }
 
-    // Fullscreen tools — render exclusively (no composable stack)
+    // Fullscreen tools
     if (activeTool in FULLSCREEN_TOOLS) {
-        Box(modifier = Modifier.fillMaxSize().background(SatriaColors.ScreenBackground).systemBarsPadding()) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(SatriaColors.ScreenBackground)
+                .navigationBarsPadding()   // hanya nav bar, bukan status bar
+        ) {
             when (activeTool) {
                 "calculator" -> CalculatorTool()
                 "stopwatch"  -> StopwatchTool()
             }
-            Box(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth()
-                .background(SatriaColors.ScreenBackground.copy(alpha = 0.92f)).padding(horizontal = 20.dp, vertical = 10.dp).navigationBarsPadding()) {
-                Button(onClick = { activeTool = null }, modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(containerColor = SatriaColors.Surface)) {
-                    Text("Back", color = SatriaColors.TextPrimary)
-                }
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(SatriaColors.ScreenBackground.copy(alpha = 0.95f))
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+            ) {
+                Button(
+                    onClick = { activeTool = null },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = SatriaColors.Surface)
+                ) { Text("Back", color = SatriaColors.TextPrimary) }
             }
         }
         return
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(SatriaColors.ScreenBackground)
-        .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {}) {
-
+    // ── Main dashboard — fillMaxSize, NO systemBarsPadding so status bar
+    //   visibility never shifts layout. Content already starts below the
+    //   avatar image; scroll handles the rest.
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(SatriaColors.ScreenBackground)
+            .clickable(indication = null, interactionSource = remember { MutableInteractionSource() }) {}
+    ) {
         if (showChat) {
             ChatScreen(vm = vm, onClose = { showChat = false })
         } else {
-            // ── Seluruh konten dashboard dalam satu LazyColumn ─────────────
-            // activeTool == null → tampil header + tool grid (scrollable)
-            // activeTool != null → tampil tool screen (dengan back button)
-            Column(modifier = Modifier.fillMaxSize().systemBarsPadding()) {
+            Column(modifier = Modifier.fillMaxSize()) {
 
                 if (activeTool == null) {
-                    // Scrollable dashboard utama
+                    // Scrollable dashboard — avatar bleeds edge-to-edge naturally
                     Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                         DashboardHeader(
                             avatarPath    = avatarPath,
@@ -98,7 +111,6 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                             onClose       = onClose,
                         )
                         Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(SatriaColors.BorderLight))
-                        // Tool grid (tidak punya internal scroll — parent yang scroll)
                         ToolGridNoScroll(
                             todoPending  = todos.count { !it.done }.takeIf { it > 0 },
                             cdFirst      = countdowns.firstOrNull(),
@@ -119,7 +131,6 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                         Spacer(Modifier.height(16.dp))
                     }
                 } else {
-                    // Tool screen — pakai weight supaya back button tetap di bawah
                     Box(modifier = Modifier.weight(1f)) {
                         AnimatedContent(
                             targetState = activeTool,
@@ -150,13 +161,19 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                             }
                         }
                     }
-                    // Back button
-                    Box(modifier = Modifier.fillMaxWidth().background(SatriaColors.ScreenBackground)
-                        .padding(horizontal = 20.dp, vertical = 10.dp).navigationBarsPadding()) {
-                        Button(onClick = { activeTool = null }, modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(containerColor = SatriaColors.Surface)) {
-                            Text("Back", color = SatriaColors.TextPrimary)
-                        }
+                    // Back button — nav bar aware
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(SatriaColors.ScreenBackground)
+                            .padding(horizontal = 20.dp, vertical = 10.dp)
+                            .navigationBarsPadding()
+                    ) {
+                        Button(
+                            onClick = { activeTool = null },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = SatriaColors.Surface)
+                        ) { Text("Back", color = SatriaColors.TextPrimary) }
                     }
                 }
             }

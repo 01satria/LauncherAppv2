@@ -57,10 +57,12 @@ fun HabitTool(
                     Text("$doneCount / ${habits.size} done today", color = SatriaColors.TextTertiary, fontSize = 12.sp)
                 }
                 Box(modifier = Modifier.clip(RoundedCornerShape(50.dp))
-                    .background(if (showAdd) SatriaColors.Surface else SatriaColors.Accent)
+                    .background(if (showAdd) SatriaColors.SurfaceMid else SatriaColors.Accent)
                     .clickable(interactionSource = remember{MutableInteractionSource()}, indication = null) { showAdd = !showAdd }
                     .padding(horizontal = 16.dp, vertical = 8.dp)) {
-                    Text(if (showAdd) "Cancel" else "+ Add", color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                    Text(if (showAdd) "Cancel" else "+ Add",
+                        color = if (showAdd) SatriaColors.TextPrimary else Color.White,
+                        fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
 

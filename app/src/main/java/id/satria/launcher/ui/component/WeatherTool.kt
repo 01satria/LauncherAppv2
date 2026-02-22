@@ -253,7 +253,7 @@ fun WeatherTool(
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
-                    .background(Color(0xFF2A1010))
+                    .background(SatriaColors.Danger.copy(alpha = 0.15f))
                     .padding(12.dp))
         }
 
@@ -267,7 +267,7 @@ fun WeatherTool(
                     Column(
                         modifier = Modifier.fillMaxWidth()
                             .clip(RoundedCornerShape(18.dp))
-                            .background(Color(0xFF111111))
+                            .background(SatriaColors.CardBg)
                             .padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -302,7 +302,7 @@ fun WeatherTool(
                     if (w.forecast.isNotEmpty()) {
                         Column(modifier = Modifier.fillMaxWidth()
                             .clip(RoundedCornerShape(18.dp))
-                            .background(Color(0xFF111111))
+                            .background(SatriaColors.CardBg)
                             .padding(vertical = 14.dp)) {
                             Text("TODAY'S FORECAST", color = SatriaColors.TextSecondary,
                                 fontSize = 11.sp, fontWeight = FontWeight.SemiBold,

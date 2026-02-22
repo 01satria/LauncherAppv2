@@ -16,7 +16,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -37,9 +36,7 @@ fun DashboardHeader(
     onAvatarClick : () -> Unit,
     onClose       : () -> Unit,
 ) {
-    val context        = LocalContext.current
-    val screenHeightDp = LocalConfiguration.current.screenHeightDp.dp
-    val avatarHeightDp = screenHeightDp / 3
+    val context = LocalContext.current
 
     var clockStr by remember { mutableStateOf(fmt("HH:mm")) }
     var dateStr  by remember { mutableStateOf(fmt("EEEE, d MMMM")) }
@@ -50,7 +47,7 @@ fun DashboardHeader(
     var message by remember(userName) { mutableStateOf(getAssistantMessage(userName)) }
     LaunchedEffect(userName) { while (true) { delay(60_000); message = getAssistantMessage(userName) } }
 
-    // Battery — zero polling
+    // Battery
     var batteryPct by remember { mutableIntStateOf(getBatLevel(context)) }
     var isCharging by remember { mutableStateOf(getBatCharging(context)) }
     DisposableEffect(Unit) {
@@ -68,11 +65,15 @@ fun DashboardHeader(
     }
     val batText = if (isCharging) "$batteryPct% · charging" else "$batteryPct%"
 
-    // ── Layout: avatar first (top), then clock & message below ───────────
     Column(modifier = Modifier.fillMaxWidth()) {
 
-        // Avatar — full width, 1/3 layar, with close button overlaid
-        Box(modifier = Modifier.fillMaxWidth().height(avatarHeightDp).clickable { onAvatarClick() }) {
+        // ── Avatar — full width square box (no fractional height) ──────────
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)           // kotak penuh
+                .clickable { onAvatarClick() }
+        ) {
             if (avatarPath != null) {
                 AsyncImage(
                     model = ImageRequest.Builder(context).data(avatarPath).crossfade(true).build(),
@@ -80,33 +81,60 @@ fun DashboardHeader(
                     modifier = Modifier.fillMaxSize(),
                 )
             } else {
-                Box(modifier = Modifier.fillMaxSize().background(SatriaColors.SurfaceMid),
-                    contentAlignment = Alignment.Center) { Text("👤", fontSize = 56.sp) }
+                Box(
+                    modifier = Modifier.fillMaxSize().background(SatriaColors.SurfaceMid),
+                    contentAlignment = Alignment.Center
+                ) { Text("👤", fontSize = 72.sp) }
             }
-            // Fade di bawah avatar → bg
-            Box(modifier = Modifier.fillMaxWidth().fillMaxHeight(0.45f).align(Alignment.BottomCenter)
-                .background(Brush.verticalGradient(listOf(Color.Transparent, SatriaColors.ScreenBackground))))
 
-            // Close button — overlaid top-end
-            Box(modifier = Modifier.align(Alignment.TopEnd).padding(end = 16.dp, top = 12.dp)
-                .size(30.dp).clip(CircleShape)
-                .background(SatriaColors.BorderLight).clickable { onClose() },
+            // Gradient fade bawah → bg
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.40f)
+                    .align(Alignment.BottomCenter)
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Transparent, SatriaColors.ScreenBackground)
+                        )
+                    )
+            )
+
+            // Close button
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(end = 16.dp, top = 16.dp)
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(SatriaColors.BorderLight)
+                    .clickable { onClose() },
                 contentAlignment = Alignment.Center,
-            ) { Text("✕", color = SatriaColors.TextSecondary, fontSize = 12.sp) }
+            ) { Text("✕", color = SatriaColors.TextSecondary, fontSize = 13.sp) }
 
-            // Assistant name overlay dalam avatar
-            Text(assistantName, color = SatriaColors.TextSecondary, fontSize = 12.sp,
+            // Assistant name overlay
+            Text(
+                assistantName,
+                color = SatriaColors.TextSecondary,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.align(Alignment.BottomStart).padding(start = 16.dp, bottom = 10.dp))
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 20.dp, bottom = 12.dp)
+            )
         }
 
-        // Clock + date + battery + message (BELOW avatar)
+        // ── Clock / date / message ─────────────────────────────────────────
         Column(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 12.dp, bottom = 16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(top = 12.dp, bottom = 16.dp),
         ) {
             Text(clockStr, color = SatriaColors.TextPrimary, fontSize = 56.sp,
                 fontWeight = FontWeight.Thin, letterSpacing = 2.sp)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 Text(dateStr, color = SatriaColors.TextSecondary, fontSize = 14.sp)
                 Text("·",    color = SatriaColors.TextTertiary,   fontSize = 14.sp)
                 Text(batText, color = SatriaColors.TextSecondary, fontSize = 14.sp)

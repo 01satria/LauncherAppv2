@@ -51,11 +51,11 @@ fun NotesTool(
                 keyboardActions = KeyboardActions(onDone = { if (input.isNotBlank()) { onAdd(input.trim()); input = "" } }),
             )
             Box(modifier = Modifier.size(44.dp).clip(RoundedCornerShape(12.dp))
-                .background(if (input.isNotBlank()) SatriaColors.Accent else SatriaColors.Surface)
+                .background(if (input.isNotBlank()) SatriaColors.Accent else SatriaColors.SurfaceMid)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                     if (input.isNotBlank()) { onAdd(input.trim()); input = "" }
                 }, contentAlignment = Alignment.Center) {
-                Text("+", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Light)
+                Text("+", color = if (input.isNotBlank()) Color.White else SatriaColors.TextTertiary, fontSize = 24.sp, fontWeight = FontWeight.Light)
             }
         }
 
