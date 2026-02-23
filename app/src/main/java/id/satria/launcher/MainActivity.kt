@@ -41,3 +41,7 @@ class MainActivity : ComponentActivity() {
         vm.resetHabitsIfNewDay()
     }
 }
+
+// Created by Satria Bagus
+// Github: 01satria
+// Website: https://itssatria.vercel.app
