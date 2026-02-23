@@ -34,6 +34,9 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
     val countdowns    by vm.countdowns.collectAsState()
     val habits        by vm.habits.collectAsState()
 
+    // todayKey harus dideklarasikan sebelum derivedStateOf yang memakainya
+    val todayKey = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) }
+
     // derivedStateOf: hanya re-compute ketika todos/habits berubah,
     // bukan setiap recompose — mencegah alokasi Int baru setiap frame
     val todoPending by remember { derivedStateOf { todos.count { !it.done }.takeIf { it > 0 } } }
@@ -42,8 +45,6 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
     var activeTool   by remember { mutableStateOf<String?>(null) }
     var showChat     by remember { mutableStateOf(false) }
     var showPomodoro by remember { mutableStateOf(false) }
-
-    val todayKey = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date()) }
 
     DisposableEffect(showPomodoro) {
         activity?.requestedOrientation = if (showPomodoro) ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
