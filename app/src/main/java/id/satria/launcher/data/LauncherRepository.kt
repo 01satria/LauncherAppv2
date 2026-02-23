@@ -30,7 +30,7 @@ class LauncherRepository(private val context: Context) {
                         runCatching {
                             val px  = 88 // cukup tajam s/d hdpi, hemat RAM vs 96+
                             val bmp = ri.loadIcon(pm)
-                                .toBitmap(px, px, android.graphics.Bitmap.Config.RGB_565)
+                                .toBitmap(px, px, android.graphics.Bitmap.Config.ARGB_8888)
                                 .asImageBitmap()
                             id.satria.launcher.ui.component.iconCache.put(pkg, bmp)
                         }

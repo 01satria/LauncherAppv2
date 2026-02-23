@@ -70,12 +70,10 @@ fun AppGridItem(
                 contentDescription = app.label,
                 contentScale       = ContentScale.Fit,
                 filterQuality      = FilterQuality.Medium,
-                modifier           = Modifier
-                    .size(iconSizeDp.dp)
-                    .clip(RoundedCornerShape((iconSizeDp * 0.24f).dp)),
+                modifier           = Modifier.size(iconSizeDp.dp),
             )
         } else {
-            Box(modifier = Modifier.size(iconSizeDp.dp).clip(RoundedCornerShape((iconSizeDp * 0.24f).dp)))
+            Box(modifier = Modifier.size(iconSizeDp.dp))
         }
 
         if (showName) {

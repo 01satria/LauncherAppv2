@@ -92,7 +92,6 @@ private fun DockIcon(
                 .size(dockIconSize.dp)
                 .scale(scale)
                 .alpha(alpha)
-                .clip(RoundedCornerShape((dockIconSize * 0.25f).dp))
                 .combinedClickable(
                     interactionSource = interactionSource,
                     indication        = null,
