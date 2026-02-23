@@ -75,7 +75,7 @@ private fun TSection(label: String, items: List<TE>) {
         Row(
             modifier            = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 4.dp, bottom = 8.dp),
+                .padding(start = 4.dp, top = 0.dp, end = 4.dp, bottom = 8.dp),
             verticalAlignment   = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {

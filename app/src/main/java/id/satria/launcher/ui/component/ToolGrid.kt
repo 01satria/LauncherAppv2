@@ -68,7 +68,7 @@ fun ToolGrid(
 private fun GSection(label: String, tools: List<ToolEntry>) {
     Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
         Row(
-            modifier              = Modifier.fillMaxWidth().padding(horizontal = 4.dp, bottom = 8.dp),
+            modifier              = Modifier.fillMaxWidth().padding(start = 4.dp, top = 0.dp, end = 4.dp, bottom = 8.dp),
             verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
