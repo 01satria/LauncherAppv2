@@ -67,10 +67,20 @@ fun CurrencyTool() {
             loading = true; error = ""; result = null; rate = null
             try {
                 val (r, ts) = withContext(Dispatchers.IO) {
-                    // Gunakan Frankfurter API — data langsung dari ECB, akurat & gratis tanpa key
-                    val json = JSONObject(httpGet("https://api.frankfurter.app/latest?from=$from&to=$to"))
-                    val r    = json.getJSONObject("rates").getDouble(to)
-                    val ts   = json.optString("date", "")
+                    // fawazahmed0/exchange-api — data real-time, 200+ currency, gratis, no key
+                    // CDN primary: jsDelivr, fallback: Cloudflare Workers
+                    val fromLower = from.lowercase()
+                    val toLower   = to.lowercase()
+                    val today     = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                        .format(java.util.Date())
+                    val primaryUrl  = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@$today/v1/currencies/$fromLower.json"
+                    val fallbackUrl = "https://$today.currency-api.pages.dev/v1/currencies/$fromLower.json"
+
+                    val rawJson = try { httpGet(primaryUrl) } catch (_: Exception) { httpGet(fallbackUrl) }
+                    val json  = org.json.JSONObject(rawJson)
+                    val rates = json.getJSONObject(fromLower)
+                    val r     = rates.getDouble(toLower)
+                    val ts    = json.optString("date", today)
                     Pair(r, ts)
                 }
                 rate        = r
@@ -153,7 +163,7 @@ fun CurrencyTool() {
                     Text("1 $from = ${rate?.let { fmtRate(it) }} $to",
                         color = SatriaColors.TextTertiary, fontSize = 12.sp)
                     if (lastUpdated.isNotEmpty())
-                        Text("Rate date: $lastUpdated",
+                        Text("Rate date: $lastUpdated  ·  fawazahmed0/exchange-api",
                             color = SatriaColors.TextTertiary, fontSize = 11.sp)
                 }
             }

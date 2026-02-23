@@ -8,14 +8,21 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import id.satria.launcher.data.CountdownItem
+import id.satria.launcher.ui.theme.LocalAppTheme
 import id.satria.launcher.ui.theme.SatriaColors
 import java.util.concurrent.TimeUnit
 
-private data class TE(val icon: String, val label: String, val badge: String?, val onClick: () -> Unit)
+private data class TE(
+    val icon    : String,
+    val label   : String,
+    val badge   : String?,
+    val onClick : () -> Unit,
+)
 
 @Composable
 fun ToolGridNoScroll(
@@ -33,57 +40,140 @@ fun ToolGridNoScroll(
     onHabits     : () -> Unit,
     onPrayer     : () -> Unit,
 ) {
-    val g1 = listOf(
-        TE("🌤️", "Weather",   null,                                   onWeather),
-        TE("💱",  "Currency",  null,                                   onMoney),
-        TE("📝",  "To Do",     todoPending?.let { "$it pending" },     onTodo),
-        TE("⏳",  "Countdown", cdFirst?.let { cdPrev(it) },           onCountdown),
-        TE("🍅",  "Pomodoro",  "Focus timer",                         onPomodoro),
+    // ── DAILY — hal-hal yang dicek tiap hari
+    val daily = listOf(
+        TE("🌤️", "Weather",    null,                                    onWeather),
+        TE("🕌",  "Prayer",     "Daily salah times",                    onPrayer),
+        TE("📝",  "To Do",      todoPending?.let { "$it pending" },     onTodo),
+        TE("💪",  "Habits",     if (habitTotal > 0) "$habitDone / $habitTotal done" else "Track your streak", onHabits),
     )
-    val g2 = listOf(
-        TE("🕌",  "Prayer",    "Waktu Sholat",                        onPrayer),
-        TE("🧮",  "Calculator","",                                    onCalculator),
-        TE("📐",  "Converter", "Length · Weight · Temp…",             onConverter),
-        TE("💪",  "Habits",    if (habitTotal > 0) "$habitDone/$habitTotal today" else null, onHabits),
+    // ── TOOLS — alat bantu & utilitas
+    val tools = listOf(
+        TE("💱",  "Currency",   "Live exchange rates",                  onMoney),
+        TE("⏳",  "Countdown",  cdFirst?.let { cdPrev(it) },            onCountdown),
+        TE("🍅",  "Pomodoro",   "Focus timer",                          onPomodoro),
+        TE("🧮",  "Calculator", null,                                   onCalculator),
+        TE("📐",  "Converter",  "Length · Weight · Temp · Speed",       onConverter),
     )
-    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        TGroup("ESSENTIALS", g1)
-        TGroup("UTILITIES",  g2)
+
+    Column(
+        modifier            = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp),
+    ) {
+        TSection(label = "DAILY", items = daily)
+        TSection(label = "TOOLS", items = tools)
     }
 }
 
+// ── Section with label + card ─────────────────────────────────────────────────
 @Composable
-private fun TGroup(label: String, tools: List<TE>) {
+private fun TSection(label: String, items: List<TE>) {
     Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-        Text(label, color = SatriaColors.TextTertiary, fontSize = 10.sp,
-            fontWeight = FontWeight.SemiBold, letterSpacing = 1.5.sp, modifier = Modifier.padding(bottom = 8.dp))
-        Column(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(SatriaColors.CardBg)) {
-            tools.forEachIndexed { i, t ->
-                TRow(t)
-                if (i < tools.lastIndex)
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).padding(start = 52.dp).background(SatriaColors.Divider))
+        // Section label
+        Row(
+            modifier            = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, bottom = 8.dp),
+            verticalAlignment   = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                label,
+                color      = SatriaColors.TextTertiary,
+                fontSize   = 10.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.8.sp,
+            )
+            // Thin decorative line
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(0.5.dp)
+                    .padding(start = 10.dp)
+                    .background(SatriaColors.Divider),
+            )
+        }
+
+        // Card
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(SatriaColors.CardBg),
+        ) {
+            items.forEachIndexed { i, item ->
+                TRow(item)
+                if (i < items.lastIndex) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(0.5.dp)
+                            .padding(start = 56.dp)
+                            .background(SatriaColors.Divider),
+                    )
+                }
             }
         }
     }
 }
 
+// ── Row ───────────────────────────────────────────────────────────────────────
 @Composable
 private fun TRow(t: TE) {
-    Row(modifier = Modifier.fillMaxWidth().clickable(onClick = t.onClick).padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text(t.icon, fontSize = 22.sp, modifier = Modifier.width(28.dp))
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(t.label, color = SatriaColors.TextPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
-            if (!t.badge.isNullOrEmpty()) Text(t.badge, color = SatriaColors.TextTertiary, fontSize = 12.sp)
+    val darkMode = LocalAppTheme.current.darkMode
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = t.onClick)
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        verticalAlignment     = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // Icon box
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(
+                    if (darkMode) Color(0xFF2C2C2E)
+                    else Color(0xFFF2F2F7)
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(t.icon, fontSize = 18.sp)
         }
-        Text("›", color = SatriaColors.TextTertiary, fontSize = 20.sp)
+
+        // Label + badge
+        Column(
+            modifier            = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(1.dp),
+        ) {
+            Text(t.label, color = SatriaColors.TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            if (!t.badge.isNullOrEmpty())
+                Text(t.badge, color = SatriaColors.TextTertiary, fontSize = 11.sp, lineHeight = 14.sp)
+        }
+
+        // Chevron
+        Text(
+            "›",
+            color    = SatriaColors.TextTertiary,
+            fontSize = 18.sp,
+        )
     }
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
 private fun cdPrev(item: CountdownItem): String = try {
     val days = TimeUnit.MILLISECONDS.toDays(
         java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.getDefault())
-            .parse(item.targetDate.take(10))!!.time - System.currentTimeMillis())
-    when { days > 0L -> "${item.name} · ${days}d"; days == 0L -> "${item.name} · Today"; else -> "${item.name} · ${-days}d ago" }
+            .parse(item.targetDate.take(10))!!.time - System.currentTimeMillis()
+    )
+    when {
+        days > 0L  -> "${item.name} · ${days}d left"
+        days == 0L -> "${item.name} · Today"
+        else       -> "${item.name} · ${-days}d ago"
+    }
 } catch (_: Exception) { item.name }

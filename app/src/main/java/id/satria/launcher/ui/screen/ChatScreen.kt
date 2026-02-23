@@ -160,6 +160,13 @@ fun ChatScreen(vm: MainViewModel, onClose: () -> Unit) {
 
     val hasInput = input.trim().isNotEmpty()
 
+    // Scroll ke pesan terakhir saat chat dibuka
+    LaunchedEffect(Unit) {
+        if (messages.isNotEmpty()) {
+            listState.scrollToItem(messages.size - 1)
+        }
+    }
+
     BackHandler { onClose() }
 
     fun scrollToEnd() {

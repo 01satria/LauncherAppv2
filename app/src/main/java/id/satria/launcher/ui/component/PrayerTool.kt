@@ -32,20 +32,19 @@ import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.*
 
-// ── Data ──────────────────────────────────────────────────────────────────────
+// ── Data ─────────────────────────────────────────────────────────────────────
 private data class PrayerEntry(val icon: String, val name: String, val time: String)
 
 private data class PrayerResult(
     val city      : String,
     val country   : String,
-    val dateGreg  : String,   // "DD Mon YYYY"
-    val dateHijri : String,   // "DD MonthHijri YYYY"
+    val dateGreg  : String,
+    val dateHijri : String,
     val entries   : List<PrayerEntry>,
-    val activeNow : String,   // current prayer name
-    val cacheJson : String,   // raw timings JSON to store
+    val cacheJson : String,
 )
 
-// ── Network — AlAdhan v1 ───────────────────────────────────────────────────────
+// ── Network ───────────────────────────────────────────────────────────────────
 private fun safeGet(url: String): String {
     val conn = URL(url).openConnection() as HttpURLConnection
     return try {
@@ -73,73 +72,68 @@ private fun buildEntries(timings: JSONObject): List<PrayerEntry> = listOf(
     PrayerEntry("🌌", "Midnight", trimTime(timings.optString("Midnight", "--:--"))),
 )
 
-private fun currentPrayer(entries: List<PrayerEntry>): String {
-    val now = SimpleDateFormat("HH:mm", Locale.US).format(Date())
-    val salah = listOf("Fajr", "Dhuhr", "Asr", "Maghrib", "Isha")
-    var active = "Isha"
-    for (e in entries) {
-        if (e.name in salah && now >= e.time) active = e.name
-    }
-    return active
+// Geocode: resolves city → (country_name, lat, lon) via Open-Meteo geocoding
+private fun geocodeCity(city: String): Pair<String, String> {
+    val enc = URLEncoder.encode(city.trim(), "UTF-8")
+    val raw = safeGet("https://geocoding-api.open-meteo.com/v1/search?name=$enc&count=1&language=en&format=json")
+    val results = JSONObject(raw).optJSONArray("results")
+        ?: throw Exception("City not found")
+    if (results.length() == 0) throw Exception("City not found")
+    val r       = results.getJSONObject(0)
+    val country = r.optString("country", "")
+    val tzId    = r.optString("timezone", "")   // e.g. "Asia/Jakarta"
+    return Pair(country, tzId)
 }
 
-// Fetch dengan tanggal hari ini eksplisit (DD-MM-YYYY) agar sinkron
 private fun fetchPrayer(city: String): PrayerResult {
+    // Step 1: geocode to get country name
+    val (country, _) = geocodeCity(city)
+
+    // Step 2: fetch prayer times with explicit today date
     val today    = SimpleDateFormat("dd-MM-yyyy", Locale.US).format(Date())
     val cityEnc  = URLEncoder.encode(city.trim(), "UTF-8")
-    // method=11 = Egyptian General Authority (umum, mencakup Asia Tenggara)
-    val url = "https://api.aladhan.com/v1/timingsByCity/$today?city=$cityEnc&country=&method=11"
-    val raw = safeGet(url)
-    val root = JSONObject(raw)
+    val ctryEnc  = URLEncoder.encode(country, "UTF-8")
+    val url      = "https://api.aladhan.com/v1/timingsByCity/$today?city=$cityEnc&country=$ctryEnc&method=11"
+    val raw      = safeGet(url)
+    val root     = JSONObject(raw)
     if (root.optInt("code", 0) != 200) throw Exception("City not found")
 
-    val data      = root.getJSONObject("data")
-    val timings   = data.getJSONObject("timings")
-    val dateObj   = data.getJSONObject("date")
-    val meta      = data.getJSONObject("meta")
-    val greg      = dateObj.getJSONObject("gregorian")
-    val hijri     = dateObj.getJSONObject("hijri")
-    val locInfo   = meta.optJSONObject("timezone") // opsional
-    val cityName  = city.trim().replaceFirstChar { it.uppercase() }
-    val country   = meta.optString("timezone", "")   // fallback
-        .let { tz -> if (tz.contains("/")) tz.split("/")[0] else "" }
+    val data    = root.getJSONObject("data")
+    val timings = data.getJSONObject("timings")
+    val dateObj = data.getJSONObject("date")
+    val greg    = dateObj.getJSONObject("gregorian")
+    val hijri   = dateObj.getJSONObject("hijri")
 
-    val dateGreg  = "${greg.getString("day")} ${greg.getJSONObject("month").getString("en")} ${greg.getString("year")}"
-    val dateHij   = "${hijri.getString("day")} ${hijri.getJSONObject("month").getString("en")} ${hijri.getString("year")} H"
-
-    val entries   = buildEntries(timings)
-    val active    = currentPrayer(entries)
+    val dateGreg = "${greg.getString("day")} ${greg.getJSONObject("month").getString("en")} ${greg.getString("year")}"
+    val dateHij  = "${hijri.getString("day")} ${hijri.getJSONObject("month").getString("en")} ${hijri.getString("year")} H"
 
     return PrayerResult(
-        city       = cityName,
-        country    = country,
-        dateGreg   = dateGreg,
-        dateHijri  = dateHij,
-        entries    = entries,
-        activeNow  = active,
-        cacheJson  = timings.toString(),
+        city      = city.trim().replaceFirstChar { it.uppercase() },
+        country   = country,
+        dateGreg  = dateGreg,
+        dateHijri = dateHij,
+        entries   = buildEntries(timings),
+        cacheJson = timings.toString(),
     )
 }
 
-// Build result from cached timings JSON (no network)
-private fun fromCache(city: String, cacheJson: String): PrayerResult? = runCatching {
-    val timings  = JSONObject(cacheJson)
-    val entries  = buildEntries(timings)
-    val today    = SimpleDateFormat("dd MMM yyyy", Locale.US).format(Date())
-    PrayerResult(city.replaceFirstChar{it.uppercase()}, "", today, "", entries, currentPrayer(entries), cacheJson)
+private fun fromCache(city: String, country: String, cacheJson: String): PrayerResult? = runCatching {
+    val timings = JSONObject(cacheJson)
+    val today   = SimpleDateFormat("dd MMM yyyy", Locale.US).format(Date())
+    PrayerResult(city.replaceFirstChar { it.uppercase() }, country, today, "", buildEntries(timings), cacheJson)
 }.getOrNull()
 
 // ── UI ────────────────────────────────────────────────────────────────────────
 @Composable
 fun PrayerTool(
-    savedCities      : List<String>,
-    savedCacheJson   : String,          // raw JSON map "city"→timingsJSON
-    onAddCity        : (String) -> Unit,
-    onRemoveCity     : (String) -> Unit,
-    onUpdateCache    : (String, String) -> Unit,
+    savedCities    : List<String>,
+    savedCacheJson : String,
+    onAddCity      : (String) -> Unit,
+    onRemoveCity   : (String) -> Unit,
+    onUpdateCache  : (String, String) -> Unit,
 ) {
-    val scope     = rememberCoroutineScope()
-    val darkMode  = LocalAppTheme.current.darkMode
+    val scope    = rememberCoroutineScope()
+    val darkMode = LocalAppTheme.current.darkMode
 
     var query     by remember { mutableStateOf("") }
     var result    by remember { mutableStateOf<PrayerResult?>(null) }
@@ -147,17 +141,23 @@ fun PrayerTool(
     var error     by remember { mutableStateOf("") }
     var showSaved by remember { mutableStateOf(false) }
 
-    // Parse cache map lazily
     val cacheMap = remember(savedCacheJson) {
         runCatching { JSONObject(savedCacheJson) }.getOrElse { JSONObject() }
     }
 
-    // Auto-load kota pertama yg disave dari cache (nol network)
+    // Auto-load dari cache saat pertama buka
     LaunchedEffect(savedCities) {
         if (result == null && savedCities.isNotEmpty()) {
             val first = savedCities.first()
             val cached = cacheMap.optString(first, null)
-            if (cached != null) result = fromCache(first, cached)
+            // Ambil country dari cache map (disimpan dengan key "city__country")
+            val parts   = first.split("||")
+            val cityKey = parts.getOrElse(0) { first }
+            val ctry    = parts.getOrElse(1) { "" }
+            if (cached != null) {
+                result = fromCache(cityKey, ctry, cached)
+                query  = cityKey
+            }
         }
     }
 
@@ -169,30 +169,32 @@ fun PrayerTool(
                 val pt = withContext(Dispatchers.IO) { fetchPrayer(city) }
                 result = pt
                 query  = city
-                // Update cache jika kota ini disave
-                onUpdateCache(city.lowercase(), pt.cacheJson)
+                // Update cache hanya jika kota disave
+                val savedKey = savedCities.find { it.split("||").getOrElse(0){""}.equals(city.trim(), true) }
+                if (savedKey != null) onUpdateCache(savedKey, pt.cacheJson)
             } catch (_: Exception) {
-                error = "City not found. Try English name (e.g. Yogyakarta, Cairo, London)"
+                error = "City not found. Try English name (e.g. Jakarta, London, Cairo)"
             } finally {
                 loading = false
             }
         }
     }
 
-    fun fetchSaved(city: String) {
-        // Selalu request ulang ke API saat tap kota save
+    fun fetchSaved(key: String) {
+        val parts   = key.split("||")
+        val city    = parts.getOrElse(0) { key }
+        showSaved   = false
         scope.launch {
             loading = true; error = ""
-            showSaved = false
             try {
                 val pt = withContext(Dispatchers.IO) { fetchPrayer(city) }
                 result = pt
                 query  = city
-                onUpdateCache(city.lowercase(), pt.cacheJson)
+                onUpdateCache(key, pt.cacheJson)
             } catch (_: Exception) {
-                // Fallback ke cache jika ada
-                val cached = cacheMap.optString(city.lowercase(), null)
-                result = if (cached != null) fromCache(city, cached) else null
+                val cached = cacheMap.optString(key, null)
+                val ctry   = parts.getOrElse(1) { "" }
+                result = if (cached != null) fromCache(city, ctry, cached) else null
                 if (result == null) error = "Failed to load. Check connection."
             } finally {
                 loading = false
@@ -200,31 +202,29 @@ fun PrayerTool(
         }
     }
 
-    // Warna tema
-    val cardBg     = SatriaColors.CardBg
-    val accentCol  = SatriaColors.Accent
-    val textPrim   = SatriaColors.TextPrimary
-    val textSec    = SatriaColors.TextSecondary
-    val textTert   = SatriaColors.TextTertiary
-    val divider    = SatriaColors.Divider
-    val screenBg   = SatriaColors.ScreenBackground
+    val accentCol = SatriaColors.Accent
+    val cardBg    = SatriaColors.CardBg
+    val textPrim  = SatriaColors.TextPrimary
+    val textSec   = SatriaColors.TextSecondary
+    val textTert  = SatriaColors.TextTertiary
+    val divider   = SatriaColors.Divider
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(screenBg)
+            .background(SatriaColors.ScreenBackground)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
 
-        // ── Search bar ────────────────────────────────────────────────────
+        // ── Search ────────────────────────────────────────────────────────
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically) {
             TextField(
                 value         = query,
                 onValueChange = { query = it },
-                placeholder   = { Text("City name  (e.g. Yogyakarta)", color = textTert) },
+                placeholder   = { Text("City name  (e.g. Jakarta, Cairo)", color = textTert) },
                 singleLine    = true,
                 colors        = toolTextFieldColors(),
                 keyboardOptions = KeyboardOptions(
@@ -258,31 +258,36 @@ fun PrayerTool(
                         .clickable { showSaved = !showSaved }
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalAlignment     = Alignment.CenterVertically,
                 ) {
-                    Text("🕌 Saved cities (${savedCities.size}/8)",
+                    Text("🕌 Saved  (${savedCities.size}/8)",
                         color = textPrim, fontSize = 14.sp, fontWeight = FontWeight.Medium)
                     Text(if (showSaved) "▲" else "▼", color = textTert, fontSize = 11.sp)
                 }
                 AnimatedVisibility(showSaved, enter = expandVertically(), exit = shrinkVertically()) {
                     Column {
-                        savedCities.forEachIndexed { idx, city ->
+                        savedCities.forEachIndexed { idx, key ->
+                            val parts  = key.split("||")
+                            val city   = parts.getOrElse(0) { key }.replaceFirstChar { it.uppercase() }
+                            val ctry   = parts.getOrElse(1) { "" }
                             if (idx > 0)
-                                Box(Modifier.fillMaxWidth().height(1.dp).padding(start = 16.dp).background(divider))
+                                Box(Modifier.fillMaxWidth().height(1.dp)
+                                    .padding(start = 16.dp).background(divider))
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clickable { fetchSaved(city) }
+                                    .clickable { fetchSaved(key) }
                                     .padding(horizontal = 16.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically,
+                                verticalAlignment     = Alignment.CenterVertically,
                             ) {
-                                Text(city.replaceFirstChar { it.uppercase() },
-                                    color = textSec, fontSize = 14.sp)
+                                Column {
+                                    Text(city, color = textSec, fontSize = 14.sp)
+                                    if (ctry.isNotBlank())
+                                        Text(ctry, color = textTert, fontSize = 11.sp)
+                                }
                                 Text("✕", color = textTert, fontSize = 13.sp,
-                                    modifier = Modifier.clickable {
-                                        onRemoveCity(city.lowercase())
-                                    })
+                                    modifier = Modifier.clickable { onRemoveCity(key) })
                             }
                         }
                     }
@@ -306,55 +311,34 @@ fun PrayerTool(
         // ── Result ────────────────────────────────────────────────────────
         result?.let { pt ->
 
-            // Header card — gradient halus
+            // Header card
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
                     .background(
                         Brush.verticalGradient(
-                            listOf(
-                                accentCol,
-                                if (darkMode) accentCol.copy(alpha = 0.75f) else accentCol.copy(alpha = 0.85f)
-                            )
+                            listOf(accentCol, accentCol.copy(alpha = if (darkMode) 0.7f else 0.85f))
                         )
                     )
                     .padding(horizontal = 20.dp, vertical = 18.dp),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    // Kota + negara
-                    Text(
-                        buildString {
-                            append(pt.city)
-                            if (pt.country.isNotBlank()) append("  ·  ${pt.country}")
-                        },
-                        color = Color.White,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                    )
+                    // Kota
+                    Text(pt.city, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                    // Negara (dari geocoding, bukan timezone/benua)
+                    if (pt.country.isNotBlank())
+                        Text(pt.country, color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp)
+                    Spacer(Modifier.height(6.dp))
                     // Tanggal Gregorian
-                    Text(pt.dateGreg, color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp)
-                    // Tanggal Hijriah (jika ada)
+                    Text(pt.dateGreg, color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp)
+                    // Tanggal Hijriah
                     if (pt.dateHijri.isNotBlank())
-                        Text(pt.dateHijri, color = Color.White.copy(alpha = 0.65f), fontSize = 11.sp)
-                    Spacer(Modifier.height(8.dp))
-                    // Chip waktu aktif
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50.dp))
-                            .background(Color.White.copy(alpha = 0.20f))
-                            .padding(horizontal = 12.dp, vertical = 5.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(Modifier.size(7.dp).clip(RoundedCornerShape(50.dp)).background(Color.White))
-                        Text("Now: ${pt.activeNow}", color = Color.White,
-                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-                    }
+                        Text(pt.dateHijri, color = Color.White.copy(alpha = 0.6f), fontSize = 11.sp)
                 }
             }
 
-            // Prayer times card
+            // Prayer times list
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -362,61 +346,45 @@ fun PrayerTool(
                     .background(cardBg),
             ) {
                 pt.entries.forEachIndexed { i, entry ->
-                    val isActive = entry.name == pt.activeNow
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .then(
-                                if (isActive) Modifier.background(accentCol.copy(alpha = 0.09f))
-                                else Modifier
-                            )
                             .padding(horizontal = 16.dp, vertical = 14.dp),
                         verticalAlignment     = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        // Icon
                         Text(entry.icon, fontSize = 18.sp, modifier = Modifier.width(24.dp))
-
-                        // Name
                         Text(
                             entry.name,
-                            color      = if (isActive) accentCol else textPrim,
-                            fontSize   = 14.sp,
-                            fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
-                            modifier   = Modifier.weight(1f),
+                            color    = textPrim,
+                            fontSize = 14.sp,
+                            modifier = Modifier.weight(1f),
                         )
-
-                        // Active dot
-                        if (isActive)
-                            Box(Modifier.size(6.dp).clip(RoundedCornerShape(50.dp)).background(accentCol))
-
-                        // Time
                         Text(
                             entry.time,
-                            color      = if (isActive) accentCol else textSec,
+                            color      = textSec,
                             fontSize   = 14.sp,
-                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                            fontWeight = FontWeight.Medium,
                         )
                     }
                     if (i < pt.entries.lastIndex)
-                        Box(Modifier.fillMaxWidth().height(0.5.dp).padding(start = 50.dp).background(divider))
+                        Box(Modifier.fillMaxWidth().height(0.5.dp)
+                            .padding(start = 50.dp).background(divider))
                 }
             }
 
-            // Save / saved button
+            // Save button
             val cityKey      = query.trim().lowercase()
-            val alreadySaved = savedCities.any { it.lowercase() == cityKey }
+            val savedKey     = "${cityKey}||${pt.country}"
+            val alreadySaved = savedCities.any { it.split("||").getOrElse(0){""}.equals(cityKey, true) }
             val canSave      = !alreadySaved && savedCities.size < 8 && cityKey.isNotBlank()
 
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(14.dp))
-                    .background(
-                        if (alreadySaved) SatriaColors.SurfaceMid
-                        else accentCol
-                    )
-                    .clickable(enabled = canSave) { onAddCity(cityKey) }
+                    .background(if (alreadySaved) SatriaColors.SurfaceMid else accentCol)
+                    .clickable(enabled = canSave) { onAddCity(savedKey) }
                     .padding(vertical = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
