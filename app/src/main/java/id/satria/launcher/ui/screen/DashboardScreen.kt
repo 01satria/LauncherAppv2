@@ -33,6 +33,12 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
     val todos         by vm.todos.collectAsState()
     val countdowns    by vm.countdowns.collectAsState()
     val habits        by vm.habits.collectAsState()
+
+    // derivedStateOf: hanya re-compute ketika todos/habits berubah,
+    // bukan setiap recompose — mencegah alokasi Int baru setiap frame
+    val todoPending by remember { derivedStateOf { todos.count { !it.done }.takeIf { it > 0 } } }
+    val habitDone   by remember { derivedStateOf { habits.count { it.doneToday(todayKey) } } }
+    val habitTotal  by remember { derivedStateOf { habits.size } }
     var activeTool   by remember { mutableStateOf<String?>(null) }
     var showChat     by remember { mutableStateOf(false) }
     var showPomodoro by remember { mutableStateOf(false) }
@@ -106,10 +112,10 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                         )
                         Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(SatriaColors.BorderLight))
                         ToolGridNoScroll(
-                            todoPending  = todos.count { !it.done }.takeIf { it > 0 },
+                            todoPending  = todoPending,
                             cdFirst      = countdowns.firstOrNull(),
-                            habitDone    = habits.count { it.doneToday(todayKey) },
-                            habitTotal   = habits.size,
+                            habitDone    = habitDone,
+                            habitTotal   = habitTotal,
                             onWeather    = { activeTool = "weather" },
                             onMoney      = { activeTool = "money" },
                             onTodo       = { activeTool = "todo" },

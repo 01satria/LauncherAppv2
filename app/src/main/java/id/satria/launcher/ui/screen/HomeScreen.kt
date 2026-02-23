@@ -203,8 +203,8 @@ private fun PagedGrid(
     if (apps.isEmpty()) return
 
     val itemsPerPage = cols * rows
-    val pageCount    = remember(apps.size, itemsPerPage) {
-        ceil(apps.size / itemsPerPage.toFloat()).toInt().coerceAtLeast(1)
+    val pageCount    by remember(apps.size, cols, rows) {
+        derivedStateOf { ceil(apps.size / itemsPerPage.toFloat()).toInt().coerceAtLeast(1) }
     }
     val pagerState = rememberPagerState(pageCount = { pageCount })
 

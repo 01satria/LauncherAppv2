@@ -42,11 +42,11 @@ fun DashboardHeader(
     var clockStr by remember { mutableStateOf(fmt("HH:mm")) }
     var dateStr  by remember { mutableStateOf(fmt("EEEE, d MMMM")) }
     LaunchedEffect(Unit) {
-        while (true) { delay(30_000); clockStr = fmt("HH:mm"); dateStr = fmt("EEEE, d MMMM") }
+        while (true) { delay(60_000); clockStr = fmt("HH:mm"); dateStr = fmt("EEEE, d MMMM") }
     }
 
     var message by remember(userName) { mutableStateOf(getAssistantMessage(userName)) }
-    LaunchedEffect(userName) { while (true) { delay(60_000); message = getAssistantMessage(userName) } }
+    LaunchedEffect(userName) { while (true) { delay(300_000); message = getAssistantMessage(userName) } }
 
     // Battery — event-driven, zero polling
     var batteryPct by remember { mutableIntStateOf(getBatLevel(context)) }

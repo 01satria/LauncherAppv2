@@ -27,18 +27,33 @@ import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
 
-private fun httpGet(urlStr: String): String {
+private fun httpGet(urlStr: String, extraHeaders: Map<String, String> = emptyMap()): String {
     val conn = URL(urlStr).openConnection() as HttpURLConnection
     return try {
         conn.connectTimeout = 15_000
         conn.readTimeout    = 15_000
         conn.requestMethod  = "GET"
-        conn.setRequestProperty("Accept", "application/json")
-        conn.setRequestProperty("User-Agent", "SatriaLauncher/1.0 Android")
+        conn.setRequestProperty("Accept", "text/html,application/json")
+        conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36")
+        extraHeaders.forEach { (k, v) -> conn.setRequestProperty(k, v) }
         conn.connect()
         if (conn.responseCode !in 200..299) throw Exception("HTTP ${conn.responseCode}")
         BufferedReader(InputStreamReader(conn.inputStream, "UTF-8")).use { it.readText() }
     } finally { conn.disconnect() }
+}
+
+/** Scrape kurs dari Google Finance — hanya untuk pasangan yang didukung Google.
+ *  Jika gagal (pair tidak ada / diblokir), kembalikan null agar fallback ke API. */
+private fun scrapeGoogleFinance(from: String, to: String): Double? {
+    return try {
+        val url  = "https://www.google.com/finance/quote/${from.uppercase()}-${to.uppercase()}"
+        val html = httpGet(url, mapOf("Accept-Language" to "en-US,en;q=0.9"))
+        // Google menyimpan harga di data-last-price="..." atau di class "YMlKec fxKbKc"
+        val r1 = Regex("""data-last-price="([0-9.,]+)"""").find(html)?.groupValues?.get(1)
+        if (r1 != null) return r1.replace(",", "").toDoubleOrNull()
+        val r2 = Regex("""class="YMlKec fxKbKc">([0-9.,]+)<""").find(html)?.groupValues?.get(1)
+        r2?.replace(",", "")?.toDoubleOrNull()
+    } catch (_: Exception) { null }
 }
 
 private val CURRENCIES = listOf(
@@ -67,15 +82,20 @@ fun CurrencyTool() {
             loading = true; error = ""; result = null; rate = null
             try {
                 val (r, ts) = withContext(Dispatchers.IO) {
-                    // fawazahmed0/exchange-api — data real-time, 200+ currency, gratis, no key
-                    // CDN primary: jsDelivr, fallback: Cloudflare Workers
-                    val fromLower = from.lowercase()
-                    val toLower   = to.lowercase()
-                    val today     = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                    val today = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
                         .format(java.util.Date())
+
+                    // Strategi 1: Scrape Google Finance (lebih akurat, real-time)
+                    val googleRate = scrapeGoogleFinance(from, to)
+                    if (googleRate != null && googleRate > 0) {
+                        return@withContext Pair(googleRate, "Google Finance (real-time)")
+                    }
+
+                    // Strategi 2: Fallback ke fawazahmed0/exchange-api
+                    val fromLower   = from.lowercase()
+                    val toLower     = to.lowercase()
                     val primaryUrl  = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@$today/v1/currencies/$fromLower.json"
                     val fallbackUrl = "https://$today.currency-api.pages.dev/v1/currencies/$fromLower.json"
-
                     val rawJson = try { httpGet(primaryUrl) } catch (_: Exception) { httpGet(fallbackUrl) }
                     val json  = org.json.JSONObject(rawJson)
                     val rates = json.getJSONObject(fromLower)
@@ -163,7 +183,7 @@ fun CurrencyTool() {
                     Text("1 $from = ${rate?.let { fmtRate(it) }} $to",
                         color = SatriaColors.TextTertiary, fontSize = 12.sp)
                     if (lastUpdated.isNotEmpty())
-                        Text("Rate date: $lastUpdated  ·  fawazahmed0/exchange-api",
+                        Text("Source: $lastUpdated",
                             color = SatriaColors.TextTertiary, fontSize = 11.sp)
                 }
             }

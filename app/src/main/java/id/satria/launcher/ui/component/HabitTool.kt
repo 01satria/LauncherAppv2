@@ -3,7 +3,9 @@ package id.satria.launcher.ui.component
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
@@ -18,7 +20,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -135,9 +142,6 @@ fun HabitTool(
 @Composable
 private fun HabitRow(habit: HabitItem, todayKey: String, onToggle: () -> Unit, onDelete: () -> Unit) {
     val done = habit.doneToday(todayKey)
-    val checkBg by animateColorAsState(
-        targetValue = if (done) DONE_GREEN else Color.Transparent,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium), label = "habitBg")
 
     Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(SatriaColors.CardBg)
         .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -157,13 +161,59 @@ private fun HabitRow(habit: HabitItem, todayKey: String, onToggle: () -> Unit, o
             contentAlignment = Alignment.Center) {
             Text("✕", color = SatriaColors.TextTertiary, fontSize = 13.sp)
         }
-        // Check
-        Box(modifier = Modifier.size(28.dp).clip(CircleShape)
-            .background(checkBg)
-            .clickable(interactionSource = remember{MutableInteractionSource()}, indication = null) { onToggle() }
-            .then(if (!done) Modifier.background(SatriaColors.SurfaceMid, CircleShape) else Modifier),
-            contentAlignment = Alignment.Center) {
-            if (done) Text("✓", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        // Check — sama persis dengan ModernCheckbox di TodoTool
+        HabitCheckbox(checked = done, onChecked = onToggle)
+    }
+}
+
+@Composable
+private fun HabitCheckbox(checked: Boolean, onChecked: () -> Unit) {
+    val scale by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "habitCheckScale",
+    )
+    val bgColor by animateColorAsState(
+        targetValue = if (checked) SatriaColors.Accent else Color.Transparent,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "habitCheckBg",
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (checked) SatriaColors.Accent else SatriaColors.TextTertiary,
+        animationSpec = spring(stiffness = Spring.StiffnessMedium),
+        label = "habitCheckBorder",
+    )
+    val checkProgress by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (checked) 1f else 0f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "habitCheckProgress",
+    )
+    Box(
+        modifier = Modifier
+            .scale(scale)
+            .size(22.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .background(bgColor)
+            .border(1.5.dp, borderColor, RoundedCornerShape(6.dp))
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { onChecked() },
+        contentAlignment = Alignment.Center,
+    ) {
+        if (checkProgress > 0f) {
+            Canvas(modifier = Modifier.size(13.dp)) {
+                val w = size.width
+                val h = size.height
+                val path = Path().apply {
+                    moveTo(0f, h * 0.5f)
+                    lineTo(w * 0.38f, h * 0.85f)
+                    lineTo(w, h * 0.15f)
+                }
+                drawPath(
+                    path = path,
+                    color = Color.White,
+                    style = Stroke(width = 2.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+                    alpha = checkProgress,
+                )
+            }
         }
     }
 }

@@ -1,6 +1,5 @@
 package id.satria.launcher.ui.component
 
-import android.graphics.Bitmap
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -17,7 +16,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.graphics.drawable.toBitmap
 import id.satria.launcher.data.AppData
 import id.satria.launcher.ui.theme.SatriaColors
 
@@ -62,25 +60,23 @@ fun AppGridItem(
     ) {
         // ── RAM FIX: ukuran 96px (turun dari 120px) — masih tajam di xxhdpi ──
         // 96px icon: 96*96*4 = 36 KB vs 120px: 120*120*4 = 56 KB (~36% hemat)
-        val bitmap = remember(app.packageName) {
-            iconCache.get(app.packageName) ?: run {
-                // px = dp * 3 (xxhdpi) cukup hingga 96px maks untuk hemat RAM
-                val px = (iconSizeDp * 2).coerceIn(72, 96)
-                val bmp = app.icon.toBitmap(px, px, Bitmap.Config.ARGB_8888).asImageBitmap()
-                iconCache.put(app.packageName, bmp)
-                bmp
-            }
-        }
+        // Bitmap sudah di-pre-cache oleh LauncherRepository.
+        // iconCache adalah LruCache — jika null (evicted), gunakan placeholder transparan.
+        val bitmap = remember(app.packageName) { iconCache.get(app.packageName) }
 
-        Image(
-            bitmap             = bitmap,
-            contentDescription = app.label,
-            contentScale       = ContentScale.Fit,
-            filterQuality      = FilterQuality.Medium, // turun dari High — tidak kentara bedanya
-            modifier           = Modifier
-                .size(iconSizeDp.dp)
-                .clip(RoundedCornerShape((iconSizeDp * 0.24f).dp)),
-        )
+        if (bitmap != null) {
+            Image(
+                bitmap             = bitmap,
+                contentDescription = app.label,
+                contentScale       = ContentScale.Fit,
+                filterQuality      = FilterQuality.Medium,
+                modifier           = Modifier
+                    .size(iconSizeDp.dp)
+                    .clip(RoundedCornerShape((iconSizeDp * 0.24f).dp)),
+            )
+        } else {
+            Box(modifier = Modifier.size(iconSizeDp.dp).clip(RoundedCornerShape((iconSizeDp * 0.24f).dp)))
+        }
 
         if (showName) {
             Text(

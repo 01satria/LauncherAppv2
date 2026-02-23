@@ -19,26 +19,31 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _allApps = MutableStateFlow<List<AppData>>(emptyList())
     val allApps: StateFlow<List<AppData>> = _allApps.asStateFlow()
 
-    val userName         = prefs.userName.stateIn(viewModelScope, SharingStarted.Eagerly, "User")
-    val assistantName    = prefs.assistantName.stateIn(viewModelScope, SharingStarted.Eagerly, "Assistant")
-    val showHidden       = prefs.showHidden.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    // Flow kritis (selalu dibutuhkan HomeScreen) → Eagerly agar tidak ada delay
     val showNames        = prefs.showNames.stateIn(viewModelScope, SharingStarted.Eagerly, true)
     val layoutMode       = prefs.layoutMode.stateIn(viewModelScope, SharingStarted.Eagerly, "grid")
-    val avatarPath       = prefs.avatarPath.stateIn(viewModelScope, SharingStarted.Eagerly, null)
     val iconSize         = prefs.iconSize.stateIn(viewModelScope, SharingStarted.Eagerly, 54)
     val dockIconSize     = prefs.dockIconSize.stateIn(viewModelScope, SharingStarted.Eagerly, 56)
     val hiddenPackages   = prefs.hiddenPackages.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val dockPackages     = prefs.dockPackages.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val todos            = prefs.todos.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val countdowns       = prefs.countdowns.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val weatherLocations = prefs.weatherLocations.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val prayerCities     = prefs.prayerCities.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val prayerCache      = prefs.prayerCache.stateIn(viewModelScope, SharingStarted.Eagerly, "{}")
-    val habits           = prefs.habits.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val darkMode         = prefs.darkMode.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val gridCols         = prefs.gridCols.stateIn(viewModelScope, SharingStarted.Eagerly, id.satria.launcher.data.DEFAULT_GRID_COLS)
+    val gridRows         = prefs.gridRows.stateIn(viewModelScope, SharingStarted.Eagerly, id.satria.launcher.data.DEFAULT_GRID_ROWS)
+    val showHidden       = prefs.showHidden.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
-    val darkMode    = prefs.darkMode.stateIn(viewModelScope, SharingStarted.Eagerly, true)
-    val gridCols    = prefs.gridCols.stateIn(viewModelScope, SharingStarted.Eagerly, id.satria.launcher.data.DEFAULT_GRID_COLS)
-    val gridRows    = prefs.gridRows.stateIn(viewModelScope, SharingStarted.Eagerly, id.satria.launcher.data.DEFAULT_GRID_ROWS)
+    // Flow sekunder (hanya dibutuhkan saat Dashboard/tool terbuka)
+    // WhileSubscribed(5_000): flow berhenti 5 detik setelah tidak ada subscriber,
+    // lalu mulai lagi saat dibutuhkan — hemat coroutine & RAM saat layar home
+    private val WS = SharingStarted.WhileSubscribed(5_000)
+    val userName         = prefs.userName.stateIn(viewModelScope, WS, "User")
+    val assistantName    = prefs.assistantName.stateIn(viewModelScope, WS, "Assistant")
+    val avatarPath       = prefs.avatarPath.stateIn(viewModelScope, WS, null)
+    val todos            = prefs.todos.stateIn(viewModelScope, WS, emptyList())
+    val countdowns       = prefs.countdowns.stateIn(viewModelScope, WS, emptyList())
+    val weatherLocations = prefs.weatherLocations.stateIn(viewModelScope, WS, emptyList())
+    val prayerCities     = prefs.prayerCities.stateIn(viewModelScope, WS, emptyList())
+    val prayerCache      = prefs.prayerCache.stateIn(viewModelScope, WS, "{}")
+    val habits           = prefs.habits.stateIn(viewModelScope, WS, emptyList())
 
     private val _avatarVersion = MutableStateFlow(0)
     val avatarVersion: StateFlow<Int> = _avatarVersion.asStateFlow()
@@ -56,9 +61,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     init { refreshApps() }
 
-    fun refreshApps() = viewModelScope.launch { _allApps.value = repo.getInstalledApps() }
+    fun refreshApps() = viewModelScope.launch {
+        // Jika sudah ada data, hanya refresh jika jumlah app berubah
+        // Ini mencegah reload iconCache penuh setiap kali onResume
+        val current = _allApps.value
+        val fresh   = repo.getInstalledApps()
+        if (current.isEmpty() || current.size != fresh.size ||
+            current.map { it.packageName }.toSet() != fresh.map { it.packageName }.toSet()) {
+            _allApps.value = fresh
+        }
+        // Bersihkan icon yang packageName-nya tidak ada lagi
+        if (current.isNotEmpty()) {
+            val freshPkgs = fresh.map { it.packageName }.toSet()
+            current.filter { it.packageName !in freshPkgs }
+                   .forEach { id.satria.launcher.ui.component.iconCache.remove(it.packageName) }
+        }
+    }
     fun launchApp(pkg: String) = repo.launchApp(pkg)
-    fun uninstallApp(pkg: String) { _allApps.value = _allApps.value.filter { it.packageName != pkg }; repo.uninstallApp(pkg) }
+    fun uninstallApp(pkg: String) {
+        _allApps.value = _allApps.value.filter { it.packageName != pkg }
+        id.satria.launcher.ui.component.removeIconFromCache(pkg) // bebaskan bitmap dari LruCache
+        repo.uninstallApp(pkg)
+    }
 
     fun hideApp(pkg: String) = viewModelScope.launch {
         val newHidden = hiddenPackages.value.toMutableList()
@@ -150,7 +174,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 habit.copy(doneDates = newDates, streak = calcStreak(newDates))
             } else {
                 val newDates = habit.doneDates + today
-                habit.copy(doneDates = newDates.takeLast(365), streak = calcStreak(newDates))
+                habit.copy(doneDates = newDates.takeLast(90), streak = calcStreak(newDates))
             }
         })
     }

@@ -47,7 +47,7 @@ private data class Message(
 
 // Module-level chat cache — bertahan selama app hidup
 private val _chatCache = mutableListOf<Message>()
-private const val MAX_MESSAGES = 80
+private const val MAX_MESSAGES = 50
 
 private fun getTimeStr(): String =
     SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
@@ -181,7 +181,7 @@ fun ChatScreen(vm: MainViewModel, onClose: () -> Unit) {
 
         val userMsg = Message(makeId(), text, "user", getTimeStr())
         _chatCache.add(userMsg)
-        if (_chatCache.size > MAX_MESSAGES) _chatCache.removeAt(0)
+        while (_chatCache.size > MAX_MESSAGES) _chatCache.removeAt(0)
         messages  = _chatCache.toList()
         input     = ""
         isTyping  = true
@@ -192,7 +192,7 @@ fun ChatScreen(vm: MainViewModel, onClose: () -> Unit) {
             val replyText = aiReply(text, historySnapshot, userName, assistantName)
             val reply = Message(makeId(), replyText, "assistant", getTimeStr())
             _chatCache.add(reply)
-            if (_chatCache.size > MAX_MESSAGES) _chatCache.removeAt(0)
+            while (_chatCache.size > MAX_MESSAGES) _chatCache.removeAt(0)
             messages = _chatCache.toList()
             isTyping = false
             scrollToEnd()

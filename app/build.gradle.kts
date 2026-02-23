@@ -31,8 +31,11 @@ android {
         release {
             isMinifyEnabled   = true
             isShrinkResources = true
+            // proguard-android-optimize.txt: lebih agresif dari proguard-android.txt
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.getByName("release")
+            // Optimasi tambahan: hapus unused resources via resource shrinker
+            // (sudah di-handle isShrinkResources = true di atas)
         }
     }
 
@@ -75,6 +78,16 @@ android {
     }
 
     buildFeatures { compose = true }
+
+    packaging {
+        resources {
+            // Buang file meta yang tidak dipakai — kecil tapi hemat RAM saat class loading
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/LICENSE*"
+            excludes += "/*.txt"
+            excludes += "/*.properties"
+        }
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

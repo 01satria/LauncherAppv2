@@ -1,12 +1,12 @@
 package id.satria.launcher.data
 
-import android.graphics.drawable.Drawable
 import kotlinx.serialization.Serializable
 
+// icon Drawable tidak disimpan di AppData untuk mencegah kebocoran memori.
+// Bitmap sudah di-pre-cache di LauncherRepository via iconCache (LruCache RGB_565).
 data class AppData(
     val label: String,
     val packageName: String,
-    val icon: Drawable,
 )
 
 @Serializable

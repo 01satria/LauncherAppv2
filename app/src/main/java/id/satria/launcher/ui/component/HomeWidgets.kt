@@ -39,7 +39,7 @@ fun ClockWidget(modifier: Modifier = Modifier) {
     var date by remember { mutableStateOf(SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(Date())) }
     LaunchedEffect(Unit) {
         while (true) {
-            delay(30_000)
+            delay(60_000)
             time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
             date = SimpleDateFormat("EEE, d MMM", Locale.getDefault()).format(Date())
         }

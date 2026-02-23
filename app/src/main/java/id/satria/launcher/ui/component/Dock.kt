@@ -1,6 +1,5 @@
 package id.satria.launcher.ui.component
 
-import android.graphics.Bitmap
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -14,7 +13,6 @@ import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
-import androidx.core.graphics.drawable.toBitmap
 import id.satria.launcher.data.AppData
 import id.satria.launcher.ui.theme.SatriaColors
 
@@ -82,29 +80,35 @@ private fun DockIcon(
         label = "dockAlpha",
     )
 
-    val bitmap = remember(app.packageName) {
-        iconCache.get(app.packageName) ?: run {
-            val bmp = app.icon.toBitmap(96, 96, Bitmap.Config.ARGB_8888).asImageBitmap()
-            iconCache.put(app.packageName, bmp)
-            bmp
-        }
-    }
+    val bitmap = remember(app.packageName) { iconCache.get(app.packageName) }
 
-    Image(
-        bitmap             = bitmap,
-        contentDescription = app.label,
-        contentScale       = ContentScale.Fit,
-        filterQuality      = FilterQuality.Medium,
-        modifier           = Modifier
+    if (bitmap != null) {
+        Image(
+            bitmap             = bitmap,
+            contentDescription = app.label,
+            contentScale       = ContentScale.Fit,
+            filterQuality      = FilterQuality.Medium,
+            modifier           = Modifier
+                .size(dockIconSize.dp)
+                .scale(scale)
+                .alpha(alpha)
+                .clip(RoundedCornerShape((dockIconSize * 0.25f).dp))
+                .combinedClickable(
+                    interactionSource = interactionSource,
+                    indication        = null,
+                    onClick           = { onPress(app.packageName) },
+                    onLongClick       = { onLongPress(app.packageName) },
+                ),
+        )
+    } else {
+        Box(modifier = Modifier
             .size(dockIconSize.dp)
-            .scale(scale)
-            .alpha(alpha)
-            .clip(RoundedCornerShape((dockIconSize * 0.25f).dp))
             .combinedClickable(
                 interactionSource = interactionSource,
                 indication        = null,
                 onClick           = { onPress(app.packageName) },
                 onLongClick       = { onLongPress(app.packageName) },
-            ),
-    )
+            )
+        )
+    }
 }

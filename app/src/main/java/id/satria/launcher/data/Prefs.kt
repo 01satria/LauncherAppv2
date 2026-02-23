@@ -3,6 +3,7 @@ package id.satria.launcher.data
 import android.content.Context
 import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -74,11 +75,11 @@ class Prefs(private val context: Context) {
     val habits           = ds.data.map { decode(it[PrefKeys.HABITS],            emptyList()) { s -> json.decodeFromString<List<HabitItem>>(s) } }
 
     // ── Theme mode — stored as boolean (true = dark, default = true) ──────
-    val darkMode     = ds.data.map { it[PrefKeys.DARK_MODE] ?: true }
+    val darkMode     = ds.data.map { it[PrefKeys.DARK_MODE] ?: true }.distinctUntilChanged()
 
     // ── Grid layout ───────────────────────────────────────────────────────
-    val gridCols     = ds.data.map { it[PrefKeys.GRID_COLS] ?: DEFAULT_GRID_COLS }
-    val gridRows     = ds.data.map { it[PrefKeys.GRID_ROWS] ?: DEFAULT_GRID_ROWS }
+    val gridCols     = ds.data.map { it[PrefKeys.GRID_COLS] ?: DEFAULT_GRID_COLS }.distinctUntilChanged()
+    val gridRows     = ds.data.map { it[PrefKeys.GRID_ROWS] ?: DEFAULT_GRID_ROWS }.distinctUntilChanged()
 
     // ── Write helpers ──────────────────────────────────────────────────────
     suspend fun setUserName(v: String)      = ds.edit { it[PrefKeys.USER_NAME] = v }
