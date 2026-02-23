@@ -37,7 +37,7 @@ fun ToolGrid(
 ) {
     val group1 = listOf(
         ToolEntry("🌤️", "Weather",   null,                                   onWeather),
-        ToolEntry("💱",  "Exchange",  null,                                   onMoney),
+        ToolEntry("💱",  "Currency",  null,                                   onMoney),
         ToolEntry("📝",  "To Do",     todoPending?.let { "$it pending" },     onTodo),
         ToolEntry("⏳",  "Countdown", cdFirst?.let { cdPreview(it) },         onCountdown),
         ToolEntry("🍅",  "Pomodoro",  "Focus timer",                          onPomodoro),

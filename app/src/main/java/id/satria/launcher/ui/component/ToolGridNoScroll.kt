@@ -35,7 +35,7 @@ fun ToolGridNoScroll(
 ) {
     val g1 = listOf(
         TE("🌤️", "Weather",   null,                                   onWeather),
-        TE("💱",  "Exchange",  null,                                   onMoney),
+        TE("💱",  "Currency",  null,                                   onMoney),
         TE("📝",  "To Do",     todoPending?.let { "$it pending" },     onTodo),
         TE("⏳",  "Countdown", cdFirst?.let { cdPrev(it) },           onCountdown),
         TE("🍅",  "Pomodoro",  "Focus timer",                         onPomodoro),

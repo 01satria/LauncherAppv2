@@ -98,16 +98,17 @@ fun DashboardHeader(
                 ) { Text("👤", fontSize = 72.sp) }
             }
 
-            // Fade — hanya 22% dari bawah, smooth, RAM-zero (Brush is lazy)
+            // Fade — 12% dari bawah, smooth 3-stop gradient
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .fillMaxHeight(0.22f)
+                    .fillMaxHeight(0.12f)
                     .align(Alignment.BottomCenter)
                     .background(
                         Brush.verticalGradient(
-                            0f to Color.Transparent,
-                            1f to SatriaColors.ScreenBackground
+                            0f   to Color.Transparent,
+                            0.5f to SatriaColors.ScreenBackground.copy(alpha = 0.5f),
+                            1f   to SatriaColors.ScreenBackground,
                         )
                     )
             )

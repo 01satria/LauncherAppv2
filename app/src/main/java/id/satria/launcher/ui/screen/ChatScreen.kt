@@ -24,8 +24,17 @@ import coil.request.ImageRequest
 import id.satria.launcher.MainViewModel
 import id.satria.launcher.ui.theme.SatriaColors
 import id.satria.launcher.ui.theme.LocalAppTheme
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
+import java.io.OutputStreamWriter
+import java.net.HttpURLConnection
+import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -36,52 +45,102 @@ private data class Message(
     val time: String,
 )
 
-// Module-level chat cache — bertahan selama app hidup, mirip _chatCache di RN
+// Module-level chat cache — bertahan selama app hidup
 private val _chatCache = mutableListOf<Message>()
-private const val MAX_MESSAGES = 200
+private const val MAX_MESSAGES = 80
 
-private fun getTimeStr(): String {
-    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-}
+private fun getTimeStr(): String =
+    SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
 
 private fun makeId() = "${System.currentTimeMillis()}-${(Math.random() * 100000).toInt()}"
 
-private fun getReply(input: String, userName: String, assistantName: String): String {
+// Pollinations AI — free, no key, very lightweight
+private suspend fun aiReply(
+    userMessage   : String,
+    history       : List<Message>,
+    userName      : String,
+    assistantName : String,
+): String = withContext(Dispatchers.IO) {
+    try {
+        val messages = JSONArray()
+
+        // System prompt singkat — hemat token
+        messages.put(JSONObject().apply {
+            put("role", "system")
+            put("content", "You are $assistantName, a friendly personal assistant for $userName. " +
+                "Reply concisely (1-3 sentences). Be warm and helpful.")
+        })
+
+        // Sertakan max 10 pesan terakhir sebagai context (hemat RAM)
+        history.takeLast(10).forEach { msg ->
+            messages.put(JSONObject().apply {
+                put("role", if (msg.from == "user") "user" else "assistant")
+                put("content", msg.text)
+            })
+        }
+
+        // Pesan saat ini
+        messages.put(JSONObject().apply {
+            put("role", "user")
+            put("content", userMessage)
+        })
+
+        val body = JSONObject().apply {
+            put("model", "openai")   // alias model terbaru di Pollinations
+            put("messages", messages)
+            put("max_tokens", 150)
+            put("private", true)     // tidak dicatat di log publik
+        }
+
+        val conn = URL("https://text.pollinations.ai/openai").openConnection() as HttpURLConnection
+        conn.doOutput     = true
+        conn.connectTimeout = 15_000
+        conn.readTimeout    = 20_000
+        conn.requestMethod  = "POST"
+        conn.setRequestProperty("Content-Type", "application/json")
+        conn.setRequestProperty("User-Agent", "SatriaLauncher/1.0 Android")
+
+        OutputStreamWriter(conn.outputStream, "UTF-8").use { it.write(body.toString()) }
+
+        if (conn.responseCode !in 200..299) throw Exception("HTTP ${conn.responseCode}")
+        val raw = BufferedReader(InputStreamReader(conn.inputStream, "UTF-8")).use { it.readText() }
+        conn.disconnect()
+
+        val json = JSONObject(raw)
+        json.getJSONArray("choices")
+            .getJSONObject(0)
+            .getJSONObject("message")
+            .getString("content")
+            .trim()
+    } catch (_: Exception) {
+        // Fallback ke reply lokal jika API gagal / offline
+        localReply(userMessage, userName, assistantName)
+    }
+}
+
+// Fallback ringan jika offline
+private fun localReply(input: String, userName: String, assistantName: String): String {
     val t = input.lowercase().trim()
     return when {
-        t.contains("hai") || t.contains("hi") || t.contains("hello") || t.contains("halo") ->
-            "Hey $userName! 👋 What can I do for you?"
-        t.contains("apa kabar") || t.contains("how are you") ->
-            "I'm doing great, $userName! 😊 How about you?"
-        t.contains("siapa kamu") || t.contains("who are you") || t.contains("nama kamu") ->
+        t.contains("hi") || t.contains("hello") || t.contains("hai") || t.contains("halo") ->
+            "Hey $userName! 👋 How can I help you today?"
+        t.contains("how are you") || t.contains("apa kabar") ->
+            "I'm doing great, $userName! 😊 What about you?"
+        t.contains("who are you") || t.contains("siapa kamu") ->
             "I'm $assistantName, your personal assistant! 🤖"
-        t.contains("makasih") || t.contains("thanks") || t.contains("thank you") || t.contains("terima kasih") ->
+        t.contains("thank") || t.contains("makasih") || t.contains("terima kasih") ->
             "You're welcome, $userName! 😊"
-        t.contains("jam berapa") || t.contains("what time") || t.contains("pukul berapa") ->
-            "It's ${getTimeStr()} right now, $userName! ⏰"
-        t.contains("bosan") || t.contains("gabut") || t.contains("bored") ->
-            "Try opening your favorite app! 📱 Or just keep chatting with me 😄"
-        t.contains("capek") || t.contains("tired") || t.contains("lelah") ->
-            "Take a break, $userName! 😴 Your health matters."
-        t.contains("lapar") || t.contains("hungry") || t.contains("makan") ->
-            "Hungry? Don't skip your meals, $userName! 🍔"
-        t.contains("bye") || t.contains("dadah") || t.contains("sampai jumpa") ->
-            "Bye $userName! 👋 See you later~"
-        t.contains("good morning") || t.contains("selamat pagi") || t.contains("pagi") ->
-            "Good morning, $userName! ☀️ Hope you have a great day!"
-        t.contains("good night") || t.contains("selamat malam") || t.contains("malam") ->
+        t.contains("bye") || t.contains("dadah") ->
+            "Bye $userName! 👋 See you soon~"
+        t.contains("good morning") || t.contains("pagi") ->
+            "Good morning, $userName! ☀️ Have a great day!"
+        t.contains("good night") || t.contains("malam") ->
             "Good night, $userName! 🌙 Sweet dreams!"
-        t.contains("love") || t.contains("sayang") ->
-            "Aww, I appreciate that, $userName! 🥰"
-        t.contains("joke") || t.contains("lucu") ->
-            "Why don't scientists trust atoms? Because they make up everything! 😄"
         else -> listOf(
             "Interesting! Tell me more, $userName. 😊",
-            "I'm not sure about that, but I'm always here for you! 🤗",
-            "Oh really? Go on! 👀",
-            "Sounds fun! Anything else on your mind, $userName? 😄",
-            "I still have a lot to learn! 😅",
-            "Hmm, that's a new one for me! Care to explain? 🤔",
+            "I'm here for you! 🤗 Go on…",
+            "Oh really? That's cool! 😄",
+            "Hmm, let me think… 🤔 Can you elaborate?",
         ).random()
     }
 }
@@ -116,14 +175,15 @@ fun ChatScreen(vm: MainViewModel, onClose: () -> Unit) {
         val userMsg = Message(makeId(), text, "user", getTimeStr())
         _chatCache.add(userMsg)
         if (_chatCache.size > MAX_MESSAGES) _chatCache.removeAt(0)
-        messages = _chatCache.toList()
-        input = ""
-        isTyping = true
+        messages  = _chatCache.toList()
+        input     = ""
+        isTyping  = true
         scrollToEnd()
 
         scope.launch {
-            delay((600 + Math.random() * 600).toLong())
-            val reply = Message(makeId(), getReply(text, userName, assistantName), "assistant", getTimeStr())
+            val historySnapshot = messages.toList()  // snapshot ringan, tidak copy data besar
+            val replyText = aiReply(text, historySnapshot, userName, assistantName)
+            val reply = Message(makeId(), replyText, "assistant", getTimeStr())
             _chatCache.add(reply)
             if (_chatCache.size > MAX_MESSAGES) _chatCache.removeAt(0)
             messages = _chatCache.toList()

@@ -33,6 +33,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val countdowns       = prefs.countdowns.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val weatherLocations = prefs.weatherLocations.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val prayerCities     = prefs.prayerCities.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val prayerCache      = prefs.prayerCache.stateIn(viewModelScope, SharingStarted.Eagerly, "{}")
     val habits           = prefs.habits.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val darkMode    = prefs.darkMode.stateIn(viewModelScope, SharingStarted.Eagerly, true)
@@ -119,7 +120,19 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         if (prayerCities.value.size >= 8) return@launch
         prefs.setPrayerCities(prayerCities.value + city)
     }
-    fun removePrayerCity(city: String) = viewModelScope.launch { prefs.setPrayerCities(prayerCities.value.filter { it != city }) }
+    fun removePrayerCity(city: String) = viewModelScope.launch {
+        prefs.setPrayerCities(prayerCities.value.filter { it != city })
+        // Hapus cache kota yang dihapus
+        val cache = org.json.JSONObject(prayerCache.value)
+        cache.remove(city)
+        prefs.setPrayerCache(cache.toString())
+    }
+    fun updatePrayerCache(city: String, timingsJson: String) = viewModelScope.launch {
+        if (!prayerCities.value.contains(city)) return@launch  // hanya simpan jika disave
+        val cache = org.json.JSONObject(prayerCache.value)
+        cache.put(city, timingsJson)
+        prefs.setPrayerCache(cache.toString())
+    }
 
     // ── Habits ─────────────────────────────────────────────────────────────
     fun addHabit(name: String, emoji: String) = viewModelScope.launch {

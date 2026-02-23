@@ -139,7 +139,7 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                                     savedLocations   = vm.weatherLocations.collectAsState().value,
                                     onAddLocation    = { vm.addWeatherLocation(it) },
                                     onRemoveLocation = { vm.removeWeatherLocation(it) })
-                                "money"     -> MoneyTool()
+                                "money"     -> CurrencyTool()
                                 "todo"      -> TodoTool(todos = todos,
                                     onAdd = { vm.addTodo(it) }, onToggle = { vm.toggleTodo(it) }, onRemove = { vm.removeTodo(it) })
                                 "countdown" -> CountdownTool(countdowns = countdowns,
@@ -147,8 +147,10 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                                 "converter" -> ConverterTool()
                                 "prayer"    -> PrayerTool(
                                     savedCities   = vm.prayerCities.collectAsState().value,
+                                    savedCacheJson = vm.prayerCache.collectAsState().value,
                                     onAddCity     = { vm.addPrayerCity(it) },
-                                    onRemoveCity  = { vm.removePrayerCity(it) })
+                                    onRemoveCity  = { vm.removePrayerCity(it) },
+                                    onUpdateCache = { city, json -> vm.updatePrayerCache(city, json) })
                                 "habits"    -> HabitTool(habits = habits,
                                     onAdd = { n, e -> vm.addHabit(n, e) }, onToggle = { vm.checkHabit(it) }, onDelete = { vm.deleteHabit(it) })
                                 else        -> {}

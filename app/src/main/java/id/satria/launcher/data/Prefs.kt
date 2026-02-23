@@ -22,6 +22,7 @@ object PrefKeys {
     val COUNTDOWNS        = stringPreferencesKey("countdowns")
     val WEATHER_LOCATIONS = stringPreferencesKey("weather_locations")
     val PRAYER_CITIES     = stringPreferencesKey("prayer_cities")
+    val PRAYER_CACHE      = stringPreferencesKey("prayer_cache")   // JSON map city→timings
     val ICON_SIZE         = intPreferencesKey("icon_size")
     val DOCK_ICON_SIZE    = intPreferencesKey("dock_icon_size")
     val HABITS            = stringPreferencesKey("habits")
@@ -69,6 +70,7 @@ class Prefs(private val context: Context) {
     val countdowns       = ds.data.map { decode(it[PrefKeys.COUNTDOWNS],        emptyList()) { s -> json.decodeFromString<List<CountdownItem>>(s) } }
     val weatherLocations = ds.data.map { decode(it[PrefKeys.WEATHER_LOCATIONS], emptyList()) { s -> json.decodeFromString<List<String>>(s) } }
     val prayerCities     = ds.data.map { decode(it[PrefKeys.PRAYER_CITIES],     emptyList()) { s -> json.decodeFromString<List<String>>(s) } }
+    val prayerCache      = ds.data.map { it[PrefKeys.PRAYER_CACHE] ?: "{}" }   // raw JSON string map
     val habits           = ds.data.map { decode(it[PrefKeys.HABITS],            emptyList()) { s -> json.decodeFromString<List<HabitItem>>(s) } }
 
     // ── Theme mode — stored as boolean (true = dark, default = true) ──────
@@ -94,6 +96,7 @@ class Prefs(private val context: Context) {
     suspend fun setCountdowns(v: List<CountdownItem>) = ds.edit { it[PrefKeys.COUNTDOWNS]       = json.encodeToString(v) }
     suspend fun setWeatherLocations(v: List<String>)  = ds.edit { it[PrefKeys.WEATHER_LOCATIONS] = json.encodeToString(v) }
     suspend fun setPrayerCities(v: List<String>)      = ds.edit { it[PrefKeys.PRAYER_CITIES]     = json.encodeToString(v) }
+    suspend fun setPrayerCache(v: String)             = ds.edit { it[PrefKeys.PRAYER_CACHE]      = v }
     suspend fun setHabits(v: List<HabitItem>)         = ds.edit { it[PrefKeys.HABITS]            = json.encodeToString(v) }
     suspend fun setDarkMode(v: Boolean)                        = ds.edit { it[PrefKeys.DARK_MODE]      = v }
     suspend fun setGridCols(v: Int)      = ds.edit { it[PrefKeys.GRID_COLS] = v }
