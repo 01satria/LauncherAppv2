@@ -264,11 +264,14 @@ private fun IosPagedGrid(
     val pagerState = rememberPagerState(pageCount = { pageCount })
     val scope      = rememberCoroutineScope()
 
-    // ── Deteksi swipe kanan di page 0 ─────────────────────────────────────
-    // Strategi: awaitEachGesture di layer Box LUAR.
-    // Kita hanya "mengintip" (peek) touch events tanpa mengkonsumsinya,
-    // sehingga pager tetap bisa scroll normal ke halaman berikutnya.
-    // Saat di page 0 dan dx > threshold → panggil onSwipeRight().
+    // ── Deteksi swipe KIRI di page 0 → buka Dashboard ────────────────────
+    // Saat pager sudah di page paling kiri (page 0) dan user swipe ke kiri,
+    // pager tidak bisa scroll ke halaman berikutnya (tidak ada halaman -1),
+    // jadi kita intersept gesture ini dan buka Dashboard.
+    //
+    // Strategi: awaitEachGesture di PointerEventPass.Initial (sebelum pager
+    // memproses event) → kita observe totalX tanpa consume touch, sehingga
+    // scroll antar halaman lain tetap normal.
     val density   = LocalDensity.current
     val threshold = with(density) { 60.dp.toPx() }
 
@@ -278,26 +281,27 @@ private fun IosPagedGrid(
             .pointerInput(overlayActive) {
                 if (overlayActive) return@pointerInput
                 awaitEachGesture {
-                    // Tunggu jari pertama turun — JANGAN dikonsumsi agar pager tetap menerima event
+                    // Tunggu jari turun — tidak dikonsumsi agar pager tetap menerima event
                     awaitFirstDown(requireUnconsumed = false)
                     var totalX = 0f
                     var totalY = 0f
                     var fired  = false
 
-                    // Track drag tanpa consume, hanya observe
                     do {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         val drag  = event.changes.firstOrNull() ?: break
                         totalX += drag.positionChange().x
                         totalY += drag.positionChange().y
 
-                        // Hanya aktif di page 0, gerakan horizontal dominan, swipe ke kanan
+                        // Page 0 + swipe ke KIRI (totalX negatif) + dominan horizontal
                         if (!fired
                             && pagerState.currentPage == 0
-                            && totalX > threshold
-                            && totalX > totalY * 1.5f   // lebih horizontal dari vertikal
+                            && totalX < -threshold
+                            && kotlin.math.abs(totalX) > kotlin.math.abs(totalY) * 1.2f
                         ) {
                             fired = true
+                            // Consume agar pager tidak ikut merespons
+                            event.changes.forEach { it.consume() }
                             onSwipeRight()
                         }
                     } while (drag.pressed && !fired)
