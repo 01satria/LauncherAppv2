@@ -40,6 +40,7 @@ import kotlin.math.ceil
 // HomeScreen
 // Gestur:
 //   • Swipe kanan (dari grid halaman 1)  → buka Dashboard
+//   • Swipe kiri (dari grid halaman terakhir) → buka Dashboard
 //   • Swipe kiri di Dashboard            → tutup Dashboard
 //   • Long-press background              → Settings
 // RAM: beyondViewportPageCount=0, derivedStateOf, shared iconCache, no parallax
@@ -277,6 +278,24 @@ private fun IosPagedGrid(
             // Reset posisi pager agar tidak terlihat "narik" ke kiri
             scope.launch {
                 pagerState.scrollToPage(0)
+            }
+        }
+    }
+
+    // ── Deteksi swipe kiri di halaman terakhir ────────────────────────────
+    // Ketika pager ada di page terakhir dan user swipe kiri, pager mencoba
+    // scroll melewati halaman terakhir → currentPageOffsetFraction menjadi positif.
+    LaunchedEffect(pagerState, overlayActive, pageCount) {
+        if (overlayActive) return@LaunchedEffect
+        snapshotFlow {
+            pagerState.currentPage to pagerState.currentPageOffsetFraction
+        }
+        .distinctUntilChanged()
+        .filter { (page, offset) -> page == pageCount - 1 && offset > 0.08f }
+        .collect {
+            onSwipeRight()
+            scope.launch {
+                pagerState.scrollToPage(pageCount - 1)
             }
         }
     }
