@@ -30,6 +30,8 @@ import id.satria.launcher.data.AppData
 import id.satria.launcher.ui.component.*
 import id.satria.launcher.ui.theme.LocalAppTheme
 import id.satria.launcher.ui.theme.SatriaColors
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 import kotlin.math.ceil
@@ -231,8 +233,10 @@ private fun HomeContent(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // IosPagedGrid
-// Swipe kanan dari halaman pertama → buka Dashboard
-// Parallax dihapus: penyebab utama lag di mid/low-end device
+// • HorizontalPager scroll bebas antar halaman
+// • Swipe kanan di page 0 → Dashboard: deteksi dari snapshotFlow offset pager
+//   tanpa overlay apapun yang memblokir touch
+// • Animasi smooth: no parallax, no graphicsLayer per-frame
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -253,13 +257,29 @@ private fun IosPagedGrid(
     val pageCount    by remember(apps.size, itemsPerPage) {
         derivedStateOf { ceil(apps.size / itemsPerPage.toFloat()).toInt().coerceAtLeast(1) }
     }
-    val pagerState   = rememberPagerState(pageCount = { pageCount })
-    val scope        = rememberCoroutineScope()
-    val density      = LocalDensity.current
-    val swipeThresh  = with(density) { 64.dp.toPx() }
 
-    // Deteksi apakah sedang di halaman pertama
-    val isFirstPage by remember { derivedStateOf { pagerState.currentPage == 0 } }
+    val pagerState = rememberPagerState(pageCount = { pageCount })
+    val scope      = rememberCoroutineScope()
+
+    // ── Deteksi swipe kanan di page 0 ─────────────────────────────────────
+    // Ketika pager ada di page 0 dan user swipe kanan, pager mencoba scroll
+    // ke "halaman -1" → currentPageOffsetFraction menjadi negatif.
+    // snapshotFlow mengobservasi tanpa memblokir touch pager.
+    LaunchedEffect(pagerState, overlayActive) {
+        if (overlayActive) return@LaunchedEffect
+        snapshotFlow {
+            pagerState.currentPage to pagerState.currentPageOffsetFraction
+        }
+        .distinctUntilChanged()
+        .filter { (page, offset) -> page == 0 && offset < -0.08f }
+        .collect {
+            onSwipeRight()
+            // Reset posisi pager agar tidak terlihat "narik" ke kiri
+            scope.launch {
+                pagerState.scrollToPage(0)
+            }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         HorizontalPager(
@@ -269,9 +289,7 @@ private fun IosPagedGrid(
             modifier                = Modifier
                 .fillMaxSize()
                 .padding(bottom = 148.dp),
-            key                     = { it },
-            // Swipe kanan dari page 0 saat pager sudah di tepi kiri
-            // → pager tidak bisa scroll lagi → kita tangkap sebagai swipe ke Dashboard
+            key = { it },
         ) { page ->
             val from     = page * itemsPerPage
             val to       = minOf(from + itemsPerPage, apps.size)
@@ -284,46 +302,11 @@ private fun IosPagedGrid(
                 cols          = cols,
                 rows          = rows,
                 overlayActive = overlayActive,
-                isFirstPage   = page == 0,
                 onPress       = onPress,
                 onLongPress   = onLongPress,
-                onSwipeRight  = onSwipeRight,
             )
         }
 
-        // Intercept swipe kanan di page 0 ketika pager tidak bisa bergerak ke kiri lagi
-        // Menggunakan draggable horizontal di atas pager — hanya aktif di page 0
-        if (isFirstPage && !overlayActive) {
-            var accumulated by remember { mutableFloatStateOf(0f) }
-            var fired       by remember { mutableStateOf(false) }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 148.dp)
-                    .draggable(
-                        orientation = Orientation.Horizontal,
-                        state = rememberDraggableState { delta ->
-                            if (!fired) accumulated += delta
-                        },
-                        onDragStarted = { accumulated = 0f; fired = false },
-                        onDragStopped = { accumulated = 0f; fired = false },
-                        startDragImmediately = false,
-                    )
-            )
-            // Deteksi via nested scroll / offset pager
-            // Ketika pager di page 0 dan user drag kanan, currentPageOffsetFraction < 0
-            val pagerOffset by remember { derivedStateOf { pagerState.currentPageOffsetFraction } }
-            LaunchedEffect(pagerOffset) {
-                // pagerOffset negatif = user mencoba drag ke kanan melebihi batas page 0
-                if (isFirstPage && pagerOffset < -0.04f && !overlayActive) {
-                    onSwipeRight()
-                    // Snap balik ke page 0
-                    scope.launch { pagerState.animateScrollToPage(0) }
-                }
-            }
-        }
-
-        // Page indicator
         if (pageCount > 1) {
             IosPageDots(
                 pageCount   = pageCount,
@@ -336,7 +319,7 @@ private fun IosPagedGrid(
     }
 }
 
-// Grid page — icon grid tanpa parallax
+// Grid page — icon grid
 @Composable
 private fun IosGridPage(
     apps          : List<AppData>,
@@ -345,10 +328,8 @@ private fun IosGridPage(
     cols          : Int,
     rows          : Int,
     overlayActive : Boolean,
-    isFirstPage   : Boolean,
     onPress       : (String) -> Unit,
     onLongPress   : (String) -> Unit,
-    onSwipeRight  : () -> Unit,
 ) {
     Column(
         modifier = Modifier
