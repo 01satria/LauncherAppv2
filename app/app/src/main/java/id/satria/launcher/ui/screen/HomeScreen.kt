@@ -5,6 +5,8 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -20,6 +22,9 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -259,40 +264,46 @@ private fun IosPagedGrid(
     val pagerState = rememberPagerState(pageCount = { pageCount })
     val scope      = rememberCoroutineScope()
 
-    // ── Deteksi swipe kanan di page 0 via snapshotFlow ────────────────────
-    // Saat page 0 di-drag ke kanan, pager overscroll.
-    // Pada beberapa versi Compose, fraction bisa negatif (< 0) atau
-    // di versi lain fraction page sebelumnya (> 0.7f di page -1 yang tidak ada).
-    // Kita tangkap: page==0 && offset < -0.03f SAJA (overscroll kanan = negatif).
-    var swipeRightFired by remember { mutableStateOf(false) }
-    LaunchedEffect(pagerState, overlayActive) {
-        if (overlayActive) return@LaunchedEffect
-        snapshotFlow {
-            pagerState.currentPage to pagerState.currentPageOffsetFraction
-        }
-        .distinctUntilChanged()
-        .collect { (page, offset) ->
-            if (page == 0 && offset < -0.03f) {
-                if (!swipeRightFired) {
-                    swipeRightFired = true
-                    onSwipeRight()
-                    scope.launch {
-                        pagerState.animateScrollToPage(
-                            page          = 0,
-                            animationSpec = spring(
-                                dampingRatio = Spring.DampingRatioMediumBouncy,
-                                stiffness    = Spring.StiffnessMedium,
-                            ),
-                        )
-                    }
-                }
-            } else {
-                swipeRightFired = false
-            }
-        }
-    }
+    // ── Deteksi swipe kanan di page 0 ─────────────────────────────────────
+    // Strategi: awaitEachGesture di layer Box LUAR.
+    // Kita hanya "mengintip" (peek) touch events tanpa mengkonsumsinya,
+    // sehingga pager tetap bisa scroll normal ke halaman berikutnya.
+    // Saat di page 0 dan dx > threshold → panggil onSwipeRight().
+    val density   = LocalDensity.current
+    val threshold = with(density) { 60.dp.toPx() }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(overlayActive) {
+                if (overlayActive) return@pointerInput
+                awaitEachGesture {
+                    // Tunggu jari pertama turun — JANGAN dikonsumsi agar pager tetap menerima event
+                    awaitFirstDown(requireUnconsumed = false)
+                    var totalX = 0f
+                    var totalY = 0f
+                    var fired  = false
+
+                    // Track drag tanpa consume, hanya observe
+                    do {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val drag  = event.changes.firstOrNull() ?: break
+                        totalX += drag.positionChange().x
+                        totalY += drag.positionChange().y
+
+                        // Hanya aktif di page 0, gerakan horizontal dominan, swipe ke kanan
+                        if (!fired
+                            && pagerState.currentPage == 0
+                            && totalX > threshold
+                            && totalX > totalY * 1.5f   // lebih horizontal dari vertikal
+                        ) {
+                            fired = true
+                            onSwipeRight()
+                        }
+                    } while (drag.pressed && !fired)
+                }
+            },
+    ) {
         HorizontalPager(
             state                   = pagerState,
             beyondViewportPageCount = 0,
@@ -578,10 +589,10 @@ private fun IosListRow(
         label         = "listBg",
     )
 
-    val bitmap    = remember(app.packageName) { iconCache.get(app.packageName) }
+    val bitmap = remember(app.packageName) { iconCache.get(app.packageName) }
 
-    Column(
-        modifier = Modifier
+    Row(
+        modifier              = Modifier
             .fillMaxWidth()
             .background(bgColor)
             .combinedClickable(
@@ -589,50 +600,39 @@ private fun IosListRow(
                 indication        = null,
                 onClick           = { if (!overlayActive) onPress(app.packageName) },
                 onLongClick       = { if (!overlayActive) onLongPress(app.packageName) },
-            ),
+            )
+            .padding(horizontal = 20.dp, vertical = 9.dp),
+        verticalAlignment     = androidx.compose.ui.Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Row(
-            modifier              = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 9.dp),
-            verticalAlignment     = androidx.compose.ui.Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        Box(
+            modifier = Modifier
+                .size(iconSizeDp.dp)
+                .clip(RoundedCornerShape((iconSizeDp * 0.22f).dp)),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(iconSizeDp.dp)
-                    .clip(RoundedCornerShape((iconSizeDp * 0.22f).dp)),
-            ) {
-                if (bitmap != null) {
-                    Image(
-                        bitmap             = bitmap,
-                        contentDescription = app.label,
-                        contentScale       = ContentScale.Fit,
-                        filterQuality      = FilterQuality.Medium,
-                        modifier           = Modifier.fillMaxSize(),
-                    )
-                } else {
-                    Box(modifier = Modifier.fillMaxSize().background(
-                        if (darkMode) Color(0xFF3A3A3C) else Color(0xFFE5E5EA)
-                    ))
-                }
+            if (bitmap != null) {
+                Image(
+                    bitmap             = bitmap,
+                    contentDescription = app.label,
+                    contentScale       = ContentScale.Fit,
+                    filterQuality      = FilterQuality.Medium,
+                    modifier           = Modifier.fillMaxSize(),
+                )
+            } else {
+                Box(modifier = Modifier.fillMaxSize().background(
+                    if (darkMode) Color(0xFF3A3A3C) else Color(0xFFE5E5EA)
+                ))
             }
-
-            Text(
-                text       = app.label,
-                color      = SatriaColors.TextPrimary,
-                fontSize   = 16.sp,
-                fontWeight = FontWeight.Normal,
-                maxLines   = 1,
-                overflow   = TextOverflow.Ellipsis,
-                modifier   = Modifier.weight(1f),
-            )
-
-            Text(
-                text     = "›",
-                color    = SatriaColors.TextTertiary.copy(alpha = 0.40f),
-                fontSize = 20.sp,
-            )
         }
+
+        Text(
+            text       = app.label,
+            color      = SatriaColors.TextPrimary,
+            fontSize   = 16.sp,
+            fontWeight = FontWeight.Normal,
+            maxLines   = 1,
+            overflow   = TextOverflow.Ellipsis,
+            modifier   = Modifier.weight(1f),
+        )
     }
 }
