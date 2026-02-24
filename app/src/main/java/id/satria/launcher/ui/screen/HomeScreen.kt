@@ -733,5 +733,6 @@ private fun IosListRow(
                                 color = SatriaColors.TextTertiary.copy(alpha = 0.40f),
                                 fontSize = 20.sp,
                         )
+                }
         }
 }
