@@ -65,8 +65,12 @@ fun HomeScreen(vm: MainViewModel) {
         var dashboardScrollRequest by remember { mutableIntStateOf(0) }
         // Track apakah dashboard sedang terlihat di pager (grid atau list)
         var dashboardVisible by remember { mutableStateOf(false) }
+        // Track apakah Pomodoro aktif (disable swipe)
+        var pomodoroActive by remember { mutableStateOf(false) }
 
-        val overlayActive by remember { derivedStateOf { showSettings || actionTarget != null } }
+        val overlayActive by remember {
+                derivedStateOf { showSettings || actionTarget != null || pomodoroActive }
+        }
 
         BackHandler(enabled = overlayActive) {
                 when {
@@ -91,7 +95,11 @@ fun HomeScreen(vm: MainViewModel) {
                         onAppLong = { if (!overlayActive) actionTarget = it },
                         onBgLongPress = { if (!overlayActive) showSettings = true },
                         dashboardContent = { onClose ->
-                                DashboardScreen(vm = vm, onClose = onClose)
+                                DashboardScreen(
+                                        vm = vm,
+                                        onClose = onClose,
+                                        onPomodoroChanged = { pomodoroActive = it },
+                                )
                         },
                         dashboardScrollRequest = dashboardScrollRequest,
                         onDashboardChanged = { dashboardVisible = it },
