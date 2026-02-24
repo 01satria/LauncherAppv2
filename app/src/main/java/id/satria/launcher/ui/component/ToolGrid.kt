@@ -34,14 +34,16 @@ fun ToolGrid(
     onPomodoro   : () -> Unit,
     onCalculator : () -> Unit,
     onConverter  : () -> Unit,
-    onHabits     : () -> Unit,
-    onPrayer     : () -> Unit,
+    onHabits       : () -> Unit,
+    onPrayer       : () -> Unit,
+    onMoneyManager : () -> Unit,
 ) {
     val daily = listOf(
         ToolEntry("🌤️", "Weather",    null,                                    onWeather),
         ToolEntry("🕌",  "Prayer",     "Daily salah times",                    onPrayer),
         ToolEntry("📝",  "To Do",      todoPending?.let { "$it pending" },     onTodo),
         ToolEntry("💪",  "Habits",     if (habitTotal > 0) "$habitDone / $habitTotal done" else "Track your streak", onHabits),
+        ToolEntry("💰",  "Money",      "Budget & expense tracker",   onMoneyManager),
     )
     val tools = listOf(
         ToolEntry("💱",  "Currency",   "Live exchange rates",                  onMoney),

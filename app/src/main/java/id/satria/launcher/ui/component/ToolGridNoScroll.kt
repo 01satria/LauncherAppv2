@@ -37,8 +37,9 @@ fun ToolGridNoScroll(
     onPomodoro   : () -> Unit,
     onCalculator : () -> Unit,
     onConverter  : () -> Unit,
-    onHabits     : () -> Unit,
-    onPrayer     : () -> Unit,
+    onHabits       : () -> Unit,
+    onPrayer       : () -> Unit,
+    onMoneyManager : () -> Unit,
 ) {
     // ── DAILY — hal-hal yang dicek tiap hari
     val daily = listOf(
@@ -46,6 +47,7 @@ fun ToolGridNoScroll(
         TE("🕌",  "Prayer",     "Daily salah times",                    onPrayer),
         TE("📝",  "To Do",      todoPending?.let { "$it pending" },     onTodo),
         TE("💪",  "Habits",     if (habitTotal > 0) "$habitDone / $habitTotal done" else "Track your streak", onHabits),
+        TE("💰",  "Money",      "Budget & expense tracker",   onMoneyManager),
     )
     // ── TOOLS — alat bantu & utilitas
     val tools = listOf(

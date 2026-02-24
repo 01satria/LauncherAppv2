@@ -113,19 +113,20 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                         )
                         Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(SatriaColors.BorderLight))
                         ToolGridNoScroll(
-                            todoPending  = todoPending,
-                            cdFirst      = countdowns.firstOrNull(),
-                            habitDone    = habitDone,
-                            habitTotal   = habitTotal,
-                            onWeather    = { activeTool = "weather" },
-                            onMoney      = { activeTool = "money" },
-                            onTodo       = { activeTool = "todo" },
-                            onCountdown  = { activeTool = "countdown" },
-                            onPomodoro   = { showPomodoro = true },
-                            onCalculator = { activeTool = "calculator" },
-                            onConverter  = { activeTool = "converter" },
-                            onHabits     = { activeTool = "habits" },
-                            onPrayer     = { activeTool = "prayer" },
+                            todoPending    = todoPending,
+                            cdFirst        = countdowns.firstOrNull(),
+                            habitDone      = habitDone,
+                            habitTotal     = habitTotal,
+                            onWeather      = { activeTool = "weather" },
+                            onMoney        = { activeTool = "money" },
+                            onTodo         = { activeTool = "todo" },
+                            onCountdown    = { activeTool = "countdown" },
+                            onPomodoro     = { showPomodoro = true },
+                            onCalculator   = { activeTool = "calculator" },
+                            onConverter    = { activeTool = "converter" },
+                            onHabits       = { activeTool = "habits" },
+                            onPrayer       = { activeTool = "prayer" },
+                            onMoneyManager = { activeTool = "moneymanager" },
                         )
                         Spacer(Modifier.height(16.dp))
                     }
@@ -146,7 +147,8 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                                     savedLocations   = vm.weatherLocations.collectAsState().value,
                                     onAddLocation    = { vm.addWeatherLocation(it) },
                                     onRemoveLocation = { vm.removeWeatherLocation(it) })
-                            "money"     -> MoneyTool(
+                                "money"        -> CurrencyTool()
+                                "moneymanager" -> MoneyTool(
                                     wallets      = vm.moneyWallets.collectAsState().value,
                                     transactions = vm.moneyTransactions.collectAsState().value,
                                     onAddWallet  = { name, emoji, color, currency -> vm.addMoneyWallet(name, emoji, color, currency) },
