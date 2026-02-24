@@ -4,9 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -21,7 +18,6 @@ import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
@@ -62,34 +58,20 @@ fun HomeScreen(vm: MainViewModel) {
         val gridRows by vm.gridRows.collectAsState()
         val darkMode by vm.darkMode.collectAsState()
 
-        var showDashboard by remember { mutableStateOf(false) }
         var showSettings by remember { mutableStateOf(false) }
         var actionTarget by remember { mutableStateOf<String?>(null) }
 
-        // Counter: setiap increment memicu scroll pager grid ke halaman dashboard (page 0)
+        // Counter: setiap increment memicu scroll pager ke halaman dashboard (page 0)
         var dashboardScrollRequest by remember { mutableIntStateOf(0) }
-        // Track apakah dashboard sedang terlihat di grid pager
-        var gridDashboardVisible by remember { mutableStateOf(false) }
-        val scope = rememberCoroutineScope()
+        // Track apakah dashboard sedang terlihat di pager (grid atau list)
+        var dashboardVisible by remember { mutableStateOf(false) }
 
-        // Dashboard aktif = grid di page 0, atau list overlay terbuka
-        val dashboardActive by remember { derivedStateOf { gridDashboardVisible || showDashboard } }
-
-        // Untuk grid mode, overlayActive TIDAK termasuk showDashboard (karena dashboard = page
-        // pager)
-        val overlayActive by remember {
-                derivedStateOf {
-                        (if (layoutMode == "grid") false else showDashboard) ||
-                                showSettings ||
-                                actionTarget != null
-                }
-        }
+        val overlayActive by remember { derivedStateOf { showSettings || actionTarget != null } }
 
         BackHandler(enabled = overlayActive) {
                 when {
                         actionTarget != null -> actionTarget = null
                         showSettings -> showSettings = false
-                        showDashboard -> showDashboard = false
                 }
         }
 
@@ -108,17 +90,16 @@ fun HomeScreen(vm: MainViewModel) {
                         onAppPress = { if (!overlayActive) vm.launchApp(it) },
                         onAppLong = { if (!overlayActive) actionTarget = it },
                         onBgLongPress = { if (!overlayActive) showSettings = true },
-                        onSwipeRight = { if (!overlayActive) showDashboard = true },
                         dashboardContent = { onClose ->
                                 DashboardScreen(vm = vm, onClose = onClose)
                         },
                         dashboardScrollRequest = dashboardScrollRequest,
-                        onGridDashboardChanged = { gridDashboardVisible = it },
+                        onDashboardChanged = { dashboardVisible = it },
                 )
 
                 // ── Dock — tersembunyi saat Dashboard terbuka ────────────────────
                 AnimatedVisibility(
-                        visible = !dashboardActive,
+                        visible = !dashboardVisible,
                         enter = fadeIn(tween(200)) + slideInVertically(initialOffsetY = { it }),
                         exit = fadeOut(tween(150)) + slideOutVertically(targetOffsetY = { it }),
                         modifier = Modifier.align(Alignment.BottomCenter),
@@ -128,62 +109,11 @@ fun HomeScreen(vm: MainViewModel) {
                                 avatarPath = avatarPath,
                                 avatarVersion = avatarVersion,
                                 dockIconSize = dockIconSize,
-                                onAvatarClick = {
-                                        if (!overlayActive) {
-                                                if (layoutMode == "grid") dashboardScrollRequest++
-                                                else showDashboard = true
-                                        }
-                                },
+                                onAvatarClick = { if (!overlayActive) dashboardScrollRequest++ },
                                 onAppPress = { if (!overlayActive) vm.launchApp(it) },
                                 onAppLongPress = { if (!overlayActive) actionTarget = it },
                                 onLongPressSettings = { if (!overlayActive) showSettings = true },
                         )
-                }
-
-                // ── Dashboard overlay — hanya untuk List mode ─────────────────────
-                if (layoutMode != "grid") {
-                        AnimatedVisibility(
-                                visible = showDashboard,
-                                enter =
-                                        slideInHorizontally(
-                                                initialOffsetX = { -it },
-                                                animationSpec =
-                                                        tween(260, easing = FastOutSlowInEasing),
-                                        ) + fadeIn(tween(200)),
-                                exit =
-                                        slideOutHorizontally(
-                                                targetOffsetX = { -it },
-                                                animationSpec =
-                                                        tween(220, easing = FastOutSlowInEasing),
-                                        ) + fadeOut(tween(160)),
-                        ) {
-                                val density = LocalDensity.current
-                                val closeThreshold = with(density) { 80.dp.toPx() }
-                                var swipeDx by remember { mutableFloatStateOf(0f) }
-
-                                Box(
-                                        modifier =
-                                                Modifier.fillMaxSize()
-                                                        .draggable(
-                                                                orientation =
-                                                                        Orientation.Horizontal,
-                                                                state =
-                                                                        rememberDraggableState {
-                                                                                delta ->
-                                                                                swipeDx += delta
-                                                                        },
-                                                                onDragStopped = {
-                                                                        if (swipeDx <
-                                                                                        -closeThreshold
-                                                                        )
-                                                                                showDashboard =
-                                                                                        false
-                                                                        swipeDx = 0f
-                                                                },
-                                                                onDragStarted = { swipeDx = 0f },
-                                                        ),
-                                ) { DashboardScreen(vm = vm, onClose = { showDashboard = false }) }
-                        }
                 }
 
                 // ── Settings ────────────────────────────────────────────────────────
@@ -254,10 +184,9 @@ private fun HomeContent(
         onAppPress: (String) -> Unit,
         onAppLong: (String) -> Unit,
         onBgLongPress: () -> Unit,
-        onSwipeRight: () -> Unit,
         dashboardContent: @Composable (onClose: () -> Unit) -> Unit = {},
         dashboardScrollRequest: Int = 0,
-        onGridDashboardChanged: (Boolean) -> Unit = {},
+        onDashboardChanged: (Boolean) -> Unit = {},
 ) {
         Box(
                 modifier =
@@ -281,18 +210,47 @@ private fun HomeContent(
                                 onLongPress = onAppLong,
                                 dashboardContent = dashboardContent,
                                 dashboardScrollRequest = dashboardScrollRequest,
-                                onDashboardVisibleChanged = onGridDashboardChanged,
+                                onDashboardVisibleChanged = onDashboardChanged,
                         )
                 } else {
-                        IosListView(
-                                apps = filteredApps,
-                                iconSize = iconSize,
-                                darkMode = darkMode,
-                                overlayActive = overlayActive,
-                                onPress = onAppPress,
-                                onLongPress = onAppLong,
-                                onSwipeRight = onSwipeRight,
-                        )
+                        // ── List mode: HorizontalPager (dashboard=0, list=1) ─────────
+                        val pagerState = rememberPagerState(initialPage = 1, pageCount = { 2 })
+                        val scope = rememberCoroutineScope()
+
+                        BackHandler(enabled = pagerState.currentPage == 0) {
+                                scope.launch { pagerState.animateScrollToPage(1) }
+                        }
+
+                        LaunchedEffect(dashboardScrollRequest) {
+                                if (dashboardScrollRequest > 0) pagerState.animateScrollToPage(0)
+                        }
+
+                        LaunchedEffect(pagerState.currentPage) {
+                                onDashboardChanged(pagerState.currentPage == 0)
+                        }
+
+                        HorizontalPager(
+                                state = pagerState,
+                                beyondViewportPageCount = 1,
+                                userScrollEnabled = !overlayActive,
+                                modifier = Modifier.fillMaxSize(),
+                                key = { it },
+                        ) { page ->
+                                if (page == 0) {
+                                        dashboardContent {
+                                                scope.launch { pagerState.animateScrollToPage(1) }
+                                        }
+                                } else {
+                                        IosListView(
+                                                apps = filteredApps,
+                                                iconSize = iconSize,
+                                                darkMode = darkMode,
+                                                overlayActive = overlayActive,
+                                                onPress = onAppPress,
+                                                onLongPress = onAppLong,
+                                        )
+                                }
+                        }
                 }
         }
 }
@@ -589,7 +547,6 @@ private fun IosPageDots(
 // ─────────────────────────────────────────────────────────────────────────────
 // IosListView — plain list tanpa sticky header huruf
 // ─────────────────────────────────────────────────────────────────────────────
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun IosListView(
         apps: List<AppData>,
@@ -598,41 +555,12 @@ private fun IosListView(
         overlayActive: Boolean,
         onPress: (String) -> Unit,
         onLongPress: (String) -> Unit,
-        onSwipeRight: () -> Unit,
 ) {
-        // Sort alphabetically, no grouping
         val sorted by remember(apps) { derivedStateOf { apps.sortedBy { it.label.lowercase() } } }
-
-        val density = LocalDensity.current
-        val swipeThresh = with(density) { 72.dp.toPx() }
-        var swipeDx by remember { mutableFloatStateOf(0f) }
-        var swipeDy by remember { mutableFloatStateOf(0f) }
-        var swipeFired by remember { mutableStateOf(false) }
 
         LazyColumn(
                 contentPadding = PaddingValues(top = 56.dp, bottom = 148.dp),
-                modifier =
-                        Modifier.fillMaxSize()
-                                // Swipe kanan di list view → buka Dashboard
-                                .draggable(
-                                        orientation = Orientation.Horizontal,
-                                        state =
-                                                rememberDraggableState { delta ->
-                                                        swipeDx += delta
-                                                        if (!swipeFired && swipeDx > swipeThresh) {
-                                                                swipeFired = true
-                                                                if (!overlayActive) onSwipeRight()
-                                                        }
-                                                },
-                                        onDragStarted = {
-                                                swipeDx = 0f
-                                                swipeFired = false
-                                        },
-                                        onDragStopped = {
-                                                swipeDx = 0f
-                                                swipeFired = false
-                                        },
-                                ),
+                modifier = Modifier.fillMaxSize(),
         ) {
                 items(sorted, key = { it.packageName }) { app ->
                         IosListRow(
@@ -670,7 +598,6 @@ private fun IosListRow(
                 )
 
         val bitmap = remember(app.packageName) { iconCache.get(app.packageName) }
-        val startPad = 20 + iconSizeDp + 14
 
         Column(
                 modifier =
@@ -726,12 +653,6 @@ private fun IosListRow(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.weight(1f),
-                        )
-
-                        Text(
-                                text = "›",
-                                color = SatriaColors.TextTertiary.copy(alpha = 0.40f),
-                                fontSize = 20.sp,
                         )
                 }
         }
