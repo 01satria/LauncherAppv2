@@ -8,7 +8,8 @@ import id.satria.launcher.data.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
-import kotlinx.serialization.serializer
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -199,40 +200,53 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun resetHabitsIfNewDay() { /* Streaks auto-calc from doneDates — no reset needed */ }
 
     // ── Money Management ────────────────────────────────────────────────────
+    // CATATAN: Semua fungsi baca state pakai .value dari StateFlow yang sudah
+    // terhubung ke DataStore. WhileSubscribed memastikan flow aktif selama
+    // DashboardScreen terbuka, sehingga .value selalu fresh.
+    // Data disimpan ke DataStore (file proto di /data/data/…/datastore/) —
+    // persist melewati restart HP, clear cache, bahkan app update.
+
     fun addMoneyWallet(name: String, emoji: String, color: String, currency: String) = viewModelScope.launch {
-        val defaultWallet = id.satria.launcher.data.MoneyWallet(makeId(), name, emoji, currency, color)
-        prefs.setMoneyWallets(moneyWallets.value + defaultWallet)
+        val wallet = id.satria.launcher.data.MoneyWallet(makeId(), name, emoji, currency, color)
+        // Baca langsung dari prefs flow untuk hindari race condition
+        prefs.setMoneyWallets(prefs.moneyWallets.first() + wallet)
     }
-    fun deleteMoneyWallet(id: String) = viewModelScope.launch {
-        prefs.setMoneyWallets(moneyWallets.value.filter { it.id != id })
-        prefs.setMoneyTransactions(moneyTransactions.value.filter { it.walletId != id && it.toWalletId != id })
+    fun deleteMoneyWallet(walletId: String) = viewModelScope.launch {
+        val current  = prefs.moneyWallets.first()
+        val currentTx = prefs.moneyTransactions.first()
+        prefs.setMoneyWallets(current.filter { it.id != walletId })
+        prefs.setMoneyTransactions(currentTx.filter { it.walletId != walletId && it.toWalletId != walletId })
     }
     fun addMoneyTransaction(
         walletId: String, type: String, amount: Double,
         categoryKey: String, note: String, date: String, toWalletId: String = ""
     ) = viewModelScope.launch {
         val tx = id.satria.launcher.data.MoneyTransaction(makeId(), walletId, type, amount, categoryKey, note, date, toWalletId)
-        // Keep only latest 1000 transactions for performance
-        val updated = (moneyTransactions.value + tx).takeLast(1000)
-        prefs.setMoneyTransactions(updated)
+        val current = prefs.moneyTransactions.first()
+        // Simpan max 1000 transaksi terbaru agar DataStore tidak terlalu besar
+        prefs.setMoneyTransactions((current + tx).takeLast(1000))
     }
-    fun deleteMoneyTransaction(id: String) = viewModelScope.launch {
-        prefs.setMoneyTransactions(moneyTransactions.value.filter { it.id != id })
+    fun deleteMoneyTransaction(txId: String) = viewModelScope.launch {
+        prefs.setMoneyTransactions(prefs.moneyTransactions.first().filter { it.id != txId })
     }
     fun exportMoneyDataJson(): String {
-        val json = kotlinx.serialization.json.Json { prettyPrint = true }
-        val data = mapOf(
-            "wallets"      to json.encodeToString(kotlinx.serialization.serializer<List<id.satria.launcher.data.MoneyWallet>>(), moneyWallets.value),
-            "transactions" to json.encodeToString(kotlinx.serialization.serializer<List<id.satria.launcher.data.MoneyTransaction>>(), moneyTransactions.value)
-        )
-        return json.encodeToString(kotlinx.serialization.serializer<Map<String,String>>(), data)
+        val json = Json { prettyPrint = true }
+        // Encode wallets dan transactions sebagai JSON string terpisah,
+        // lalu wrap dalam object JSON — format kompatibel untuk import balik
+        val walletsJson = json.encodeToString(moneyWallets.value)
+        val txJson      = json.encodeToString(moneyTransactions.value)
+        return """{"wallets":$walletsJson,"transactions":$txJson}"""
     }
     fun importMoneyDataJson(jsonStr: String): Boolean {
         return try {
-            val j = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
-            val map = j.decodeFromString<Map<String,String>>(jsonStr)
-            val wallets = map["wallets"]?.let { j.decodeFromString<List<id.satria.launcher.data.MoneyWallet>>(it) } ?: return false
-            val txs     = map["transactions"]?.let { j.decodeFromString<List<id.satria.launcher.data.MoneyTransaction>>(it) } ?: return false
+            val j   = Json { ignoreUnknownKeys = true }
+            val obj = j.parseToJsonElement(jsonStr).jsonObject
+            val wallets = j.decodeFromString<List<id.satria.launcher.data.MoneyWallet>>(
+                obj["wallets"]?.toString() ?: return false
+            )
+            val txs = j.decodeFromString<List<id.satria.launcher.data.MoneyTransaction>>(
+                obj["transactions"]?.toString() ?: return false
+            )
             viewModelScope.launch {
                 prefs.setMoneyWallets(wallets)
                 prefs.setMoneyTransactions(txs)
