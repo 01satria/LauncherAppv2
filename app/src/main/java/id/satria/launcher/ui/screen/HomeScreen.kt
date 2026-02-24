@@ -4,7 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -18,11 +20,9 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import id.satria.launcher.MainViewModel
@@ -30,18 +30,17 @@ import id.satria.launcher.data.AppData
 import id.satria.launcher.ui.component.*
 import id.satria.launcher.ui.theme.LocalAppTheme
 import id.satria.launcher.ui.theme.SatriaColors
+import kotlinx.coroutines.launch
 import kotlin.math.absoluteValue
 import kotlin.math.ceil
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HomeScreen — iOS 26-style, tanpa liquid glass
-//
-// Navigasi gestur:
-//   • Swipe kanan (halaman 1 grid) → Dashboard slide-in dari kiri
-//   • Long-press background        → Settings modal
-//   • Back                         → tutup overlay aktif
-//
-// RAM: beyondViewportPageCount=0, derivedStateOf, shared iconCache
+// HomeScreen
+// Gestur:
+//   • Swipe kanan (dari grid halaman 1)  → buka Dashboard
+//   • Swipe kiri di Dashboard            → tutup Dashboard
+//   • Long-press background              → Settings
+// RAM: beyondViewportPageCount=0, derivedStateOf, shared iconCache, no parallax
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -104,29 +103,48 @@ fun HomeScreen(vm: MainViewModel) {
             modifier            = Modifier.align(Alignment.BottomCenter),
         )
 
-        // ── Dashboard — slide dari kiri / keluar ke kiri ─────────────────
+        // ── Dashboard — slide dari kiri, tutup dengan swipe kiri ─────────
         AnimatedVisibility(
             visible = showDashboard,
             enter   = slideInHorizontally(
                 initialOffsetX = { -it },
-                animationSpec  = spring(
-                    dampingRatio = Spring.DampingRatioLowBouncy,
-                    stiffness    = Spring.StiffnessMediumLow,
-                ),
-            ) + fadeIn(tween(180)),
+                animationSpec  = tween(260, easing = FastOutSlowInEasing),
+            ) + fadeIn(tween(200)),
             exit    = slideOutHorizontally(
                 targetOffsetX = { -it },
-                animationSpec = tween(210, easing = FastOutSlowInEasing),
+                animationSpec = tween(220, easing = FastOutSlowInEasing),
             ) + fadeOut(tween(160)),
         ) {
-            DashboardScreen(vm = vm, onClose = { showDashboard = false })
+            // Swipe kiri untuk tutup Dashboard
+            val density        = LocalDensity.current
+            val closeThreshold = with(density) { 80.dp.toPx() }
+            var swipeDx        by remember { mutableFloatStateOf(0f) }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .draggable(
+                        orientation = Orientation.Horizontal,
+                        state = rememberDraggableState { delta ->
+                            swipeDx += delta
+                        },
+                        onDragStopped = {
+                            // Swipe kiri melebihi threshold → tutup
+                            if (swipeDx < -closeThreshold) showDashboard = false
+                            swipeDx = 0f
+                        },
+                        onDragStarted = { swipeDx = 0f },
+                    ),
+            ) {
+                DashboardScreen(vm = vm, onClose = { showDashboard = false })
+            }
         }
 
         // ── Settings ────────────────────────────────────────────────────────
         AnimatedVisibility(
             visible = showSettings,
-            enter   = fadeIn(tween(220)) + scaleIn(initialScale = 0.94f, animationSpec = tween(220)),
-            exit    = fadeOut(tween(180)) + scaleOut(targetScale = 0.94f, animationSpec = tween(180)),
+            enter   = fadeIn(tween(200)) + scaleIn(initialScale = 0.95f, animationSpec = tween(200)),
+            exit    = fadeOut(tween(160)) + scaleOut(targetScale = 0.95f, animationSpec = tween(160)),
         ) {
             SettingsSheet(vm = vm, onClose = { showSettings = false })
         }
@@ -134,8 +152,8 @@ fun HomeScreen(vm: MainViewModel) {
         // ── App Action Sheet ─────────────────────────────────────────────
         AnimatedVisibility(
             visible = actionTarget != null,
-            enter   = slideInVertically { it / 2 } + fadeIn(tween(200)),
-            exit    = slideOutVertically { it / 2 } + fadeOut(tween(150)),
+            enter   = slideInVertically { it / 2 } + fadeIn(tween(180)),
+            exit    = slideOutVertically { it / 2 } + fadeOut(tween(130)),
         ) {
             actionTarget?.let { pkg ->
                 AppActionSheet(
@@ -158,8 +176,6 @@ fun HomeScreen(vm: MainViewModel) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HomeContent
-// Mendeteksi swipe-right via pointerInput terpisah (tidak konflik dengan pager)
-// Long-press background via combinedClickable
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -177,51 +193,15 @@ private fun HomeContent(
     onBgLongPress : () -> Unit,
     onSwipeRight  : () -> Unit,
 ) {
-    val density        = LocalDensity.current
-    val swipeThreshold = with(density) { 72.dp.toPx() }
-
-    // Track apakah pager sedang di halaman pertama
-    var isOnFirstPage by remember { mutableStateOf(true) }
-
-    // State drag untuk deteksi swipe-right
-    var dragStartX    by remember { mutableFloatStateOf(0f) }
-    var dragStartY    by remember { mutableFloatStateOf(0f) }
-    var swipeFired    by remember { mutableStateOf(false) }
-
     Box(
         modifier = Modifier
             .fillMaxSize()
-            // Long press background = buka settings
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication        = null,
                 onClick           = {},
                 onLongClick       = { if (!overlayActive) onBgLongPress() },
-            )
-            // Swipe-right detection — hanya pada halaman pertama grid
-            .pointerInput(overlayActive, layoutMode) {
-                if (overlayActive) return@pointerInput
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        dragStartX = offset.x
-                        dragStartY = offset.y
-                        swipeFired = false
-                    },
-                    onDrag = { change, _ ->
-                        if (!swipeFired && (layoutMode != "grid" || isOnFirstPage)) {
-                            val dx = change.position.x - dragStartX
-                            val dy = (change.position.y - dragStartY).absoluteValue
-                            // Horizontal dominan + arah kanan + melewati threshold
-                            if (dx > swipeThreshold && dy < dx * 0.65f) {
-                                swipeFired = true
-                                onSwipeRight()
-                            }
-                        }
-                    },
-                    onDragEnd    = { swipeFired = false },
-                    onDragCancel = { swipeFired = false },
-                )
-            },
+            ),
     ) {
         if (layoutMode == "grid") {
             IosPagedGrid(
@@ -233,24 +213,26 @@ private fun HomeContent(
                 overlayActive = overlayActive,
                 onPress       = onAppPress,
                 onLongPress   = onAppLong,
-                onFirstPage   = { isOnFirstPage = it },
+                onSwipeRight  = onSwipeRight,
             )
         } else {
             IosListView(
                 apps          = filteredApps,
-                showNames     = showNames,
                 iconSize      = iconSize,
                 darkMode      = darkMode,
                 overlayActive = overlayActive,
                 onPress       = onAppPress,
                 onLongPress   = onAppLong,
+                onSwipeRight  = onSwipeRight,
             )
         }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// IosPagedGrid — HorizontalPager dengan parallax ringan
+// IosPagedGrid
+// Swipe kanan dari halaman pertama → buka Dashboard
+// Parallax dihapus: penyebab utama lag di mid/low-end device
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -263,7 +245,7 @@ private fun IosPagedGrid(
     overlayActive : Boolean,
     onPress       : (String) -> Unit,
     onLongPress   : (String) -> Unit,
-    onFirstPage   : (Boolean) -> Unit,
+    onSwipeRight  : () -> Unit,
 ) {
     if (apps.isEmpty()) return
 
@@ -271,68 +253,77 @@ private fun IosPagedGrid(
     val pageCount    by remember(apps.size, itemsPerPage) {
         derivedStateOf { ceil(apps.size / itemsPerPage.toFloat()).toInt().coerceAtLeast(1) }
     }
-    val pagerState = rememberPagerState(pageCount = { pageCount })
+    val pagerState   = rememberPagerState(pageCount = { pageCount })
+    val scope        = rememberCoroutineScope()
+    val density      = LocalDensity.current
+    val swipeThresh  = with(density) { 64.dp.toPx() }
 
-    // Beritahu parent halaman mana yang aktif
-    LaunchedEffect(pagerState.currentPage) {
-        onFirstPage(pagerState.currentPage == 0)
-    }
-
-    val flingBehavior = PagerDefaults.flingBehavior(
-        state             = pagerState,
-        pagerSnapDistance = PagerSnapDistance.atMost(1),
-        snapAnimationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness    = Spring.StiffnessMedium,
-        ),
-    )
+    // Deteksi apakah sedang di halaman pertama
+    val isFirstPage by remember { derivedStateOf { pagerState.currentPage == 0 } }
 
     Box(modifier = Modifier.fillMaxSize()) {
         HorizontalPager(
             state                   = pagerState,
-            beyondViewportPageCount = 0,           // hemat RAM maksimal
-            flingBehavior           = flingBehavior,
+            beyondViewportPageCount = 0,
             userScrollEnabled       = !overlayActive,
             modifier                = Modifier
                 .fillMaxSize()
                 .padding(bottom = 148.dp),
             key                     = { it },
+            // Swipe kanan dari page 0 saat pager sudah di tepi kiri
+            // → pager tidak bisa scroll lagi → kita tangkap sebagai swipe ke Dashboard
         ) { page ->
             val from     = page * itemsPerPage
             val to       = minOf(from + itemsPerPage, apps.size)
             val pageApps = remember(apps, from, to) { apps.subList(from, to) }
 
-            // Parallax offset — ringan, tidak mempengaruhi composable children
-            val offsetFrac by remember(pagerState, page) {
-                derivedStateOf<Float> {
-                    val current = pagerState.currentPage
-                    val offset  = pagerState.currentPageOffsetFraction
-                    (page - current - offset)
-                }
-            }
+            IosGridPage(
+                apps          = pageApps,
+                showNames     = showNames,
+                iconSize      = iconSize,
+                cols          = cols,
+                rows          = rows,
+                overlayActive = overlayActive,
+                isFirstPage   = page == 0,
+                onPress       = onPress,
+                onLongPress   = onLongPress,
+                onSwipeRight  = onSwipeRight,
+            )
+        }
 
+        // Intercept swipe kanan di page 0 ketika pager tidak bisa bergerak ke kiri lagi
+        // Menggunakan draggable horizontal di atas pager — hanya aktif di page 0
+        if (isFirstPage && !overlayActive) {
+            var accumulated by remember { mutableFloatStateOf(0f) }
+            var fired       by remember { mutableStateOf(false) }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .graphicsLayer {
-                        translationX = offsetFrac * size.width * 0.06f
-                        alpha        = 1f - kotlin.math.abs(offsetFrac) * 0.12f
-                    },
-            ) {
-                IosGridPage(
-                    apps          = pageApps,
-                    showNames     = showNames,
-                    iconSize      = iconSize,
-                    cols          = cols,
-                    rows          = rows,
-                    overlayActive = overlayActive,
-                    onPress       = onPress,
-                    onLongPress   = onLongPress,
-                )
+                    .padding(bottom = 148.dp)
+                    .draggable(
+                        orientation = Orientation.Horizontal,
+                        state = rememberDraggableState { delta ->
+                            if (!fired) accumulated += delta
+                        },
+                        onDragStarted = { accumulated = 0f; fired = false },
+                        onDragStopped = { accumulated = 0f; fired = false },
+                        startDragImmediately = false,
+                    )
+            )
+            // Deteksi via nested scroll / offset pager
+            // Ketika pager di page 0 dan user drag kanan, currentPageOffsetFraction < 0
+            val pagerOffset by remember { derivedStateOf { pagerState.currentPageOffsetFraction } }
+            LaunchedEffect(pagerOffset) {
+                // pagerOffset negatif = user mencoba drag ke kanan melebihi batas page 0
+                if (isFirstPage && pagerOffset < -0.04f && !overlayActive) {
+                    onSwipeRight()
+                    // Snap balik ke page 0
+                    scope.launch { pagerState.animateScrollToPage(0) }
+                }
             }
         }
 
-        // Page indicator iOS — dot aktif melebar jadi pill
+        // Page indicator
         if (pageCount > 1) {
             IosPageDots(
                 pageCount   = pageCount,
@@ -345,7 +336,7 @@ private fun IosPagedGrid(
     }
 }
 
-// Grid page — icon merata dengan weight
+// Grid page — icon grid tanpa parallax
 @Composable
 private fun IosGridPage(
     apps          : List<AppData>,
@@ -354,8 +345,10 @@ private fun IosGridPage(
     cols          : Int,
     rows          : Int,
     overlayActive : Boolean,
+    isFirstPage   : Boolean,
     onPress       : (String) -> Unit,
     onLongPress   : (String) -> Unit,
+    onSwipeRight  : () -> Unit,
 ) {
     Column(
         modifier = Modifier
@@ -368,13 +361,13 @@ private fun IosGridPage(
                     .fillMaxWidth()
                     .weight(1f),
                 horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment     = Alignment.CenterVertically,
+                verticalAlignment     = androidx.compose.ui.Alignment.CenterVertically,
             ) {
                 for (col in 0 until cols) {
                     val idx = row * cols + col
                     Box(
                         modifier         = Modifier.weight(1f),
-                        contentAlignment = Alignment.Center,
+                        contentAlignment = androidx.compose.ui.Alignment.Center,
                     ) {
                         if (idx < apps.size) {
                             IosAppIcon(
@@ -393,7 +386,7 @@ private fun IosGridPage(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// IosAppIcon — press-scale spring ala iOS, label dengan text shadow
+// IosAppIcon
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -421,7 +414,7 @@ private fun IosAppIcon(
     val bitmap = remember(app.packageName) { iconCache.get(app.packageName) }
 
     Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
         modifier = Modifier
             .padding(horizontal = 3.dp, vertical = 5.dp)
             .scale(scale)
@@ -457,7 +450,7 @@ private fun IosAppIcon(
                 fontSize  = 10.sp,
                 maxLines  = 1,
                 overflow  = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 color     = SatriaColors.TextPrimary.copy(alpha = 0.90f),
                 modifier  = Modifier.width((iconSizeDp + 14).dp),
                 style     = androidx.compose.ui.text.TextStyle(
@@ -474,7 +467,7 @@ private fun IosAppIcon(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// IosPageDots — dot aktif: pill melebar dengan animasi spring
+// IosPageDots
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun IosPageDots(
@@ -489,11 +482,10 @@ private fun IosPageDots(
     Row(
         modifier              = modifier,
         horizontalArrangement = Arrangement.spacedBy(5.dp),
-        verticalAlignment     = Alignment.CenterVertically,
+        verticalAlignment     = androidx.compose.ui.Alignment.CenterVertically,
     ) {
         repeat(pageCount) { i ->
             val active = i == currentPage
-
             val dotW by animateDpAsState(
                 targetValue   = if (active) 18.dp else 7.dp,
                 animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium),
@@ -504,7 +496,6 @@ private fun IosPageDots(
                 animationSpec = tween(180),
                 label         = "dc$i",
             )
-
             Box(
                 modifier = Modifier
                     .width(dotW)
@@ -517,72 +508,67 @@ private fun IosPageDots(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// IosListView — alphabetical sticky-header list
+// IosListView — plain list tanpa sticky header huruf
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun IosListView(
     apps          : List<AppData>,
-    showNames     : Boolean,
     iconSize      : Int,
     darkMode      : Boolean,
     overlayActive : Boolean,
     onPress       : (String) -> Unit,
     onLongPress   : (String) -> Unit,
+    onSwipeRight  : () -> Unit,
 ) {
-    val grouped by remember(apps) {
-        derivedStateOf {
-            apps.groupBy { app ->
-                val ch = app.label.firstOrNull()?.uppercaseChar() ?: '#'
-                if (ch.isLetter()) ch.toString() else "#"
-            }.entries.sortedBy { it.key }
-        }
+    // Sort alphabetically, no grouping
+    val sorted by remember(apps) {
+        derivedStateOf { apps.sortedBy { it.label.lowercase() } }
     }
 
-    val headerBg = if (darkMode) Color(0xCC000000) else Color(0xCCF2F2F7)
+    val density      = LocalDensity.current
+    val swipeThresh  = with(density) { 72.dp.toPx() }
+    var swipeDx      by remember { mutableFloatStateOf(0f) }
+    var swipeDy      by remember { mutableFloatStateOf(0f) }
+    var swipeFired   by remember { mutableStateOf(false) }
 
     LazyColumn(
         contentPadding = PaddingValues(top = 56.dp, bottom = 148.dp),
-        modifier       = Modifier.fillMaxSize(),
+        modifier       = Modifier
+            .fillMaxSize()
+            // Swipe kanan di list view → buka Dashboard
+            .draggable(
+                orientation = Orientation.Horizontal,
+                state = rememberDraggableState { delta ->
+                    swipeDx += delta
+                    if (!swipeFired && swipeDx > swipeThresh) {
+                        swipeFired = true
+                        if (!overlayActive) onSwipeRight()
+                    }
+                },
+                onDragStarted = { swipeDx = 0f; swipeFired = false },
+                onDragStopped = { swipeDx = 0f; swipeFired = false },
+            ),
     ) {
-        grouped.forEach { (letter, groupApps) ->
-            stickyHeader(key = "h_$letter") {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(headerBg)
-                        .padding(horizontal = 20.dp, vertical = 4.dp),
-                ) {
-                    Text(
-                        text          = letter,
-                        color         = SatriaColors.TextTertiary,
-                        fontSize      = 12.sp,
-                        fontWeight    = FontWeight.Bold,
-                        letterSpacing = 1.0.sp,
-                    )
-                }
-            }
-            items(groupApps, key = { it.packageName }) { app ->
-                IosListRow(
-                    app           = app,
-                    showName      = showNames,
-                    iconSizeDp    = iconSize,
-                    darkMode      = darkMode,
-                    overlayActive = overlayActive,
-                    onPress       = onPress,
-                    onLongPress   = onLongPress,
-                )
-            }
+        items(sorted, key = { it.packageName }) { app ->
+            IosListRow(
+                app           = app,
+                iconSizeDp    = iconSize,
+                darkMode      = darkMode,
+                overlayActive = overlayActive,
+                onPress       = onPress,
+                onLongPress   = onLongPress,
+            )
         }
     }
 }
 
-// List row — highlight saat di-press, separator mulai dari icon
+// List row — tanpa label nama jika showNames = false
+// (showName dihapus dari parameter — list selalu tampilkan nama)
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun IosListRow(
     app           : AppData,
-    showName      : Boolean,
     iconSizeDp    : Int,
     darkMode      : Boolean,
     overlayActive : Boolean,
@@ -596,12 +582,12 @@ private fun IosListRow(
         targetValue   = if (isPressed)
             (if (darkMode) Color(0xFF2C2C2E) else Color(0xFFE5E5EA))
         else Color.Transparent,
-        animationSpec = tween(80),
+        animationSpec = tween(60),
         label         = "listBg",
     )
 
-    val bitmap = remember(app.packageName) { iconCache.get(app.packageName) }
-    val startPad = 20 + iconSizeDp + 14
+    val bitmap    = remember(app.packageName) { iconCache.get(app.packageName) }
+    val startPad  = 20 + iconSizeDp + 14
 
     Column(
         modifier = Modifier
@@ -618,10 +604,9 @@ private fun IosListRow(
             modifier              = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 9.dp),
-            verticalAlignment     = Alignment.CenterVertically,
+            verticalAlignment     = androidx.compose.ui.Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // Icon
             Box(
                 modifier = Modifier
                     .size(iconSizeDp.dp)
@@ -642,17 +627,15 @@ private fun IosListRow(
                 }
             }
 
-            if (showName) {
-                Text(
-                    text       = app.label,
-                    color      = SatriaColors.TextPrimary,
-                    fontSize   = 16.sp,
-                    fontWeight = FontWeight.Normal,
-                    maxLines   = 1,
-                    overflow   = TextOverflow.Ellipsis,
-                    modifier   = Modifier.weight(1f),
-                )
-            }
+            Text(
+                text       = app.label,
+                color      = SatriaColors.TextPrimary,
+                fontSize   = 16.sp,
+                fontWeight = FontWeight.Normal,
+                maxLines   = 1,
+                overflow   = TextOverflow.Ellipsis,
+                modifier   = Modifier.weight(1f),
+            )
 
             Text(
                 text     = "›",
