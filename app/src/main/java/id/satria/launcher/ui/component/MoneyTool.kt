@@ -1396,6 +1396,7 @@ private fun WalletCard(wallet: MoneyWallet, allTxs: List<MoneyTransaction>, onDe
 }
 
 // ─── ADD TRANSACTION SHEET ────────────────────────────────────────────────────
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AddTransactionSheet(
         wallets: List<MoneyWallet>,
@@ -1412,7 +1413,34 @@ private fun AddTransactionSheet(
         var date by remember { mutableStateOf(todayDateStr()) }
         var err by remember { mutableStateOf("") }
         val cats = if (txType == "expense") EXPENSE_CATEGORIES else INCOME_CATEGORIES
-        val context = LocalContext.current
+        var showDatePicker by remember { mutableStateOf(false) }
+
+        // Parse initial date string → millis for the M3 picker
+        val initialMillis = remember {
+                runCatching {
+                                SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                                                .parse(todayDateStr())!!
+                                        .time
+                        }
+                        .getOrDefault(System.currentTimeMillis())
+        }
+        val pickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+
+        // Sync picker selection → date string
+        LaunchedEffect(pickerState.selectedDateMillis) {
+                pickerState.selectedDateMillis?.let {
+                        date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date(it))
+                }
+        }
+
+        val displayDate =
+                remember(pickerState.selectedDateMillis) {
+                        pickerState.selectedDateMillis?.let {
+                                SimpleDateFormat("EEE, d MMM yyyy", Locale.getDefault())
+                                        .format(Date(it))
+                        }
+                                ?: "Tap to pick a date"
+                }
 
         Box(
                 Modifier.fillMaxSize()
@@ -1844,81 +1872,43 @@ private fun AddTransactionSheet(
                                                         ),
                                                 shape = RoundedCornerShape(10.dp)
                                         )
-                                        // Date — tap to open DatePickerDialog
-                                        Text(
-                                                "Date",
-                                                color = SatriaColors.TextTertiary,
-                                                fontSize = 11.sp
-                                        )
-                                        Box(
+                                        // Date — tap to open M3 DatePickerDialog
+                                        Row(
                                                 modifier =
                                                         Modifier.fillMaxWidth()
                                                                 .clip(RoundedCornerShape(10.dp))
-                                                                .background(SatriaColors.SurfaceMid)
-                                                                .clickable(
-                                                                        interactionSource =
-                                                                                remember {
-                                                                                        MutableInteractionSource()
-                                                                                },
-                                                                        indication = null
-                                                                ) {
-                                                                        val parts = date.split("-")
-                                                                        val y =
-                                                                                parts.getOrNull(0)
-                                                                                        ?.toIntOrNull()
-                                                                                        ?: Calendar.getInstance()
-                                                                                                .get(
-                                                                                                        Calendar.YEAR
-                                                                                                )
-                                                                        val m =
-                                                                                (parts.getOrNull(1)
-                                                                                        ?.toIntOrNull()
-                                                                                        ?: (Calendar.getInstance()
-                                                                                                .get(
-                                                                                                        Calendar.MONTH
-                                                                                                ) +
-                                                                                                1)) -
-                                                                                        1
-                                                                        val d =
-                                                                                parts.getOrNull(2)
-                                                                                        ?.toIntOrNull()
-                                                                                        ?: Calendar.getInstance()
-                                                                                                .get(
-                                                                                                        Calendar.DAY_OF_MONTH
-                                                                                                )
-                                                                        android.app
-                                                                                .DatePickerDialog(
-                                                                                        context,
-                                                                                        {
-                                                                                                _,
-                                                                                                yr,
-                                                                                                mo,
-                                                                                                dy
-                                                                                                ->
-                                                                                                date =
-                                                                                                        "%04d-%02d-%02d".format(
-                                                                                                                yr,
-                                                                                                                mo +
-                                                                                                                        1,
-                                                                                                                dy
-                                                                                                        )
-                                                                                        },
-                                                                                        y,
-                                                                                        m,
-                                                                                        d
-                                                                                )
-                                                                                .show()
-                                                                }
+                                                                .background(SatriaColors.Surface)
+                                                                .clickable { showDatePicker = true }
                                                                 .padding(
                                                                         horizontal = 16.dp,
                                                                         vertical = 14.dp
-                                                                )
+                                                                ),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                horizontalArrangement = Arrangement.spacedBy(10.dp),
                                         ) {
-                                                Text(
-                                                        text = "📅  ${formatDate(date)}",
-                                                        color = SatriaColors.TextPrimary,
-                                                        fontSize = 14.sp,
-                                                )
+                                                Text("📅", fontSize = 20.sp)
+                                                Column {
+                                                        Text(
+                                                                "Date",
+                                                                color = SatriaColors.TextSecondary,
+                                                                fontSize = 11.sp
+                                                        )
+                                                        Text(
+                                                                displayDate,
+                                                                color =
+                                                                        if (pickerState
+                                                                                        .selectedDateMillis !=
+                                                                                        null
+                                                                        )
+                                                                                SatriaColors
+                                                                                        .TextPrimary
+                                                                        else
+                                                                                SatriaColors
+                                                                                        .TextTertiary,
+                                                                fontSize = 14.sp,
+                                                                fontWeight = FontWeight.Medium
+                                                        )
+                                                }
                                         }
                                         if (err.isNotBlank())
                                                 Text(
@@ -1975,6 +1965,56 @@ private fun AddTransactionSheet(
                                         Spacer(Modifier.height(8.dp))
                                 }
                         }
+                }
+        }
+
+        // ── Material3 DatePickerDialog — pure Compose, lightweight ─────────────
+        if (showDatePicker) {
+                DatePickerDialog(
+                        onDismissRequest = { showDatePicker = false },
+                        confirmButton = {
+                                TextButton(onClick = { showDatePicker = false }) {
+                                        Text(
+                                                "OK",
+                                                color = SatriaColors.Accent,
+                                                fontWeight = FontWeight.Bold
+                                        )
+                                }
+                        },
+                        dismissButton = {
+                                TextButton(onClick = { showDatePicker = false }) {
+                                        Text("Cancel", color = SatriaColors.TextSecondary)
+                                }
+                        },
+                        colors =
+                                DatePickerDefaults.colors(
+                                        containerColor = SatriaColors.Surface,
+                                        titleContentColor = SatriaColors.TextSecondary,
+                                        headlineContentColor = SatriaColors.TextPrimary,
+                                        weekdayContentColor = SatriaColors.TextSecondary,
+                                        subheadContentColor = SatriaColors.TextSecondary,
+                                        navigationContentColor = SatriaColors.TextPrimary,
+                                        yearContentColor = SatriaColors.TextPrimary,
+                                        currentYearContentColor = SatriaColors.Accent,
+                                        selectedYearContentColor = Color.White,
+                                        selectedYearContainerColor = SatriaColors.Accent,
+                                        dayContentColor = SatriaColors.TextPrimary,
+                                        selectedDayContentColor = Color.White,
+                                        selectedDayContainerColor = SatriaColors.Accent,
+                                        todayContentColor = SatriaColors.Accent,
+                                        todayDateBorderColor = SatriaColors.Accent,
+                                        disabledDayContentColor = SatriaColors.TextTertiary,
+                                        disabledSelectedDayContentColor = SatriaColors.TextTertiary,
+                                        disabledSelectedDayContainerColor = SatriaColors.SurfaceMid,
+                                ),
+                ) {
+                        DatePicker(
+                                state = pickerState,
+                                colors =
+                                        DatePickerDefaults.colors(
+                                                containerColor = SatriaColors.Surface,
+                                        )
+                        )
                 }
         }
 }
