@@ -18,7 +18,6 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -305,7 +304,11 @@ private fun IosPagedGrid(
 
             // Parallax offset — ringan, tidak mempengaruhi composable children
             val offsetFrac by remember(pagerState, page) {
-                derivedStateOf { pagerState.getOffsetFractionForPage(page) }
+                derivedStateOf<Float> {
+                    val current = pagerState.currentPage
+                    val offset  = pagerState.currentPageOffsetFraction
+                    (page - current - offset)
+                }
             }
 
             Box(
@@ -313,7 +316,7 @@ private fun IosPagedGrid(
                     .fillMaxSize()
                     .graphicsLayer {
                         translationX = offsetFrac * size.width * 0.06f
-                        alpha        = 1f - offsetFrac.absoluteValue * 0.12f
+                        alpha        = 1f - kotlin.math.abs(offsetFrac) * 0.12f
                     },
             ) {
                 IosGridPage(
@@ -432,7 +435,7 @@ private fun IosAppIcon(
     ) {
         if (bitmap != null) {
             Image(
-                bitmap             = bitmap.asImageBitmap(),
+                bitmap             = bitmap,
                 contentDescription = app.label,
                 contentScale       = ContentScale.Fit,
                 filterQuality      = FilterQuality.Medium,
@@ -626,7 +629,7 @@ private fun IosListRow(
             ) {
                 if (bitmap != null) {
                     Image(
-                        bitmap             = bitmap.asImageBitmap(),
+                        bitmap             = bitmap,
                         contentDescription = app.label,
                         contentScale       = ContentScale.Fit,
                         filterQuality      = FilterQuality.Medium,
