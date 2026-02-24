@@ -2,6 +2,28 @@ package id.satria.launcher.data
 
 import kotlinx.serialization.Serializable
 
+// ── Money Management ──────────────────────────────────────────────────────────
+@Serializable
+data class MoneyTransaction(
+    val id         : String,
+    val walletId   : String,
+    val type       : String,       // "expense" | "income" | "transfer"
+    val amount     : Double,
+    val categoryKey: String,
+    val note       : String,
+    val date       : String,       // "yyyy-MM-dd"
+    val toWalletId : String = "",  // for transfers
+)
+
+@Serializable
+data class MoneyWallet(
+    val id       : String,
+    val name     : String,
+    val emoji    : String,
+    val currency : String = "IDR",
+    val color    : String = "#27AE60",
+)
+
 // icon Drawable tidak disimpan di AppData untuk mencegah kebocoran memori.
 // Bitmap sudah di-pre-cache di LauncherRepository via iconCache (LruCache RGB_565).
 data class AppData(

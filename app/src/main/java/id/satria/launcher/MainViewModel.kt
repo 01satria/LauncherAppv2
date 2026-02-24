@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import id.satria.launcher.data.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.serializer
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
@@ -44,6 +46,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val prayerCities     = prefs.prayerCities.stateIn(viewModelScope, WS, emptyList())
     val prayerCache      = prefs.prayerCache.stateIn(viewModelScope, WS, "{}")
     val habits           = prefs.habits.stateIn(viewModelScope, WS, emptyList())
+    val moneyWallets      = prefs.moneyWallets.stateIn(viewModelScope, WS, emptyList())
+    val moneyTransactions = prefs.moneyTransactions.stateIn(viewModelScope, WS, emptyList())
 
     private val _avatarVersion = MutableStateFlow(0)
     val avatarVersion: StateFlow<Int> = _avatarVersion.asStateFlow()
@@ -193,6 +197,49 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun resetHabitsIfNewDay() { /* Streaks auto-calc from doneDates — no reset needed */ }
+
+    // ── Money Management ────────────────────────────────────────────────────
+    fun addMoneyWallet(name: String, emoji: String, color: String, currency: String) = viewModelScope.launch {
+        val defaultWallet = id.satria.launcher.data.MoneyWallet(makeId(), name, emoji, currency, color)
+        prefs.setMoneyWallets(moneyWallets.value + defaultWallet)
+    }
+    fun deleteMoneyWallet(id: String) = viewModelScope.launch {
+        prefs.setMoneyWallets(moneyWallets.value.filter { it.id != id })
+        prefs.setMoneyTransactions(moneyTransactions.value.filter { it.walletId != id && it.toWalletId != id })
+    }
+    fun addMoneyTransaction(
+        walletId: String, type: String, amount: Double,
+        categoryKey: String, note: String, date: String, toWalletId: String = ""
+    ) = viewModelScope.launch {
+        val tx = id.satria.launcher.data.MoneyTransaction(makeId(), walletId, type, amount, categoryKey, note, date, toWalletId)
+        // Keep only latest 1000 transactions for performance
+        val updated = (moneyTransactions.value + tx).takeLast(1000)
+        prefs.setMoneyTransactions(updated)
+    }
+    fun deleteMoneyTransaction(id: String) = viewModelScope.launch {
+        prefs.setMoneyTransactions(moneyTransactions.value.filter { it.id != id })
+    }
+    fun exportMoneyDataJson(): String {
+        val json = kotlinx.serialization.json.Json { prettyPrint = true }
+        val data = mapOf(
+            "wallets"      to json.encodeToString(kotlinx.serialization.serializer<List<id.satria.launcher.data.MoneyWallet>>(), moneyWallets.value),
+            "transactions" to json.encodeToString(kotlinx.serialization.serializer<List<id.satria.launcher.data.MoneyTransaction>>(), moneyTransactions.value)
+        )
+        return json.encodeToString(kotlinx.serialization.serializer<Map<String,String>>(), data)
+    }
+    fun importMoneyDataJson(jsonStr: String): Boolean {
+        return try {
+            val j = kotlinx.serialization.json.Json { ignoreUnknownKeys = true }
+            val map = j.decodeFromString<Map<String,String>>(jsonStr)
+            val wallets = map["wallets"]?.let { j.decodeFromString<List<id.satria.launcher.data.MoneyWallet>>(it) } ?: return false
+            val txs     = map["transactions"]?.let { j.decodeFromString<List<id.satria.launcher.data.MoneyTransaction>>(it) } ?: return false
+            viewModelScope.launch {
+                prefs.setMoneyWallets(wallets)
+                prefs.setMoneyTransactions(txs)
+            }
+            true
+        } catch (e: Exception) { false }
+    }
 
     private fun todayKey(): String = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     private fun makeId()   = "${System.currentTimeMillis()}-${(Math.random() * 100000).toInt()}"

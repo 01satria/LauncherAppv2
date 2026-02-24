@@ -146,7 +146,17 @@ fun DashboardScreen(vm: MainViewModel, onClose: () -> Unit) {
                                     savedLocations   = vm.weatherLocations.collectAsState().value,
                                     onAddLocation    = { vm.addWeatherLocation(it) },
                                     onRemoveLocation = { vm.removeWeatherLocation(it) })
-                                "money"     -> CurrencyTool()
+                            "money"     -> MoneyTool(
+                                    wallets      = vm.moneyWallets.collectAsState().value,
+                                    transactions = vm.moneyTransactions.collectAsState().value,
+                                    onAddWallet  = { name, emoji, color, currency -> vm.addMoneyWallet(name, emoji, color, currency) },
+                                    onDeleteWallet = { vm.deleteMoneyWallet(it) },
+                                    onAddTransaction = { wId, type, amt, cat, note, date, toWId ->
+                                        vm.addMoneyTransaction(wId, type, amt, cat, note, date, toWId) },
+                                    onDeleteTransaction = { vm.deleteMoneyTransaction(it) },
+                                    onExportJson = { vm.exportMoneyDataJson() },
+                                    onImportJson = { vm.importMoneyDataJson(it) },
+                                )
                                 "todo"      -> TodoTool(todos = todos,
                                     onAdd = { vm.addTodo(it) }, onToggle = { vm.toggleTodo(it) }, onRemove = { vm.removeTodo(it) })
                                 "countdown" -> CountdownTool(countdowns = countdowns,

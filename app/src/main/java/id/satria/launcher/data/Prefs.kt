@@ -27,6 +27,8 @@ object PrefKeys {
     val ICON_SIZE         = intPreferencesKey("icon_size")
     val DOCK_ICON_SIZE    = intPreferencesKey("dock_icon_size")
     val HABITS            = stringPreferencesKey("habits")
+    val MONEY_WALLETS     = stringPreferencesKey("money_wallets")
+    val MONEY_TRANSACTIONS= stringPreferencesKey("money_transactions")
     // ── Grid layout ───────────────────────────────────────────────────────
     val GRID_COLS         = intPreferencesKey("grid_cols")
     val GRID_ROWS         = intPreferencesKey("grid_rows")
@@ -73,6 +75,8 @@ class Prefs(private val context: Context) {
     val prayerCities     = ds.data.map { decode(it[PrefKeys.PRAYER_CITIES],     emptyList()) { s -> json.decodeFromString<List<String>>(s) } }
     val prayerCache      = ds.data.map { it[PrefKeys.PRAYER_CACHE] ?: "{}" }   // raw JSON string map
     val habits           = ds.data.map { decode(it[PrefKeys.HABITS],            emptyList()) { s -> json.decodeFromString<List<HabitItem>>(s) } }
+    val moneyWallets     = ds.data.map { decode(it[PrefKeys.MONEY_WALLETS],     emptyList()) { s -> json.decodeFromString<List<MoneyWallet>>(s) } }
+    val moneyTransactions= ds.data.map { decode(it[PrefKeys.MONEY_TRANSACTIONS],emptyList()) { s -> json.decodeFromString<List<MoneyTransaction>>(s) } }
 
     // ── Theme mode — stored as boolean (true = dark, default = true) ──────
     val darkMode     = ds.data.map { it[PrefKeys.DARK_MODE] ?: true }.distinctUntilChanged()
@@ -99,6 +103,8 @@ class Prefs(private val context: Context) {
     suspend fun setPrayerCities(v: List<String>)      = ds.edit { it[PrefKeys.PRAYER_CITIES]     = json.encodeToString(v) }
     suspend fun setPrayerCache(v: String)             = ds.edit { it[PrefKeys.PRAYER_CACHE]      = v }
     suspend fun setHabits(v: List<HabitItem>)         = ds.edit { it[PrefKeys.HABITS]            = json.encodeToString(v) }
+    suspend fun setMoneyWallets(v: List<MoneyWallet>)             = ds.edit { it[PrefKeys.MONEY_WALLETS]      = json.encodeToString(v) }
+    suspend fun setMoneyTransactions(v: List<MoneyTransaction>)   = ds.edit { it[PrefKeys.MONEY_TRANSACTIONS] = json.encodeToString(v) }
     suspend fun setDarkMode(v: Boolean)                        = ds.edit { it[PrefKeys.DARK_MODE]      = v }
     suspend fun setGridCols(v: Int)      = ds.edit { it[PrefKeys.GRID_COLS] = v }
     suspend fun setGridRows(v: Int)      = ds.edit { it[PrefKeys.GRID_ROWS] = v }
