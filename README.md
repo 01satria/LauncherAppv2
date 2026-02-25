@@ -41,7 +41,7 @@ Add widgets directly to your home screen to glance at live information without o
 A lightweight personal assistant that knows your name, greets you by time of day, and keeps your conversation alive throughout the session.
 
 ### 🌤️ Weather
-Realtime weather for any city in the world — no account, no API key, completely free. Save up to 8 locations and check an hourly forecast for the rest of the day.
+Realtime weather for any city in the world. No account, no API key, completely free. Save up to 8 locations and check an hourly forecast for the rest of the day.
 
 ### 💱 Currency
 Live exchange rates for 14 currencies including USD, EUR, IDR, GBP, JPY, CNY, SGD, AUD, KRW, MYR, THB, INR, SAR, and AED. Convert instantly, anytime.
