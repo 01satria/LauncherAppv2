@@ -32,7 +32,7 @@ In **Grid mode**, apps are organized into pages you swipe left and right, just l
 App icons are rendered without any clipping or background. Adaptive icons and transparent icons display exactly as the developer intended, with no white boxes or rounded rectangles imposed on top.
 
 ### 📌 Dock
-Pin up to 4 favorite apps for instant access. Your avatar lives here too — tap to open the Dashboard, long press for Settings. Dock icons are also rendered without artificial backgrounds.
+Pin up to 4 favorite apps for instant access. Dock icons are also rendered without artificial backgrounds.
 
 ### 🧩 Home Widgets
 Add widgets directly to your home screen to glance at live information without opening anything. Three widgets are available: **Clock** (large time + date display), **Date** (calendar-style day card), and **Battery** (live charge level with a color-coded bar that turns red when low and green while charging).
