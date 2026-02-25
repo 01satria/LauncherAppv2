@@ -32,7 +32,7 @@ In **Grid mode**, apps are organized into pages you swipe left and right, just l
 App icons are rendered without any clipping or background. Adaptive icons and transparent icons display exactly as the developer intended, with no white boxes or rounded rectangles imposed on top.
 
 ### 📌 Dock
-Pin up to 4 favorite apps for instant access. Your avatar lives here too — tap to open the Dashboard, long press for Settings. Dock icons are also rendered without artificial backgrounds.
+Pin up to 4 favorite apps for instant access. Dock icons are also rendered without artificial backgrounds.
 
 ### 🧩 Home Widgets
 Add widgets directly to your home screen to glance at live information without opening anything. Three widgets are available: **Clock** (large time + date display), **Date** (calendar-style day card), and **Battery** (live charge level with a color-coded bar that turns red when low and green while charging).
@@ -41,7 +41,7 @@ Add widgets directly to your home screen to glance at live information without o
 A lightweight personal assistant that knows your name, greets you by time of day, and keeps your conversation alive throughout the session.
 
 ### 🌤️ Weather
-Realtime weather for any city in the world — no account, no API key, completely free. Save up to 8 locations and check an hourly forecast for the rest of the day.
+Realtime weather for any city in the world. No account, no API key, completely free. Save up to 8 locations and check an hourly forecast for the rest of the day.
 
 ### 💱 Currency
 Live exchange rates for 14 currencies including USD, EUR, IDR, GBP, JPY, CNY, SGD, AUD, KRW, MYR, THB, INR, SAR, and AED. Convert instantly, anytime.
@@ -116,8 +116,8 @@ Download the APK for your device from the [Releases](../../releases) page:
 
 | APK | Device |
 |---|---|
-| `arm64-v8a.apk` | Most Android phones (2017 and newer) — **pick this if unsure** |
-| `armeabi-v7a.apk` | Older 32-bit Android phones |
+| `arm64-v8a.apk` | Most Android phones (2017 and newer), **pick this if unsure** |
+| `armeabi-v7a.apk` | Older 32 bit Android phones |
 | `x86_64.apk` | Emulators and ChromeOS |
 
 1. Download the right APK
