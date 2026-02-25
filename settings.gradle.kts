@@ -18,5 +18,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "SatriaLauncher"
+rootProject.name = "CloudysLauncher"
 include(":app")

@@ -40,7 +40,7 @@ private fun safeHttpGet(urlStr: String): String {
             readTimeout    = 15_000
             requestMethod  = "GET"
             setRequestProperty("Accept", "application/json")
-            setRequestProperty("User-Agent", "SatriaLauncher/1.0 Android")
+            setRequestProperty("User-Agent", "CloudysLauncher/1.0 Android")
             doInput = true
         }
         conn.connect()

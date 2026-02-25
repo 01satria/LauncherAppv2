@@ -98,7 +98,7 @@ private suspend fun aiReply(
         conn.readTimeout    = 20_000
         conn.requestMethod  = "POST"
         conn.setRequestProperty("Content-Type", "application/json")
-        conn.setRequestProperty("User-Agent", "SatriaLauncher/1.0 Android")
+        conn.setRequestProperty("User-Agent", "CloudysLauncher/1.0 Android")
 
         OutputStreamWriter(conn.outputStream, "UTF-8").use { it.write(body.toString()) }
 

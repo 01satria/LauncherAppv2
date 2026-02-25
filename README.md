@@ -69,6 +69,16 @@ Offline conversion across six categories with no network needed: **Length** (km,
 ### 💪 Habits
 Build streaks that stick. Add daily habits, tap to mark them done, and watch a 🔥 streak counter grow with each consecutive day. The habit checkmark uses the same smooth animated canvas tick as the To-Do list — consistent and satisfying across both tools. The Dashboard shows your progress at a glance with a live completion badge.
 
+### 💰 Money Manager
+A full-featured personal budget and expense tracker built right into the launcher. Manage multiple **wallets** (each with its own emoji, color, and currency), log **income**, **expenses**, and **wallet-to-wallet transfers** across 15 categorized transaction types. Four tabs give you complete control:
+
+- **Overview** — wallet card carousel, this month's spending by category with progress bars, and recent transactions
+- **History** — all transactions grouped by date with swipe-to-delete
+- **Analytics** — donut chart breakdown, income vs. expense comparison, daily spending trend, and top categories
+- **Wallets** — create, view, and delete wallets with live balance tracking
+
+Supports 8 currencies (IDR, USD, EUR, SGD, MYR, JPY, GBP, AUD) and includes **JSON export/import** for full data backup and restore. All data is stored locally — no accounts, no cloud, no tracking.
+
 ---
 
 ## Customization & Settings

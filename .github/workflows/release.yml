@@ -63,9 +63,9 @@ jobs:
       - name: Create GitHub Release & Upload APKs
         uses: softprops/action-gh-release@v2
         with:
-          name: "Satria Launcher v${{ steps.version.outputs.name }}"
+          name: "Cloudys Launcher v${{ steps.version.outputs.name }}"
           body: |
-            ## 📦 Satria Launcher v${{ steps.version.outputs.name }}
+            ## 📦 Cloudys Launcher v${{ steps.version.outputs.name }}
 
             ### Download the APK for your device:
 

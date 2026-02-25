@@ -72,7 +72,7 @@ android {
             val abiFilter = output.getFilter("ABI")
             if (variant.buildType.name == "release") {
                 output.outputFileName =
-                    "SatriaLauncher-${variant.versionName}-${abiFilter ?: "universal"}.apk"
+                    "CloudysLauncher-${variant.versionName}-${abiFilter ?: "universal"}.apk"
             }
         }
     }

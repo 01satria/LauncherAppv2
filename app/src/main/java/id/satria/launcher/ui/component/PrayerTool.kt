@@ -51,7 +51,7 @@ private fun safeGet(url: String): String {
         conn.connectTimeout = 15_000
         conn.readTimeout    = 15_000
         conn.requestMethod  = "GET"
-        conn.setRequestProperty("User-Agent", "SatriaLauncher/1.0 Android")
+        conn.setRequestProperty("User-Agent", "CloudysLauncher/1.0 Android")
         conn.connect()
         if (conn.responseCode !in 200..299) throw Exception("HTTP ${conn.responseCode}")
         BufferedReader(InputStreamReader(conn.inputStream, "UTF-8")).use { it.readText() }
