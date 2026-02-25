@@ -1,4 +1,4 @@
-# Satria Launcher
+# Cloudys Launcher
 **A launcher that stays out of your way, until you need it.**
 
 ![Platform](https://img.shields.io/badge/platform-Android-3DDC84?style=flat-square&logo=android&logoColor=white)
@@ -11,9 +11,9 @@ Your wallpaper shines through. Your apps load fast. Your phone feels like yours 
 
 ---
 
-## Why Satria Launcher?
+## Why Cloudys Launcher?
 
-Most launchers are either cluttered with features you'll never use, or so minimal they're useless. Satria Launcher sits in the sweet spot — a clean home screen with a quiet set of tools ready when you actually need them.
+Most launchers are either cluttered with features you'll never use, or so minimal they're useless. Cloudys Launcher sits in the sweet spot — a clean home screen with a quiet set of tools ready when you actually need them.
 
 - **Transparent background** — your wallpaper is the design
 - **No icon backgrounds** — app icons render with full transparency, exactly as intended
@@ -88,7 +88,7 @@ Long press your avatar in the Dock to open Settings at any time. Everything abou
 
 ## Performance
 
-Satria Launcher is built with RAM efficiency as a first-class concern:
+Cloudys Launcher is built with RAM efficiency as a first-class concern:
 
 - **No icon backgrounds or clipping** — ARGB_8888 bitmaps preserve full alpha transparency
 - **LruCache** — icons are cached with automatic eviction when memory is tight (3 MB limit)
