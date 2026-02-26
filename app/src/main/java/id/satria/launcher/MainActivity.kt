@@ -7,6 +7,8 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import id.satria.launcher.ui.screen.HomeScreen
@@ -19,7 +21,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Enable edge-to-edge dengan transparent bar
+        // Edge-to-edge + transparent bar
         enableEdgeToEdge(
                 statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
                 navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
@@ -27,15 +29,13 @@ class MainActivity : ComponentActivity() {
 
         window.setBackgroundDrawableResource(android.R.color.transparent)
 
-        // 🔥 AUTO-HIDE NAVIGATION BAR (immersive mode)
-        // Navigation bar akan otomatis tersembunyi setelah beberapa detik
-        // Muncul lagi hanya kalau swipe dari bawah, lalu hilang sendiri
+        // 🔥 Navigation Bar otomatis tersembunyi setelah beberapa detik
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller.hide(WindowInsetsCompat.Type.navigationBars())
 
-        // Opsional: Kalau mau status bar juga ikut hide (full immersive)
+        // (Opsional) Hide status bar juga
         // controller.hide(WindowInsetsCompat.Type.statusBars())
 
         setContent {
@@ -50,7 +50,7 @@ class MainActivity : ComponentActivity() {
         vm.refreshApps()
         vm.resetHabitsIfNewDay()
 
-        // Pastikan immersive mode tetap aktif saat resume
+        // Pastikan tetap immersive saat resume
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.hide(WindowInsetsCompat.Type.navigationBars())
     }
@@ -58,7 +58,6 @@ class MainActivity : ComponentActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
-            // Re-apply immersive setiap kali window dapat fokus
             val controller = WindowInsetsControllerCompat(window, window.decorView)
             controller.systemBarsBehavior =
                     WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
