@@ -110,7 +110,10 @@ fun HomeScreen(vm: MainViewModel) {
                         visible = !dashboardVisible,
                         enter = fadeIn(tween(200)) + slideInVertically(initialOffsetY = { it }),
                         exit = fadeOut(tween(150)) + slideOutVertically(targetOffsetY = { it }),
-                        modifier = Modifier.align(Alignment.BottomCenter),
+                        modifier =
+                                Modifier.align(Alignment.BottomCenter)
+                                        .navigationBarsPadding()
+                                        .imePadding(),
                 ) {
                         Dock(
                                 dockApps = dockApps,
