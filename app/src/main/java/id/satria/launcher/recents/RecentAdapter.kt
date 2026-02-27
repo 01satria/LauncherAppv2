@@ -59,15 +59,6 @@ class RecentAdapter(
             holder.tvAppName.text = "Unknown"
         }
 
-        // AsyncTask via Helper untuk thumbnail
-        holder.ivThumbnail.setImageBitmap(null)
-        ThumbnailHelper.loadThumbnailAsync(
-                context,
-                holder.ivThumbnail,
-                task.persistentId,
-                task.taskDescription
-        )
-
         holder.itemView.setOnClickListener { onTaskClick(task) }
         holder.btnDismiss.setOnClickListener {
             val currentPos = holder.bindingAdapterPosition
@@ -81,7 +72,6 @@ class RecentAdapter(
     override fun getItemCount() = taskList.size
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val ivThumbnail: ImageView = view.findViewById(R.id.ivThumbnail)
         val ivAppIcon: ImageView = view.findViewById(R.id.ivAppIcon)
         val tvAppName: TextView = view.findViewById(R.id.tvAppName)
         val btnDismiss: ImageButton = view.findViewById(R.id.btnDismiss)

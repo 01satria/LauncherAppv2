@@ -4,7 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:layout_height="128dp"
+    android:layout_height="72dp"
     android:layout_marginBottom="12dp"
     android:foreground="?android:attr/selectableItemBackground"
     app:cardBackgroundColor="#2C2C2E"
@@ -14,22 +14,6 @@
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent">
-
-        <ImageView
-            android:id="@+id/ivThumbnail"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:scaleType="centerCrop"
-            app:layout_constraintHeight_percent="0.65"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <!-- Overlay dim thumbnail -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:background="#4D000000"
-            app:layout_constraintBottom_toBottomOf="@+id/ivThumbnail"
-            app:layout_constraintTop_toTopOf="@+id/ivThumbnail" />
 
         <!-- Helper library utk Circle ImageView (ex: ShapeableImageView dari Material) -->
         <com.google.android.material.imageview.ShapeableImageView
@@ -43,8 +27,7 @@
             android:scaleType="centerCrop"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/ivThumbnail"
-            app:layout_constraintVertical_bias="0.5"
+            app:layout_constraintTop_toTopOf="parent"
             app:shapeAppearanceOverlay="@style/CircleStyle" />
 
         <TextView
@@ -60,7 +43,7 @@
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toStartOf="@+id/btnDismiss"
             app:layout_constraintStart_toEndOf="@+id/ivAppIcon"
-            app:layout_constraintTop_toBottomOf="@+id/ivThumbnail"
+            app:layout_constraintTop_toTopOf="parent"
             tools:text="WhatsApp" />
 
         <ImageButton
