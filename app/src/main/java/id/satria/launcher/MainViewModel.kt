@@ -31,7 +31,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val hasUsagePermission: StateFlow<Boolean> = _hasUsagePermission.asStateFlow()
 
     // Event channel: dikirim Activity saat KEYCODE_APP_SWITCH diterima
-    private val _recentAppsEvent = Channel<Unit>(Channel.CONFLATED)
+    private val _recentAppsEvent = Channel<Unit>(Channel.BUFFERED)
     val recentAppsEvent = _recentAppsEvent.receiveAsFlow()
 
     private val _allApps = MutableStateFlow<List<AppData>>(emptyList())
