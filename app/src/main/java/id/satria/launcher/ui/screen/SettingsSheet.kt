@@ -41,7 +41,6 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
     val gridCols      by vm.gridCols.collectAsState()
     val gridRows      by vm.gridRows.collectAsState()
     val recentAppsEnabled        by vm.recentAppsEnabled.collectAsState()
-    val hasAccessibilityService  by vm.hasAccessibilityService.collectAsState()
 
     var tempIconSize     by remember(iconSize)     { mutableStateOf(iconSize.toFloat()) }
     var tempDockIconSize by remember(dockIconSize) { mutableStateOf(dockIconSize.toFloat()) }
@@ -145,65 +144,34 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
                     )
                 }
 
-                // Banner: instruksi aktifkan Accessibility Service
+                // Info cara buka recent: swipe dari tepi kiri layar
                 if (recentAppsEnabled) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                if (hasAccessibilityService) Color(0xFF1A3A2A)
-                                else Color(0xFF3A1A1A)
-                            )
+                            .background(Color(0xFF1A2A3A))
                             .padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
+                            Text("👈", fontSize = 16.sp)
                             Text(
-                                if (hasAccessibilityService) "✅" else "⚠️",
-                                fontSize = 16.sp,
-                            )
-                            Text(
-                                if (hasAccessibilityService)
-                                    "Accessibility Service aktif"
-                                else
-                                    "Accessibility Service belum aktif",
-                                color = if (hasAccessibilityService)
-                                    Color(0xFF4CAF50) else Color(0xFFFF6B6B),
+                                "Swipe dari tepi kiri layar",
+                                color = Color(0xFF4FC3F7),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                             )
                         }
-                        if (!hasAccessibilityService) {
-                            Text(
-                                "Tombol Recent di navigation bar memerlukan izin Accessibility Service agar bisa membuka panel recent apps launcher ini.",
-                                color = SatriaColors.TextSecondary,
-                                fontSize = 12.sp,
-                                lineHeight = 17.sp,
-                            )
-                            Button(
-                                onClick = { vm.openAccessibilitySettings() },
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = ButtonDefaults.buttonColors(containerColor = SatriaColors.Accent),
-                                shape = RoundedCornerShape(10.dp),
-                            ) {
-                                Text(
-                                    "Buka Settings Accessibility →",
-                                    color = Color.White,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                )
-                            }
-                            Text(
-                                "Setelah di Settings, cari 'Cloudys Launcher' lalu aktifkan.",
-                                color = SatriaColors.TextTertiary,
-                                fontSize = 11.sp,
-                                lineHeight = 15.sp,
-                            )
-                        }
+                        Text(
+                            "Geser jari dari tepi paling kiri layar ke kanan untuk membuka panel recent apps. Tidak memerlukan izin accessibility.",
+                            color = SatriaColors.TextSecondary,
+                            fontSize = 12.sp,
+                            lineHeight = 17.sp,
+                        )
                     }
                 }
 

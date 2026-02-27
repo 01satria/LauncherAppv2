@@ -13,21 +13,21 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 
 /**
- * RecentAppsManager
+ * RecentAppsManager — RAM-minimal edition
  *
- * Menggunakan UsageStatsManager untuk mendapatkan daftar app yang terakhir
- * digunakan, diurutkan dari yang paling baru. Ini adalah cara yang benar
- * untuk launcher mendapatkan "recent apps" — sama seperti AOSP Recents.
- *
- * Requires: PACKAGE_USAGE_STATS permission (user harus grant manual di
- * Settings > Apps > Special app access > Usage access).
+ * Strategi:
+ * - List recent dijaga in-memory (MutableStateFlow) — tidak ada polling, tidak ada timer
+ * - Sumber data utama: onAppLaunched() dipanggil setiap kali user buka app dari launcher
+ * - Jika Usage Stats permission ada, loadRecentApps() dipanggil on-demand (saat panel
+ *   dibuka) untuk melengkapi list dengan app yang dibuka di luar launcher
+ * - clearAll() benar-benar kosongkan list in-memory
+ * - Tidak ada background thread yang berjalan terus-menerus
  */
 class RecentAppsManager(private val context: Context) {
 
     private val _recentPackages = MutableStateFlow<List<String>>(emptyList())
     val recentPackages: StateFlow<List<String>> = _recentPackages.asStateFlow()
 
-    /** Cek apakah permission Usage Stats sudah diberikan user */
     fun hasPermission(): Boolean {
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
         val mode = appOps.checkOpNoThrow(
@@ -38,7 +38,6 @@ class RecentAppsManager(private val context: Context) {
         return mode == AppOpsManager.MODE_ALLOWED
     }
 
-    /** Buka halaman Settings untuk user grant permission */
     fun openPermissionSettings() {
         val intent = Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS).apply {
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -47,50 +46,40 @@ class RecentAppsManager(private val context: Context) {
     }
 
     /**
-     * Baca recent apps dari UsageStatsManager.
-     * Mengambil stats 7 hari terakhir, urutkan berdasarkan lastTimeUsed DESC,
-     * filter launcher sendiri, ambil max [limit] package unik.
+     * Load on-demand dari UsageStatsManager, merge dengan in-memory list.
+     * In-memory (lebih fresh) diprioritaskan di atas. Hanya query 3 hari.
      */
     suspend fun loadRecentApps(
         excludePackages: Set<String> = emptySet(),
         limit: Int = 10,
     ) = withContext(Dispatchers.IO) {
-        if (!hasPermission()) {
-            _recentPackages.value = emptyList()
-            return@withContext
-        }
+        if (!hasPermission()) return@withContext
 
         runCatching {
             val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val now = System.currentTimeMillis()
-            val sevenDaysAgo = now - 7L * 24 * 60 * 60 * 1000
+            val threeDaysAgo = now - 3L * 24 * 60 * 60 * 1000
 
-            val stats = usm.queryUsageStats(
-                UsageStatsManager.INTERVAL_DAILY,
-                sevenDaysAgo,
-                now,
-            )
-
-            val ownPkg = context.packageName
-            val result = stats
-                .filter { it.packageName != ownPkg }
+            val fromUsage = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, threeDaysAgo, now)
+                .filter { it.packageName != context.packageName }
                 .filter { it.packageName !in excludePackages }
                 .filter { it.lastTimeUsed > 0 }
                 .sortedByDescending { it.lastTimeUsed }
                 .map { it.packageName }
                 .distinct()
+
+            // Merge: in-memory di depan, usage stats melengkapi
+            val merged = (_recentPackages.value + fromUsage)
+                .distinct()
+                .filter { it !in excludePackages }
                 .take(limit)
 
-            _recentPackages.value = result
-        }.getOrElse {
-            _recentPackages.value = emptyList()
+            _recentPackages.value = merged
         }
+        // Jika gagal, biarkan in-memory list tetap seperti sebelumnya
     }
 
-    /**
-     * Tambahkan package ke depan daftar recent (dipanggil saat user launch app).
-     * Ini memastikan recent list langsung update tanpa harus tunggu polling.
-     */
+    /** Panggil saat user launch app — update in-memory instantly, no IO */
     fun onAppLaunched(packageName: String, excludePackages: Set<String> = emptySet()) {
         if (packageName == context.packageName) return
         if (packageName in excludePackages) return
@@ -98,5 +87,10 @@ class RecentAppsManager(private val context: Context) {
         current.remove(packageName)
         current.add(0, packageName)
         _recentPackages.value = current.take(10)
+    }
+
+    /** Clear All — kosongkan list in-memory sepenuhnya */
+    fun clearAll() {
+        _recentPackages.value = emptyList()
     }
 }

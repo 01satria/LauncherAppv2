@@ -1,17 +1,13 @@
 package id.satria.launcher.ui.component
 
-import android.content.Intent
-import android.provider.Settings
-import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
@@ -23,28 +19,20 @@ import androidx.compose.ui.draw.*
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import id.satria.launcher.data.AppData
-import id.satria.launcher.ui.theme.SatriaColors
 
 /**
  * RecentAppsOverlay
  *
- * Panel full-screen yang menampilkan daftar app yang terakhir digunakan.
- * Dipicu oleh swipe-up panjang dari tepi bawah layar (mirip gesture
- * "Overview" pada Android 10+ gestural navigation).
+ * Panel bottom-sheet recent apps.
+ * Dibuka via swipe dari tepi kiri layar (diatur di HomeScreen).
  *
- * @param recentPackages  Urutan packageName dari yang paling baru
- * @param allApps         Semua app terpasang (untuk resolve label & icon)
- * @param hasPermission   Apakah PACKAGE_USAGE_STATS permission sudah diberikan
- * @param onAppPress      Callback saat app ditekan
- * @param onAppLong       Callback long-press (show action sheet)
- * @param onDismiss       Callback untuk tutup overlay
- * @param onRequestPermission  Callback untuk buka Settings grant permission
- * @param onClearAll      Callback untuk clear semua recent (opsional)
+ * RAM: recentApps dihitung sekali dengan remember(key), LazyRow hanya
+ * compose item yang visible, iconCache sudah LruCache.
  */
 @Composable
 fun RecentAppsOverlay(
@@ -55,70 +43,74 @@ fun RecentAppsOverlay(
     onAppLong: (String) -> Unit,
     onDismiss: () -> Unit,
     onRequestPermission: () -> Unit,
-    onClearAll: (() -> Unit)? = null,
+    onClearAll: () -> Unit,
 ) {
-    // Build ordered list of AppData dari recentPackages
+    // appMap di-remember — hanya rebuild jika allApps berubah
     val appMap = remember(allApps) { allApps.associateBy { it.packageName } }
+    // recentApps di-remember — hanya rebuild jika packages atau map berubah
     val recentApps = remember(recentPackages, appMap) {
         recentPackages.mapNotNull { appMap[it] }.take(10)
     }
 
-    // Background scrim
+    // Full-screen scrim — tap di luar panel = dismiss
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.65f))
+            .background(Color.Black.copy(alpha = 0.60f))
             .pointerInput(Unit) { detectTapGestures { onDismiss() } },
         contentAlignment = Alignment.BottomCenter,
     ) {
-        // Panel — bottom sheet style, tidak intercept tap ke luar
+        // Panel — blok tap agar tidak menutup overlay saat klik isi panel
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.95f)),
+                        colors = listOf(Color.Transparent, Color(0xFF0D0D0D)),
                         startY = 0f,
-                        endY = 300f,
+                        endY = 280f,
                     )
                 )
-                .pointerInput(Unit) { detectTapGestures { /* block passthrough */ } }
+                .pointerInput(Unit) { detectTapGestures { /* blok passthrough */ } }
                 .navigationBarsPadding()
                 .padding(bottom = 16.dp),
         ) {
-            // ── Handle drag indicator ──────────────────────────────────────
+            // ── Drag handle ──────────────────────────────────────────────
             Box(
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp, bottom = 12.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 14.dp, bottom = 10.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Box(
                     modifier = Modifier
-                        .width(36.dp)
-                        .height(4.dp)
+                        .width(36.dp).height(4.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.35f)),
+                        .background(Color.White.copy(alpha = 0.30f)),
                 )
             }
 
-            // ── Header ────────────────────────────────────────────────────
+            // ── Header ───────────────────────────────────────────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
-                    .padding(bottom = 16.dp),
+                    .padding(bottom = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     "Recent Apps",
                     color = Color.White,
-                    fontSize = 18.sp,
+                    fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
-                if (onClearAll != null && recentApps.isNotEmpty()) {
+                // Clear All — selalu tampil jika ada item (fixed: sebelumnya tidak
+                // benar-benar clear, sekarang onClearAll memanggil clearAll() di VM)
+                if (recentApps.isNotEmpty()) {
                     Text(
                         "Clear All",
-                        color = Color.White.copy(alpha = 0.55f),
+                        color = Color.White.copy(alpha = 0.50f),
                         fontSize = 13.sp,
                         modifier = Modifier
                             .clip(RoundedCornerShape(8.dp))
@@ -132,26 +124,24 @@ fun RecentAppsOverlay(
                 }
             }
 
-            // ── Content ───────────────────────────────────────────────────
-            if (!hasPermission) {
-                // Belum ada permission — tampilkan prompt
-                PermissionPrompt(onRequestPermission = onRequestPermission)
-            } else if (recentApps.isEmpty()) {
-                // Sudah punya permission tapi belum ada usage data
-                EmptyState()
-            } else {
-                // Tampilkan card carousel recent apps
-                LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    itemsIndexed(recentApps, key = { _, app -> app.packageName }) { index, app ->
-                        RecentAppCard(
-                            app = app,
-                            onPress = { onAppPress(app.packageName) },
-                            onLong = { onAppLong(app.packageName) },
-                        )
+            // ── Content ──────────────────────────────────────────────────
+            when {
+                !hasPermission -> PermissionPrompt(onRequestPermission)
+                recentApps.isEmpty() -> EmptyState()
+                else -> {
+                    LazyRow(
+                        contentPadding = PaddingValues(horizontal = 20.dp),
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        // Key by packageName — LazyRow tidak re-compose card yang tidak berubah
+                        items(recentApps, key = { it.packageName }) { app ->
+                            RecentAppCard(
+                                app = app,
+                                onPress = { onAppPress(app.packageName) },
+                                onLong  = { onAppLong(app.packageName) },
+                            )
+                        }
                     }
                 }
             }
@@ -161,29 +151,25 @@ fun RecentAppsOverlay(
     }
 }
 
-// ── Card per app ──────────────────────────────────────────────────────────────
+// ── Card ──────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun RecentAppCard(
-    app: AppData,
-    onPress: () -> Unit,
-    onLong: () -> Unit,
-) {
+private fun RecentAppCard(app: AppData, onPress: () -> Unit, onLong: () -> Unit) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.93f else 1f,
+        targetValue = if (isPressed) 0.92f else 1f,
         animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMedium),
-        label = "cardScale",
+        label = "scale",
     )
 
+    // Icon di-pull dari LruCache — tidak re-load saat recompose
     val bitmap = remember(app.packageName) { iconCache.get(app.packageName) }
-    val iconSize = 64
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .width(80.dp)
+            .width(76.dp)
             .scale(scale)
             .combinedClickable(
                 interactionSource = interactionSource,
@@ -192,12 +178,11 @@ private fun RecentAppCard(
                 onLongClick = onLong,
             ),
     ) {
-        // App icon
         Box(
             modifier = Modifier
-                .size(iconSize.dp)
-                .clip(RoundedCornerShape((iconSize * 0.22f).dp))
-                .background(Color.White.copy(alpha = 0.08f)),
+                .size(64.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Color.White.copy(alpha = 0.07f)),
             contentAlignment = Alignment.Center,
         ) {
             if (bitmap != null) {
@@ -210,19 +195,16 @@ private fun RecentAppCard(
                 )
             }
         }
-
-        Spacer(Modifier.height(8.dp))
-
-        // App label
+        Spacer(Modifier.height(7.dp))
         Text(
             text = app.label,
-            color = Color.White.copy(alpha = 0.90f),
+            color = Color.White.copy(alpha = 0.88f),
             fontSize = 11.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
     }
 }
@@ -237,17 +219,12 @@ private fun PermissionPrompt(onRequestPermission: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        Text("🔒 Izin Diperlukan", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         Text(
-            "🔒 Izin Diperlukan",
-            color = Color.White,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.SemiBold,
-        )
-        Text(
-            "Untuk menampilkan recent apps, izinkan akses Usage Statistics di Settings.",
-            color = Color.White.copy(alpha = 0.65f),
+            "Izinkan akses Usage Statistics agar recent apps bisa dimuat dari luar launcher.",
+            color = Color.White.copy(alpha = 0.60f),
             fontSize = 13.sp,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            textAlign = TextAlign.Center,
             lineHeight = 19.sp,
         )
         Button(
@@ -260,18 +237,16 @@ private fun PermissionPrompt(onRequestPermission: () -> Unit) {
     }
 }
 
-// ── Empty state ────────────────────────────────────────────────────────────────
+// ── Empty state ───────────────────────────────────────────────────────────────
 @Composable
 private fun EmptyState() {
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 24.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 28.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             "Belum ada app yang digunakan",
-            color = Color.White.copy(alpha = 0.45f),
+            color = Color.White.copy(alpha = 0.40f),
             fontSize = 14.sp,
         )
     }
