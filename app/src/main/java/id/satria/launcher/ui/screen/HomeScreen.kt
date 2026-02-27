@@ -47,6 +47,7 @@ import kotlinx.coroutines.launch
 fun HomeScreen(vm: MainViewModel) {
         val filteredApps by vm.filteredApps.collectAsState()
         val dockApps by vm.dockApps.collectAsState()
+        val allApps by vm.allApps.collectAsState()
         val layoutMode by vm.layoutMode.collectAsState()
         val showNames by vm.showNames.collectAsState()
         val avatarPath by vm.avatarPath.collectAsState()
@@ -57,6 +58,7 @@ fun HomeScreen(vm: MainViewModel) {
         val gridCols by vm.gridCols.collectAsState()
         val gridRows by vm.gridRows.collectAsState()
         val darkMode by vm.darkMode.collectAsState()
+        val recentAppsEnabled by vm.recentAppsEnabled.collectAsState()
 
         var showSettings by remember { mutableStateOf(false) }
         var actionTarget by remember { mutableStateOf<String?>(null) }
@@ -115,16 +117,27 @@ fun HomeScreen(vm: MainViewModel) {
                                         .navigationBarsPadding()
                                         .imePadding(),
                 ) {
-                        Dock(
-                                dockApps = dockApps,
-                                avatarPath = avatarPath,
-                                avatarVersion = avatarVersion,
-                                dockIconSize = dockIconSize,
-                                onAvatarClick = { if (!overlayActive) dashboardScrollRequest++ },
-                                onAppPress = { if (!overlayActive) vm.launchApp(it) },
-                                onAppLongPress = { if (!overlayActive) actionTarget = it },
-                                onLongPressSettings = { if (!overlayActive) showSettings = true },
-                        )
+                        Column {
+                                // ── Recent Apps Bar ──────────────────────────────────
+                                if (recentAppsEnabled) {
+                                        RecentAppsBar(
+                                                allApps = allApps,
+                                                iconSize = (dockIconSize * 0.85f).toInt(),
+                                                onAppPress = { if (!overlayActive) vm.launchApp(it) },
+                                                onAppLong = { if (!overlayActive) actionTarget = it },
+                                        )
+                                }
+                                Dock(
+                                        dockApps = dockApps,
+                                        avatarPath = avatarPath,
+                                        avatarVersion = avatarVersion,
+                                        dockIconSize = dockIconSize,
+                                        onAvatarClick = { if (!overlayActive) dashboardScrollRequest++ },
+                                        onAppPress = { if (!overlayActive) vm.launchApp(it) },
+                                        onAppLongPress = { if (!overlayActive) actionTarget = it },
+                                        onLongPressSettings = { if (!overlayActive) showSettings = true },
+                                )
+                        }
                 }
 
                 // ── Settings ────────────────────────────────────────────────────────

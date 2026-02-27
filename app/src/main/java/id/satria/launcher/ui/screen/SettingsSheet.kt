@@ -40,6 +40,7 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
     val darkMode      by vm.darkMode.collectAsState()
     val gridCols      by vm.gridCols.collectAsState()
     val gridRows      by vm.gridRows.collectAsState()
+    val recentAppsEnabled by vm.recentAppsEnabled.collectAsState()
 
     var tempIconSize     by remember(iconSize)     { mutableStateOf(iconSize.toFloat()) }
     var tempDockIconSize by remember(dockIconSize) { mutableStateOf(dockIconSize.toFloat()) }
@@ -116,6 +117,7 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
 
                 SToggle("Show hidden apps", showHidden) { vm.setShowHidden(it) }
                 SToggle("Show app names",   showNames)  { vm.setShowNames(it) }
+                SToggle("Show recent apps", recentAppsEnabled) { vm.setRecentAppsEnabled(it) }
 
                 SLabel("APP ICON SIZE  (${tempIconSize.toInt()} dp)")
                 Slider(value = tempIconSize, onValueChange = { tempIconSize = it }, onValueChangeFinished = { vm.setIconSize(tempIconSize.toInt()) },
