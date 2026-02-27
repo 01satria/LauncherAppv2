@@ -115,9 +115,5 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.serialization.json)
 
-    implementation(libs.androidx.appcompat)
-    implementation(libs.com.google.android.material)
-    implementation(libs.androidx.constraintlayout)
-    implementation(libs.androidx.recyclerview)
     debugImplementation(libs.compose.tooling)
 }
