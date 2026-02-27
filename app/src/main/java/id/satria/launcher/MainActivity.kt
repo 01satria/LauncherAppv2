@@ -11,7 +11,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import id.satria.launcher.service.RecentAppsService
 import id.satria.launcher.ui.screen.HomeScreen
 import id.satria.launcher.ui.theme.SatriaTheme
 
@@ -42,14 +41,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val darkMode by vm.darkMode.collectAsState()
 
-            SatriaTheme(darkMode = darkMode) {
-                HomeScreen(
-                    vm = vm,
-                    onAppLaunched = { pkg, label ->
-                        RecentAppsService.addRecent(pkg, label, this)
-                    },
-                )
-            }
+            SatriaTheme(darkMode = darkMode) { HomeScreen(vm = vm) }
         }
     }
 

@@ -37,10 +37,10 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
     val avatarPath    by vm.avatarPath.collectAsState()
     val iconSize      by vm.iconSize.collectAsState()
     val dockIconSize  by vm.dockIconSize.collectAsState()
-    val darkMode      by vm.darkMode.collectAsState()
+    val darkMode          by vm.darkMode.collectAsState()
+    val recentAppsEnabled by vm.recentAppsEnabled.collectAsState()
     val gridCols      by vm.gridCols.collectAsState()
     val gridRows      by vm.gridRows.collectAsState()
-    val recentAppsEnabled by vm.recentAppsEnabled.collectAsState()
 
     var tempIconSize     by remember(iconSize)     { mutableStateOf(iconSize.toFloat()) }
     var tempDockIconSize by remember(dockIconSize) { mutableStateOf(dockIconSize.toFloat()) }
@@ -209,24 +209,23 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
                     }
                 }
 
-                // ── Recent Apps ────────────────────────────────────────────
+                // ── Recent Apps ─────────────────────────────────────────────
                 SLabel("RECENT APPS")
-                Column(
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(SatriaColors.SurfaceMid).padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    SToggle(
-                        label = "Enable Recent Apps",
-                        value = recentAppsEnabled,
-                        onToggle = { vm.setRecentAppsEnabled(it) },
+                SToggle("Enable Recent Apps (Double tap background)", recentAppsEnabled) {
+                    vm.setRecentAppsEnabled(it)
+                }
+                if (recentAppsEnabled) {
+                    Text(
+                        "✅ Aktif · Double tap background launcher = buka Recent Apps\nData: Usage Access dari sistem (akurat, tidak perlu tracking manual)",
+                        color = SatriaColors.TextSecondary,
+                        fontSize = 11.sp,
                     )
-                    if (recentAppsEnabled) {
-                        Text(
-                            "⚠️  Aktifkan Accessibility Service SatriaLauncher di Pengaturan → Aksesibilitas → Aplikasi yang Diinstal.",
-                            color = SatriaColors.TextSecondary,
-                            fontSize = 11.sp,
-                        )
-                    }
+                } else {
+                    Text(
+                        "Double tap background launcher untuk membuka Recent Apps.\nIzin Usage Access diperlukan (akan diminta otomatis).",
+                        color = SatriaColors.TextSecondary,
+                        fontSize = 11.sp,
+                    )
                 }
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

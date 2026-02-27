@@ -23,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import id.satria.launcher.MainViewModel
 import id.satria.launcher.data.AppData
+import id.satria.launcher.recents.RecentAppsPanel
 import id.satria.launcher.ui.component.*
 import id.satria.launcher.ui.theme.LocalAppTheme
 import id.satria.launcher.ui.theme.SatriaColors
@@ -68,6 +69,8 @@ fun HomeScreen(vm: MainViewModel, onAppLaunched: ((pkg: String, label: String) -
             }
         }
 
+        val recentAppsEnabled by vm.recentAppsEnabled.collectAsState()
+        var showRecentApps by remember { mutableStateOf(false) }
         var showSettings by remember { mutableStateOf(false) }
         var actionTarget by remember { mutableStateOf<String?>(null) }
 
@@ -84,8 +87,9 @@ fun HomeScreen(vm: MainViewModel, onAppLaunched: ((pkg: String, label: String) -
 
         BackHandler(enabled = overlayActive) {
                 when {
+                        showRecentApps       -> showRecentApps = false
                         actionTarget != null -> actionTarget = null
-                        showSettings -> showSettings = false
+                        showSettings         -> showSettings = false
                 }
         }
 
@@ -104,6 +108,7 @@ fun HomeScreen(vm: MainViewModel, onAppLaunched: ((pkg: String, label: String) -
                         onAppPress = { if (!overlayActive) launchAndTrack(it) },
                         onAppLong = { if (!overlayActive) actionTarget = it },
                         onBgLongPress = { if (!overlayActive) showSettings = true },
+                        onBgDoubleTap = { if (!overlayActive && recentAppsEnabled) showRecentApps = true },
                         dashboardContent = { onClose ->
                                 DashboardScreen(
                                         vm = vm,
@@ -185,6 +190,18 @@ fun HomeScreen(vm: MainViewModel, onAppLaunched: ((pkg: String, label: String) -
                                 )
                         }
                 }
+
+                // ── Recent Apps Panel ──────────────────────────────────────────────
+                if (recentAppsEnabled) {
+                        RecentAppsPanel(
+                                visible   = showRecentApps,
+                                onDismiss = { showRecentApps = false },
+                                onLaunch  = { pkg ->
+                                        showRecentApps = false
+                                        vm.launchApp(pkg)
+                                },
+                        )
+                }
         }
 }
 
@@ -205,6 +222,7 @@ private fun HomeContent(
         onAppPress: (String) -> Unit,
         onAppLong: (String) -> Unit,
         onBgLongPress: () -> Unit,
+        onBgDoubleTap: () -> Unit = {},
         dashboardContent: @Composable (onClose: () -> Unit) -> Unit = {},
         dashboardScrollRequest: Int = 0,
         onDashboardChanged: (Boolean) -> Unit = {},
@@ -216,6 +234,7 @@ private fun HomeContent(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null,
                                         onClick = {},
+                                        onDoubleClick = { if (!overlayActive) onBgDoubleTap() },
                                         onLongClick = { if (!overlayActive) onBgLongPress() },
                                 ),
         ) {
