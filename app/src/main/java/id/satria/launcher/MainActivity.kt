@@ -9,9 +9,12 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+<<<<<<< HEAD
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import id.satria.launcher.service.RecentAppsService
+=======
+>>>>>>> 104b10745aab3a5e701c78931971f864ac06cce6
 import id.satria.launcher.ui.screen.HomeScreen
 import id.satria.launcher.ui.theme.SatriaTheme
 
@@ -22,33 +25,27 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Edge-to-edge + transparent bar
         enableEdgeToEdge(
-                statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-                navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            statusBarStyle     = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
 
         window.setBackgroundDrawableResource(android.R.color.transparent)
-
-        // 🔥 Navigation Bar otomatis tersembunyi setelah beberapa detik
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        controller.hide(WindowInsetsCompat.Type.navigationBars())
-
-        // (Opsional) Hide status bar juga
-        // controller.hide(WindowInsetsCompat.Type.statusBars())
 
         setContent {
             val darkMode by vm.darkMode.collectAsState()
 
             SatriaTheme(darkMode = darkMode) {
+<<<<<<< HEAD
                 HomeScreen(
                     vm = vm,
                     onAppLaunched = { pkg, label ->
                         RecentAppsService.addRecent(pkg, label, this)
                     },
                 )
+=======
+                HomeScreen(vm = vm)
+>>>>>>> 104b10745aab3a5e701c78931971f864ac06cce6
             }
         }
     }
@@ -57,20 +54,6 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         vm.refreshApps()
         vm.resetHabitsIfNewDay()
-
-        // Pastikan tetap immersive saat resume
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.hide(WindowInsetsCompat.Type.navigationBars())
-    }
-
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            val controller = WindowInsetsControllerCompat(window, window.decorView)
-            controller.systemBarsBehavior =
-                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            controller.hide(WindowInsetsCompat.Type.navigationBars())
-        }
     }
 }
 
