@@ -10,8 +10,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import id.satria.launcher.ui.screen.HomeScreen
 import id.satria.launcher.ui.theme.SatriaTheme
 
@@ -22,20 +20,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Edge-to-edge + transparent bar
         enableEdgeToEdge(
-                statusBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
-                navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
+            statusBarStyle  = SystemBarStyle.dark(Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
-
         window.setBackgroundDrawableResource(android.R.color.transparent)
-
-        // Navigation bar tetap tampil (transparent) agar tombol Back/Home/Recent
-        // bisa dipakai user. Launcher intercept tombol Recent via onKeyDown().
-        // Gunakan edge-to-edge sehingga konten tetap full-screen di balik nav bar.
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.systemBarsBehavior =
-                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 
         setContent {
             val darkMode by vm.darkMode.collectAsState()
@@ -43,29 +32,45 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /**
-     * Intercept tombol Recent Apps (KEYCODE_APP_SWITCH).
-     * Android hanya mengirim event ini ke app yang terdaftar sebagai HOME launcher.
-     * Tanpa override ini, Android akan membuka sistem Overview screen sendiri.
-     */
+    // ── Intercept tombol Recent (KEYCODE_APP_SWITCH) ──────────────────────────
+    // Launcher (HOME category) adalah satu-satunya app yang bisa intercept key ini.
+    // Perlu override KEDUANYA — onKeyDown dan onKeyUp — karena device yang berbeda
+    // mengirim event di momen yang berbeda. Juga override dispatchKeyEvent sebagai
+    // fallback untuk device yang bypass onKeyDown/Up.
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_APP_SWITCH) {
-            vm.onRecentAppsButtonPressed()
-            return true  // konsumsi event — sistem tidak buka Overview-nya sendiri
+            // Jangan trigger dua kali jika ini repeat event (tombol ditahan)
+            if (event?.repeatCount == 0) {
+                vm.onRecentAppsButtonPressed()
+            }
+            return true
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_APP_SWITCH) {
+            return true  // Konsumsi event agar sistem tidak buka Overview-nya
+        }
+        return super.onKeyUp(keyCode, event)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_APP_SWITCH) {
+            if (event.action == KeyEvent.ACTION_UP) {
+                vm.onRecentAppsButtonPressed()
+            }
+            return true
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     override fun onResume() {
         super.onResume()
         vm.refreshApps()
         vm.resetHabitsIfNewDay()
-        // Cek ulang usage stats permission (user mungkin baru saja grant dari Settings)
         vm.checkUsagePermission()
-    }
-
-    override fun onWindowFocusChanged(hasFocus: Boolean) {
-        super.onWindowFocusChanged(hasFocus)
     }
 }
 

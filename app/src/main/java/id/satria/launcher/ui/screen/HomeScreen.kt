@@ -178,7 +178,7 @@ fun HomeScreen(vm: MainViewModel) {
 
                 // ── Recent Apps Overlay ──────────────────────────────────────────
                 AnimatedVisibility(
-                        visible = showRecents && recentAppsEnabled,
+                        visible = showRecents,
                         enter = fadeIn(tween(200)) + slideInVertically(
                                 initialOffsetY = { it / 3 },
                                 animationSpec = tween(250, easing = FastOutSlowInEasing),

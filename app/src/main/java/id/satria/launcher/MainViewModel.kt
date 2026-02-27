@@ -152,11 +152,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * Dipanggil Activity saat user menekan tombol Recent (KEYCODE_APP_SWITCH).
      * Mengirim event ke HomeScreen untuk membuka RecentAppsOverlay.
      */
+    /**
+     * Selalu kirim event ke HomeScreen saat tombol Recent ditekan.
+     * HomeScreen yang memutuskan apakah menampilkan panel atau tidak
+     * berdasarkan state recentAppsEnabled.
+     */
     fun onRecentAppsButtonPressed() {
-        if (recentAppsEnabled.value) {
-            refreshRecentApps()
-            viewModelScope.launch { _recentAppsEvent.send(Unit) }
-        }
+        refreshRecentApps()
+        viewModelScope.launch { _recentAppsEvent.send(Unit) }
     }
     fun setRecentAppsEnabled(v: Boolean) = viewModelScope.launch { prefs.setRecentAppsEnabled(v) }
     fun setGridCols(v: Int)       = viewModelScope.launch { prefs.setGridCols(v) }
