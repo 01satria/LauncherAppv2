@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Style untuk RecentsActivity: transparan, animasi none, overlay di atas app lain -->
-    <style name="Theme.Recents" parent="Theme.MaterialComponents.NoActionBar">
+    <style name="Theme.Recents" parent="android:Theme.Translucent.NoTitleBar">
         <item name="android:windowIsTranslucent">true</item>
         <item name="android:windowBackground">@android:color/transparent</item>
         <item name="android:windowContentOverlay">@null</item>
