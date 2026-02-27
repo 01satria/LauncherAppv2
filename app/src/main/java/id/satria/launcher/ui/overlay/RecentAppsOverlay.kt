@@ -3,15 +3,14 @@ package id.satria.launcher.ui.overlay
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.graphics.drawable.AdaptiveIconDrawable
-import android.os.Build
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -27,11 +26,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import id.satria.launcher.service.RecentAppEntry
 
-/**
- * RecentAppsOverlay — UI minimalis di atas semua aplikasi.
- * Ditampilkan via WindowManager sehingga bisa tampil di atas app apapun.
- * RAM minimal: hanya icon yang terlihat yang di-load, sisanya lazy.
- */
 @Composable
 fun RecentAppsOverlay(
     recentPackages: List<RecentAppEntry>,
@@ -40,22 +34,19 @@ fun RecentAppsOverlay(
     onClearAll: () -> Unit,
     packageManager: PackageManager,
 ) {
-    // Animasi slide-up dari bawah
     var visible by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { visible = true }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(Unit) {
-                detectTapGestures { onDismiss() }
-            }
+            .pointerInput(Unit) { detectTapGestures { onDismiss() } }
     ) {
-        // Scrim gelap semi-transparan
+        // Scrim
         AnimatedVisibility(
             visible = visible,
             enter = fadeIn(tween(200)),
-            exit = fadeOut(tween(150)),
+            exit  = fadeOut(tween(150)),
         ) {
             Box(
                 modifier = Modifier
@@ -64,13 +55,13 @@ fun RecentAppsOverlay(
             )
         }
 
-        // Panel recent apps dari bawah
+        // Panel slide dari bawah
         AnimatedVisibility(
-            visible = visible,
+            visible  = visible,
             modifier = Modifier.align(Alignment.BottomCenter),
             enter = slideInVertically(
                 initialOffsetY = { it },
-                animationSpec = tween(280, easing = EaseOutCubic)
+                animationSpec  = tween(280, easing = EaseOutCubic)
             ),
             exit = slideOutVertically(
                 targetOffsetY = { it },
@@ -79,8 +70,8 @@ fun RecentAppsOverlay(
         ) {
             RecentAppsPanel(
                 recentPackages = recentPackages,
-                onLaunch = onLaunch,
-                onClearAll = onClearAll,
+                onLaunch       = onLaunch,
+                onClearAll     = onClearAll,
                 packageManager = packageManager,
             )
         }
@@ -118,29 +109,22 @@ private fun RecentAppsPanel(
 
         // Header
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
+            modifier              = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment     = Alignment.CenterVertically,
         ) {
-            Text(
-                "Recent Apps",
-                color = Color.White,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
+            Text("Recent Apps", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             if (recentPackages.isNotEmpty()) {
                 Text(
                     "Clear All",
-                    color = Color(0xFF27AE60),
-                    fontSize = 13.sp,
+                    color      = Color(0xFF27AE60),
+                    fontSize   = 13.sp,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier
+                    modifier   = Modifier
                         .clip(RoundedCornerShape(6.dp))
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
+                            indication        = null,
                         ) { onClearAll() }
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 )
@@ -150,34 +134,27 @@ private fun RecentAppsPanel(
         Spacer(Modifier.height(14.dp))
 
         if (recentPackages.isEmpty()) {
-            // Empty state
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
-                contentAlignment = Alignment.Center,
+                modifier            = Modifier.fillMaxWidth().height(120.dp),
+                contentAlignment    = Alignment.Center,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("🕐", fontSize = 32.sp)
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        "No recent apps",
-                        color = Color.White.copy(alpha = 0.45f),
-                        fontSize = 14.sp,
-                    )
+                    Text("No recent apps", color = Color.White.copy(alpha = 0.45f), fontSize = 14.sp)
                 }
             }
         } else {
             LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
+                contentPadding        = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth(),
+                modifier              = Modifier.fillMaxWidth(),
             ) {
                 items(recentPackages, key = { it.packageName }) { entry ->
                     RecentAppItem(
-                        entry = entry,
+                        entry          = entry,
                         packageManager = packageManager,
-                        onClick = { onLaunch(entry.packageName) },
+                        onClick        = { onLaunch(entry.packageName) },
                     )
                 }
             }
@@ -191,26 +168,22 @@ private fun RecentAppItem(
     packageManager: PackageManager,
     onClick: () -> Unit,
 ) {
-    // Load icon sekali, lazy
-    val icon by remember(entry.packageName) {
+    val icon: ImageBitmap? by remember(entry.packageName) {
         derivedStateOf {
             runCatching {
                 val drawable = packageManager.getApplicationIcon(entry.packageName)
-                val bmp = Bitmap.createBitmap(108, 108, Bitmap.Config.ARGB_8888)
-                val canvas = Canvas(bmp)
+                val bmp      = Bitmap.createBitmap(108, 108, Bitmap.Config.ARGB_8888)
                 drawable.setBounds(0, 0, 108, 108)
-                drawable.draw(canvas)
+                drawable.draw(Canvas(bmp))
                 bmp.asImageBitmap()
             }.getOrNull()
         }
     }
 
-    // Press animation
-    var pressed by remember { mutableStateOf(false) }
     val scale by animateFloatAsState(
-        targetValue = if (pressed) 0.88f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "scale"
+        targetValue    = 1f,
+        animationSpec  = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label          = "scale"
     )
 
     Column(
@@ -219,7 +192,7 @@ private fun RecentAppItem(
             .clip(RoundedCornerShape(14.dp))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = null,
+                indication        = null,
             ) { onClick() }
             .padding(vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -228,32 +201,29 @@ private fun RecentAppItem(
         Box(
             modifier = Modifier
                 .size(60.dp)
-                .graphicsLayer {
-                    scaleX = scale
-                    scaleY = scale
-                }
+                .graphicsLayer { scaleX = scale; scaleY = scale }
                 .clip(RoundedCornerShape(14.dp))
                 .background(Color(0xFF2C2C2E)),
             contentAlignment = Alignment.Center,
         ) {
             if (icon != null) {
                 Image(
-                    bitmap = icon!!,
+                    bitmap             = icon!!,
                     contentDescription = entry.label,
-                    modifier = Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)),
+                    modifier           = Modifier.size(52.dp).clip(RoundedCornerShape(12.dp)),
                 )
             } else {
                 Text(
                     entry.label.take(1).uppercase(),
-                    color = Color.White,
-                    fontSize = 22.sp,
+                    color      = Color.White,
+                    fontSize   = 22.sp,
                     fontWeight = FontWeight.Bold,
                 )
             }
         }
         Text(
-            text = entry.label,
-            color = Color.White.copy(alpha = 0.80f),
+            text     = entry.label,
+            color    = Color.White.copy(alpha = 0.80f),
             fontSize = 11.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -262,6 +232,5 @@ private fun RecentAppItem(
     }
 }
 
-// Custom easing
 private val EaseOutCubic = CubicBezierEasing(0.33f, 1f, 0.68f, 1f)
 private val EaseInCubic  = CubicBezierEasing(0.32f, 0f, 0.67f, 0f)
