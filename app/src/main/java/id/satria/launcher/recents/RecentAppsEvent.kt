@@ -7,24 +7,21 @@ import kotlinx.coroutines.flow.asSharedFlow
 /**
  * Singleton event bus untuk tombol Recent Apps.
  *
- * Menggunakan SharedFlow (bukan StateFlow) karena:
- * - SharedFlow adalah one-shot event — setiap emit() diterima oleh collector aktif
- * - StateFlow memiliki bug timing: jika nilai sudah `true` sebelum collector aktif,
- *   dan kemudian `true` lagi, `LaunchedEffect` tidak re-execute karena nilai tidak berubah
- * - replay=1 memastikan event tidak hilang meski launcher baru saja kembali ke foreground
- *   dan collector belum sempat subscribe
- * - Tidak perlu manual `consume()` karena SharedFlow tidak menyimpan state permanen
+ * SharedFlow dengan replay=1:
+ * - Setiap fire() adalah one-shot event yang diterima collector aktif
+ * - replay=1 menjamin event tidak hilang jika launcher baru foreground
+ * - consume() reset replay cache agar tidak re-trigger di recompose berikutnya
  */
 object RecentAppsEvent {
-    private val _events = MutableSharedFlow<Unit>(replay = 1)
+    private val _events = MutableSharedFlow<Unit>(replay = 1, extraBufferCapacity = 1)
     val events: SharedFlow<Unit> = _events.asSharedFlow()
 
-    /** Dipanggil AccessibilityService atau MainActivity saat tombol Recent ditekan */
+    /** Dipanggil AccessibilityService atau MainActivity saat Recents dideteksi */
     fun fire() {
         _events.tryEmit(Unit)
     }
 
-    /** Reset replay cache setelah event dikonsumsi agar tidak re-trigger saat recompose */
+    /** Dipanggil HomeScreen segera setelah event dikonsumsi */
     fun consume() {
         _events.resetReplayCache()
     }

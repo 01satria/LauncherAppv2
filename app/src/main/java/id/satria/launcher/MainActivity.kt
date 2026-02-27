@@ -1,7 +1,9 @@
 package id.satria.launcher
 
+import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.util.Log
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -17,6 +19,7 @@ import id.satria.launcher.ui.theme.SatriaTheme
 class MainActivity : ComponentActivity() {
 
     private val vm: MainViewModel by viewModels()
+    private val TAG = "MainActivity"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,9 +34,34 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Fallback: jika AccessibilityService belum aktif, coba via onKeyDown
+    /**
+     * onNewIntent dipanggil saat launcher sudah running dan dibawa ke foreground.
+     * Ini terjadi ketika user menekan tombol Home atau Recent dari app lain.
+     *
+     * Jika intent ACTION_MAIN + CATEGORY_HOME, berarti tombol Home ditekan.
+     * Jika ada extra "show_recents" = true, berarti dari tombol Recent.
+     *
+     * Catatan: AccessibilityService sudah handle deteksi via WINDOW_STATE_CHANGED.
+     * onNewIntent ini adalah fallback tambahan.
+     */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        Log.d(TAG, "onNewIntent action=${intent.action} extras=${intent.extras}")
+
+        // Beberapa launcher custom menggunakan intent extra untuk signal recents
+        if (intent.getBooleanExtra("show_recents", false)) {
+            RecentAppsEvent.fire()
+        }
+    }
+
+    /**
+     * Fallback untuk 3-button navigation: tangkap KEYCODE_APP_SWITCH
+     * saat launcher sedang di foreground (misal user klik Recent dari launcher itu sendiri).
+     * Untuk kasus user sedang di app lain, AccessibilityService yang handle.
+     */
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_APP_SWITCH && event?.repeatCount == 0) {
+            Log.d(TAG, "KEYCODE_APP_SWITCH via onKeyDown (launcher di foreground)")
             RecentAppsEvent.fire()
             return true
         }

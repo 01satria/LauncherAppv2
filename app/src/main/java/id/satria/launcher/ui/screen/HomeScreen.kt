@@ -23,6 +23,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import id.satria.launcher.MainViewModel
 import id.satria.launcher.recents.RecentAppsEvent
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import id.satria.launcher.data.AppData
 import id.satria.launcher.ui.component.*
 import id.satria.launcher.ui.theme.LocalAppTheme
@@ -94,13 +97,16 @@ fun HomeScreen(vm: MainViewModel) {
         }
 
         // Dengarkan event tombol Recent dari AccessibilityService via SharedFlow.
-        // SharedFlow adalah one-shot event — setiap emit langsung trigger buka overlay,
-        // tanpa masalah timing yang ada pada StateFlow (nilai tidak berubah = tidak re-trigger).
-        LaunchedEffect(Unit) {
-            RecentAppsEvent.events.collect {
-                RecentAppsEvent.consume()
-                vm.refreshRecentApps()
-                showRecents = true
+        // collectLatest dijalankan saat composable hidup. Lifecycle-aware agar tidak
+        // menerima event saat launcher di background dan UI belum siap.
+        val lifecycleOwner = LocalLifecycleOwner.current
+        LaunchedEffect(lifecycleOwner) {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                RecentAppsEvent.events.collect {
+                    RecentAppsEvent.consume()
+                    vm.refreshRecentApps()
+                    showRecents = true
+                }
             }
         }
 
