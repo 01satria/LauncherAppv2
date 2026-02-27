@@ -44,7 +44,7 @@ import kotlinx.coroutines.launch
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HomeScreen(vm: MainViewModel) {
+fun HomeScreen(vm: MainViewModel, onAppLaunched: ((pkg: String, label: String) -> Unit)? = null) {
         val filteredApps by vm.filteredApps.collectAsState()
         val dockApps by vm.dockApps.collectAsState()
         val layoutMode by vm.layoutMode.collectAsState()
@@ -57,6 +57,16 @@ fun HomeScreen(vm: MainViewModel) {
         val gridCols by vm.gridCols.collectAsState()
         val gridRows by vm.gridRows.collectAsState()
         val darkMode by vm.darkMode.collectAsState()
+        val allApps by vm.allApps.collectAsState()
+
+        // Helper: cari label app lalu launch + track recent
+        val launchAndTrack: (String) -> Unit = { pkg ->
+            vm.launchApp(pkg)
+            if (onAppLaunched != null) {
+                val label = allApps.find { it.packageName == pkg }?.label ?: pkg
+                onAppLaunched(pkg, label)
+            }
+        }
 
         var showSettings by remember { mutableStateOf(false) }
         var actionTarget by remember { mutableStateOf<String?>(null) }
@@ -91,7 +101,7 @@ fun HomeScreen(vm: MainViewModel) {
                         gridRows = gridRows,
                         darkMode = darkMode,
                         overlayActive = overlayActive,
-                        onAppPress = { if (!overlayActive) vm.launchApp(it) },
+                        onAppPress = { if (!overlayActive) launchAndTrack(it) },
                         onAppLong = { if (!overlayActive) actionTarget = it },
                         onBgLongPress = { if (!overlayActive) showSettings = true },
                         dashboardContent = { onClose ->
@@ -121,7 +131,7 @@ fun HomeScreen(vm: MainViewModel) {
                                 avatarVersion = avatarVersion,
                                 dockIconSize = dockIconSize,
                                 onAvatarClick = { if (!overlayActive) dashboardScrollRequest++ },
-                                onAppPress = { if (!overlayActive) vm.launchApp(it) },
+                                onAppPress = { if (!overlayActive) launchAndTrack(it) },
                                 onAppLongPress = { if (!overlayActive) actionTarget = it },
                                 onLongPressSettings = { if (!overlayActive) showSettings = true },
                         )

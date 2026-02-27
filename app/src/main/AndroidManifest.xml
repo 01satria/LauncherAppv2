@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Dibutuhkan untuk overlay Recent Apps tampil di atas semua aplikasi -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
         android:allowBackup="false"
@@ -38,5 +40,19 @@
                 <category android:name="android.intent.category.MONKEY" />
             </intent-filter>
         </activity>
+
+        <!-- Recent Apps AccessibilityService — hanya aktif jika user mengizinkan -->
+        <service
+            android:name=".service.RecentAppsService"
+            android:exported="true"
+            android:label="SatriaLauncher Recent Apps"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/recent_apps_service" />
+        </service>
     </application>
 </manifest>

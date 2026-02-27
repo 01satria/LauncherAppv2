@@ -40,6 +40,7 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
     val darkMode      by vm.darkMode.collectAsState()
     val gridCols      by vm.gridCols.collectAsState()
     val gridRows      by vm.gridRows.collectAsState()
+    val recentAppsEnabled by vm.recentAppsEnabled.collectAsState()
 
     var tempIconSize     by remember(iconSize)     { mutableStateOf(iconSize.toFloat()) }
     var tempDockIconSize by remember(dockIconSize) { mutableStateOf(dockIconSize.toFloat()) }
@@ -205,6 +206,26 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
                                 fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal
                             )
                         }
+                    }
+                }
+
+                // ── Recent Apps ────────────────────────────────────────────
+                SLabel("RECENT APPS")
+                Column(
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(SatriaColors.SurfaceMid).padding(horizontal = 14.dp, vertical = 10.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    SToggle(
+                        label = "Enable Recent Apps",
+                        value = recentAppsEnabled,
+                        onToggle = { vm.setRecentAppsEnabled(it) },
+                    )
+                    if (recentAppsEnabled) {
+                        Text(
+                            "⚠️  Aktifkan Accessibility Service SatriaLauncher di Pengaturan → Aksesibilitas → Aplikasi yang Diinstal.",
+                            color = SatriaColors.TextSecondary,
+                            fontSize = 11.sp,
+                        )
                     }
                 }
 
