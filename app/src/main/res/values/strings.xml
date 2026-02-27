@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Cloudys Launcher</string>
+    <string name="accessibility_service_description">Memungkinkan launcher mendeteksi tombol Recent Apps untuk menampilkan daftar aplikasi yang baru digunakan.</string>
 </resources>
