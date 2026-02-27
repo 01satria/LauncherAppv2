@@ -93,11 +93,14 @@ fun HomeScreen(vm: MainViewModel) {
             vm.checkUsagePermission()
         }
 
-        // Dengarkan event tombol Recent dari AccessibilityService via singleton flow
-        LaunchedEffect(Unit) {
-            RecentAppsEvent.flow.collect {
+        // Dengarkan event tombol Recent dari AccessibilityService via singleton StateFlow.
+        // StateFlow menyimpan nilai — tidak hilang meski launcher sempat ke background.
+        val recentPending by RecentAppsEvent.pending.collectAsState()
+        LaunchedEffect(recentPending) {
+            if (recentPending) {
                 vm.refreshRecentApps()
                 showRecents = true
+                RecentAppsEvent.consume()
             }
         }
 

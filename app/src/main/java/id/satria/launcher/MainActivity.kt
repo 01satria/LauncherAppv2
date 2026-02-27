@@ -20,23 +20,18 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         enableEdgeToEdge(
             statusBarStyle     = SystemBarStyle.dark(Color.TRANSPARENT),
             navigationBarStyle = SystemBarStyle.dark(Color.TRANSPARENT),
         )
         window.setBackgroundDrawableResource(android.R.color.transparent)
-
         setContent {
             val darkMode by vm.darkMode.collectAsState()
             SatriaTheme(darkMode = darkMode) { HomeScreen(vm = vm) }
         }
     }
 
-    /**
-     * Fallback: beberapa ROM mengirim KEYCODE_APP_SWITCH ke Activity
-     * jika AccessibilityService belum aktif / tidak tersedia.
-     */
+    // Fallback: jika AccessibilityService belum aktif, coba via onKeyDown
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_APP_SWITCH && event?.repeatCount == 0) {
             RecentAppsEvent.fire()

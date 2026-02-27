@@ -1,24 +1,28 @@
 package id.satria.launcher.recents
 
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * Singleton event bus untuk Recent Apps button.
+ * Singleton state untuk Recent Apps button.
  *
- * Diakses langsung oleh SatriaAccessibilityService (fire)
- * dan HomeScreen (collect) — tanpa broadcast, tanpa Channel,
- * tanpa ketergantungan pada ViewModel instance.
- *
- * Karena AccessibilityService dan Activity berjalan dalam
- * proses yang sama, singleton ini selalu tersedia untuk keduanya.
+ * Pakai StateFlow (bukan SharedFlow) karena:
+ * - StateFlow menyimpan nilai terakhir — tidak hilang meski collector mati sementara
+ * - Saat launcher kembali ke foreground, composable langsung baca state = true
+ * - Setelah ditampilkan, HomeScreen reset ke false
  */
 object RecentAppsEvent {
-    private val _flow = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
-    val flow = _flow.asSharedFlow()
+    private val _pending = MutableStateFlow(false)
+    val pending: StateFlow<Boolean> = _pending.asStateFlow()
 
     /** Dipanggil AccessibilityService saat tombol Recent ditekan */
     fun fire() {
-        _flow.tryEmit(Unit)
+        _pending.value = true
+    }
+
+    /** Dipanggil HomeScreen setelah panel ditampilkan */
+    fun consume() {
+        _pending.value = false
     }
 }
