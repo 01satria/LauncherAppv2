@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import id.satria.launcher.data.*
 import id.satria.launcher.recents.RecentAppsManager
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -27,6 +29,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // Apakah user sudah grant Usage Stats permission
     private val _hasUsagePermission = MutableStateFlow(recentAppsManager.hasPermission())
     val hasUsagePermission: StateFlow<Boolean> = _hasUsagePermission.asStateFlow()
+
+    // Event channel: dikirim Activity saat KEYCODE_APP_SWITCH diterima
+    private val _recentAppsEvent = Channel<Unit>(Channel.CONFLATED)
+    val recentAppsEvent = _recentAppsEvent.receiveAsFlow()
 
     private val _allApps = MutableStateFlow<List<AppData>>(emptyList())
     val allApps: StateFlow<List<AppData>> = _allApps.asStateFlow()
@@ -141,6 +147,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     /** Buka halaman Settings untuk grant Usage Stats permission */
     fun openUsagePermissionSettings() = recentAppsManager.openPermissionSettings()
+
+    /**
+     * Dipanggil Activity saat user menekan tombol Recent (KEYCODE_APP_SWITCH).
+     * Mengirim event ke HomeScreen untuk membuka RecentAppsOverlay.
+     */
+    fun onRecentAppsButtonPressed() {
+        if (recentAppsEnabled.value) {
+            refreshRecentApps()
+            viewModelScope.launch { _recentAppsEvent.send(Unit) }
+        }
+    }
     fun setRecentAppsEnabled(v: Boolean) = viewModelScope.launch { prefs.setRecentAppsEnabled(v) }
     fun setGridCols(v: Int)       = viewModelScope.launch { prefs.setGridCols(v) }
     fun setGridRows(v: Int)       = viewModelScope.launch { prefs.setGridRows(v) }

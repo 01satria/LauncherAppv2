@@ -2,6 +2,7 @@ package id.satria.launcher
 
 import android.graphics.Color
 import android.os.Bundle
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
@@ -29,20 +30,30 @@ class MainActivity : ComponentActivity() {
 
         window.setBackgroundDrawableResource(android.R.color.transparent)
 
-        // 🔥 Navigation Bar otomatis tersembunyi setelah beberapa detik
+        // Navigation bar tetap tampil (transparent) agar tombol Back/Home/Recent
+        // bisa dipakai user. Launcher intercept tombol Recent via onKeyDown().
+        // Gunakan edge-to-edge sehingga konten tetap full-screen di balik nav bar.
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        controller.hide(WindowInsetsCompat.Type.navigationBars())
-
-        // (Opsional) Hide status bar juga
-        // controller.hide(WindowInsetsCompat.Type.statusBars())
 
         setContent {
             val darkMode by vm.darkMode.collectAsState()
-
             SatriaTheme(darkMode = darkMode) { HomeScreen(vm = vm) }
         }
+    }
+
+    /**
+     * Intercept tombol Recent Apps (KEYCODE_APP_SWITCH).
+     * Android hanya mengirim event ini ke app yang terdaftar sebagai HOME launcher.
+     * Tanpa override ini, Android akan membuka sistem Overview screen sendiri.
+     */
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_APP_SWITCH) {
+            vm.onRecentAppsButtonPressed()
+            return true  // konsumsi event — sistem tidak buka Overview-nya sendiri
+        }
+        return super.onKeyDown(keyCode, event)
     }
 
     override fun onResume() {
@@ -51,20 +62,10 @@ class MainActivity : ComponentActivity() {
         vm.resetHabitsIfNewDay()
         // Cek ulang usage stats permission (user mungkin baru saja grant dari Settings)
         vm.checkUsagePermission()
-
-        // Pastikan tetap immersive saat resume
-        val controller = WindowInsetsControllerCompat(window, window.decorView)
-        controller.hide(WindowInsetsCompat.Type.navigationBars())
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) {
-            val controller = WindowInsetsControllerCompat(window, window.decorView)
-            controller.systemBarsBehavior =
-                    WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            controller.hide(WindowInsetsCompat.Type.navigationBars())
-        }
     }
 }
 

@@ -87,9 +87,16 @@ fun HomeScreen(vm: MainViewModel) {
                 }
         }
 
-        // Refresh permission status & recent list setiap kali layar mendapat fokus
+        // Refresh permission status saat pertama composable mount
         LaunchedEffect(Unit) {
             vm.checkUsagePermission()
+        }
+
+        // Dengarkan event tombol Recent dari Activity (KEYCODE_APP_SWITCH)
+        LaunchedEffect(Unit) {
+            vm.recentAppsEvent.collect {
+                showRecents = true
+            }
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
