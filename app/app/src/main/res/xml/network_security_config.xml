@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+    <!-- Open-Meteo & ExchangeRate API pakai HTTPS, aman -->
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">api.open-meteo.com</domain>
+        <domain includeSubdomains="true">geocoding-api.open-meteo.com</domain>
+        <domain includeSubdomains="true">open.er-api.com</domain>
+    </domain-config>
+</network-security-config>
