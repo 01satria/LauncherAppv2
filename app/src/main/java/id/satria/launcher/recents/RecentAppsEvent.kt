@@ -1,28 +1,31 @@
 package id.satria.launcher.recents
 
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 
 /**
- * Singleton state untuk Recent Apps button.
+ * Singleton event bus untuk tombol Recent Apps.
  *
- * Pakai StateFlow (bukan SharedFlow) karena:
- * - StateFlow menyimpan nilai terakhir — tidak hilang meski collector mati sementara
- * - Saat launcher kembali ke foreground, composable langsung baca state = true
- * - Setelah ditampilkan, HomeScreen reset ke false
+ * Menggunakan SharedFlow (bukan StateFlow) karena:
+ * - SharedFlow adalah one-shot event — setiap emit() diterima oleh collector aktif
+ * - StateFlow memiliki bug timing: jika nilai sudah `true` sebelum collector aktif,
+ *   dan kemudian `true` lagi, `LaunchedEffect` tidak re-execute karena nilai tidak berubah
+ * - replay=1 memastikan event tidak hilang meski launcher baru saja kembali ke foreground
+ *   dan collector belum sempat subscribe
+ * - Tidak perlu manual `consume()` karena SharedFlow tidak menyimpan state permanen
  */
 object RecentAppsEvent {
-    private val _pending = MutableStateFlow(false)
-    val pending: StateFlow<Boolean> = _pending.asStateFlow()
+    private val _events = MutableSharedFlow<Unit>(replay = 1)
+    val events: SharedFlow<Unit> = _events.asSharedFlow()
 
-    /** Dipanggil AccessibilityService saat tombol Recent ditekan */
+    /** Dipanggil AccessibilityService atau MainActivity saat tombol Recent ditekan */
     fun fire() {
-        _pending.value = true
+        _events.tryEmit(Unit)
     }
 
-    /** Dipanggil HomeScreen setelah panel ditampilkan */
+    /** Reset replay cache setelah event dikonsumsi agar tidak re-trigger saat recompose */
     fun consume() {
-        _pending.value = false
+        _events.resetReplayCache()
     }
 }

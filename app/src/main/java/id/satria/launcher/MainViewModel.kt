@@ -184,6 +184,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun onRecentAppsButtonPressed() {
         refreshRecentApps()
+        id.satria.launcher.recents.RecentAppsEvent.fire()
     }
     fun setRecentAppsEnabled(v: Boolean) = viewModelScope.launch { prefs.setRecentAppsEnabled(v) }
     fun setGridCols(v: Int)       = viewModelScope.launch { prefs.setGridCols(v) }
