@@ -37,8 +37,7 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
     val avatarPath    by vm.avatarPath.collectAsState()
     val iconSize      by vm.iconSize.collectAsState()
     val dockIconSize  by vm.dockIconSize.collectAsState()
-    val darkMode          by vm.darkMode.collectAsState()
-    val recentAppsEnabled by vm.recentAppsEnabled.collectAsState()
+    val darkMode      by vm.darkMode.collectAsState()
     val gridCols      by vm.gridCols.collectAsState()
     val gridRows      by vm.gridRows.collectAsState()
 
@@ -207,25 +206,6 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
                             )
                         }
                     }
-                }
-
-                // ── Recent Apps ─────────────────────────────────────────────
-                SLabel("RECENT APPS")
-                SToggle("Enable Recent Apps (Double tap background)", recentAppsEnabled) {
-                    vm.setRecentAppsEnabled(it)
-                }
-                if (recentAppsEnabled) {
-                    Text(
-                        "✅ Aktif · Double tap background launcher = buka Recent Apps\nData: Usage Access dari sistem (akurat, tidak perlu tracking manual)",
-                        color = SatriaColors.TextSecondary,
-                        fontSize = 11.sp,
-                    )
-                } else {
-                    Text(
-                        "Double tap background launcher untuk membuka Recent Apps.\nIzin Usage Access diperlukan (akan diminta otomatis).",
-                        color = SatriaColors.TextSecondary,
-                        fontSize = 11.sp,
-                    )
                 }
 
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {

@@ -30,7 +30,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val hiddenPackages   = prefs.hiddenPackages.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val dockPackages     = prefs.dockPackages.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val darkMode         = prefs.darkMode.stateIn(viewModelScope, SharingStarted.Eagerly, true)
-    val recentAppsEnabled = prefs.recentAppsEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val gridCols         = prefs.gridCols.stateIn(viewModelScope, SharingStarted.Eagerly, id.satria.launcher.data.DEFAULT_GRID_COLS)
     val gridRows         = prefs.gridRows.stateIn(viewModelScope, SharingStarted.Eagerly, id.satria.launcher.data.DEFAULT_GRID_ROWS)
     val showHidden       = prefs.showHidden.stateIn(viewModelScope, SharingStarted.Eagerly, false)
@@ -109,7 +108,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setDarkMode(v: Boolean)   = viewModelScope.launch { prefs.setDarkMode(v) }
-    fun setRecentAppsEnabled(v: Boolean) = viewModelScope.launch { prefs.setRecentAppsEnabled(v) }
     fun setGridCols(v: Int)       = viewModelScope.launch { prefs.setGridCols(v) }
     fun setGridRows(v: Int)       = viewModelScope.launch { prefs.setGridRows(v) }
 

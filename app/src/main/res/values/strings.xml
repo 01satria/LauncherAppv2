@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Cloudys Launcher</string>
-    <string name="accessibility_service_description">SatriaLauncher memerlukan Accessibility Service untuk menampilkan Recent Apps saat tombol Recent ditekan. Tidak ada data yang dikumpulkan.</string>
 </resources>
