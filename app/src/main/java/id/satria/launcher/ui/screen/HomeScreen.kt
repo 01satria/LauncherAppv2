@@ -28,6 +28,8 @@ import id.satria.launcher.ui.theme.LocalAppTheme
 import id.satria.launcher.ui.theme.SatriaColors
 import kotlin.math.ceil
 import kotlinx.coroutines.launch
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HomeScreen
@@ -59,8 +61,11 @@ fun HomeScreen(vm: MainViewModel) {
         val gridRows by vm.gridRows.collectAsState()
         val darkMode by vm.darkMode.collectAsState()
         val recentAppsEnabled by vm.recentAppsEnabled.collectAsState()
+        val recentPackages by vm.recentApps.collectAsState()
+        val hasUsagePermission by vm.hasUsagePermission.collectAsState()
 
         var showSettings by remember { mutableStateOf(false) }
+        var showRecents  by remember { mutableStateOf(false) }
         var actionTarget by remember { mutableStateOf<String?>(null) }
 
         // Counter: setiap increment memicu scroll pager ke halaman dashboard (page 0)
@@ -71,14 +76,20 @@ fun HomeScreen(vm: MainViewModel) {
         var pomodoroActive by remember { mutableStateOf(false) }
 
         val overlayActive by remember {
-                derivedStateOf { showSettings || actionTarget != null || pomodoroActive }
+                derivedStateOf { showSettings || actionTarget != null || pomodoroActive || showRecents }
         }
 
         BackHandler(enabled = overlayActive) {
                 when {
+                        showRecents  -> showRecents  = false
                         actionTarget != null -> actionTarget = null
                         showSettings -> showSettings = false
                 }
+        }
+
+        // Refresh permission status & recent list setiap kali layar mendapat fokus
+        LaunchedEffect(Unit) {
+            vm.checkUsagePermission()
         }
 
         Box(modifier = Modifier.fillMaxSize()) {
@@ -107,7 +118,7 @@ fun HomeScreen(vm: MainViewModel) {
                         onDashboardChanged = { dashboardVisible = it },
                 )
 
-                // ── Dock — tersembunyi saat Dashboard terbuka ────────────────────
+                // ── Dock + swipe-up area ────────────────────────────────────
                 AnimatedVisibility(
                         visible = !dashboardVisible,
                         enter = fadeIn(tween(200)) + slideInVertically(initialOffsetY = { it }),
@@ -117,14 +128,32 @@ fun HomeScreen(vm: MainViewModel) {
                                         .navigationBarsPadding()
                                         .imePadding(),
                 ) {
+                        // Zona swipe-up transparan di atas dock untuk trigger Recent Apps
                         Column {
-                                // ── Recent Apps Bar ──────────────────────────────────
                                 if (recentAppsEnabled) {
-                                        RecentAppsBar(
-                                                allApps = allApps,
-                                                iconSize = (dockIconSize * 0.85f).toInt(),
-                                                onAppPress = { if (!overlayActive) vm.launchApp(it) },
-                                                onAppLong = { if (!overlayActive) actionTarget = it },
+                                        // Area transparan yang deteksi swipe-up untuk buka Recent
+                                        var dragTotal by remember { mutableFloatStateOf(0f) }
+                                        Box(
+                                                modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(20.dp)
+                                                        .pointerInput(overlayActive) {
+                                                                if (!overlayActive) {
+                                                                        detectVerticalDragGestures(
+                                                                                onDragStart = { dragTotal = 0f },
+                                                                                onDragEnd = {
+                                                                                        if (dragTotal < -40f) {
+                                                                                                showRecents = true
+                                                                                                vm.refreshRecentApps()
+                                                                                        }
+                                                                                        dragTotal = 0f
+                                                                                },
+                                                                                onVerticalDrag = { _, delta ->
+                                                                                        dragTotal += delta
+                                                                                },
+                                                                        )
+                                                                }
+                                                        },
                                         )
                                 }
                                 Dock(
@@ -138,6 +167,41 @@ fun HomeScreen(vm: MainViewModel) {
                                         onLongPressSettings = { if (!overlayActive) showSettings = true },
                                 )
                         }
+                }
+
+                // ── Recent Apps Overlay ──────────────────────────────────────────
+                AnimatedVisibility(
+                        visible = showRecents && recentAppsEnabled,
+                        enter = fadeIn(tween(200)) + slideInVertically(
+                                initialOffsetY = { it / 3 },
+                                animationSpec = tween(250, easing = FastOutSlowInEasing),
+                        ),
+                        exit = fadeOut(tween(180)) + slideOutVertically(
+                                targetOffsetY = { it / 3 },
+                                animationSpec = tween(180),
+                        ),
+                ) {
+                        RecentAppsOverlay(
+                                recentPackages = recentPackages,
+                                allApps = allApps,
+                                hasPermission = hasUsagePermission,
+                                onAppPress = { pkg ->
+                                        showRecents = false
+                                        vm.launchApp(pkg)
+                                },
+                                onAppLong = { pkg ->
+                                        showRecents = false
+                                        actionTarget = pkg
+                                },
+                                onDismiss = { showRecents = false },
+                                onRequestPermission = {
+                                        vm.openUsagePermissionSettings()
+                                        showRecents = false
+                                },
+                                onClearAll = {
+                                        showRecents = false
+                                },
+                        )
                 }
 
                 // ── Settings ────────────────────────────────────────────────────────

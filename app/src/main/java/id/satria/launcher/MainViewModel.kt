@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import id.satria.launcher.data.*
+import id.satria.launcher.recents.RecentAppsManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
@@ -18,6 +19,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val prefs = Prefs(app)
     val repo  = LauncherRepository(app)
+    val recentAppsManager = RecentAppsManager(app)
+
+    // Recent apps — list package names diurutkan dari yang paling baru dipakai
+    val recentApps: StateFlow<List<String>> = recentAppsManager.recentPackages
+
+    // Apakah user sudah grant Usage Stats permission
+    private val _hasUsagePermission = MutableStateFlow(recentAppsManager.hasPermission())
+    val hasUsagePermission: StateFlow<Boolean> = _hasUsagePermission.asStateFlow()
 
     private val _allApps = MutableStateFlow<List<AppData>>(emptyList())
     val allApps: StateFlow<List<AppData>> = _allApps.asStateFlow()
@@ -65,7 +74,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         dock.mapNotNull { pkg -> apps.find { it.packageName == pkg } }.take(5)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    init { refreshApps() }
+    init {
+        refreshApps()
+        refreshRecentApps()
+    }
 
     fun refreshApps() = viewModelScope.launch {
         // Jika sudah ada data, hanya refresh jika jumlah app berubah
@@ -83,7 +95,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                    .forEach { id.satria.launcher.ui.component.iconCache.remove(it.packageName) }
         }
     }
-    fun launchApp(pkg: String) = repo.launchApp(pkg)
+    fun launchApp(pkg: String) {
+        repo.launchApp(pkg)
+        // Update recent apps list langsung tanpa polling
+        if (recentAppsEnabled.value) {
+            recentAppsManager.onAppLaunched(pkg, dockPackages.value.toSet())
+        }
+    }
     fun uninstallApp(pkg: String) {
         _allApps.value = _allApps.value.filter { it.packageName != pkg }
         id.satria.launcher.ui.component.removeIconFromCache(pkg) // bebaskan bitmap dari LruCache
@@ -109,6 +127,20 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setDarkMode(v: Boolean)          = viewModelScope.launch { prefs.setDarkMode(v) }
+
+    /** Muat ulang daftar recent apps dari UsageStatsManager */
+    fun refreshRecentApps() = viewModelScope.launch {
+        recentAppsManager.loadRecentApps(excludePackages = dockPackages.value.toSet())
+    }
+
+    /** Cek ulang status permission (dipanggil saat resume dari Settings) */
+    fun checkUsagePermission() {
+        _hasUsagePermission.value = recentAppsManager.hasPermission()
+        if (_hasUsagePermission.value) refreshRecentApps()
+    }
+
+    /** Buka halaman Settings untuk grant Usage Stats permission */
+    fun openUsagePermissionSettings() = recentAppsManager.openPermissionSettings()
     fun setRecentAppsEnabled(v: Boolean) = viewModelScope.launch { prefs.setRecentAppsEnabled(v) }
     fun setGridCols(v: Int)       = viewModelScope.launch { prefs.setGridCols(v) }
     fun setGridRows(v: Int)       = viewModelScope.launch { prefs.setGridRows(v) }

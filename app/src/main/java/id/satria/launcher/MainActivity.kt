@@ -49,6 +49,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         vm.refreshApps()
         vm.resetHabitsIfNewDay()
+        // Cek ulang usage stats permission (user mungkin baru saja grant dari Settings)
+        vm.checkUsagePermission()
 
         // Pastikan tetap immersive saat resume
         val controller = WindowInsetsControllerCompat(window, window.decorView)

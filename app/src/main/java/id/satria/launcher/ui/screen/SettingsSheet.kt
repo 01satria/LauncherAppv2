@@ -117,7 +117,40 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
 
                 SToggle("Show hidden apps", showHidden) { vm.setShowHidden(it) }
                 SToggle("Show app names",   showNames)  { vm.setShowNames(it) }
-                SToggle("Show recent apps", recentAppsEnabled) { vm.setRecentAppsEnabled(it) }
+                // ── Recent Apps ────────────────────────────────────────────
+                SLabel("RECENT APPS")
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SatriaColors.SurfaceMid)
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Enable recent apps",
+                            color = SatriaColors.TextPrimary,
+                            fontSize = 15.sp,
+                        )
+                        Text(
+                            "Swipe up dari dock untuk membuka",
+                            color = SatriaColors.TextSecondary,
+                            fontSize = 12.sp,
+                        )
+                    }
+                    Switch(
+                        checked = recentAppsEnabled,
+                        onCheckedChange = { vm.setRecentAppsEnabled(it) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = Color.White,
+                            checkedTrackColor = SatriaColors.Accent,
+                            uncheckedThumbColor = Color.White,
+                            uncheckedTrackColor = SatriaColors.SurfaceHigh,
+                        ),
+                    )
+                }
 
                 SLabel("APP ICON SIZE  (${tempIconSize.toInt()} dp)")
                 Slider(value = tempIconSize, onValueChange = { tempIconSize = it }, onValueChangeFinished = { vm.setIconSize(tempIconSize.toInt()) },
