@@ -4,11 +4,14 @@ import android.app.Application
 import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.ComponentName
+import android.provider.Settings
+import android.text.TextUtils
+import android.view.accessibility.AccessibilityManager
 import id.satria.launcher.data.*
+import id.satria.launcher.service.SatriaAccessibilityService
 import id.satria.launcher.recents.RecentAppsManager
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -30,9 +33,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _hasUsagePermission = MutableStateFlow(recentAppsManager.hasPermission())
     val hasUsagePermission: StateFlow<Boolean> = _hasUsagePermission.asStateFlow()
 
-    // Event channel: dikirim Activity saat KEYCODE_APP_SWITCH diterima
-    private val _recentAppsEvent = Channel<Unit>(Channel.BUFFERED)
-    val recentAppsEvent = _recentAppsEvent.receiveAsFlow()
+    private val _hasAccessibilityService = MutableStateFlow(checkAccessibilityService())
+    val hasAccessibilityService: StateFlow<Boolean> = _hasAccessibilityService.asStateFlow()
+
+    private fun checkAccessibilityService(): Boolean {
+        val expectedComponent = ComponentName(
+            getApplication<android.app.Application>().packageName,
+            SatriaAccessibilityService::class.java.name,
+        )
+        val enabledServices = Settings.Secure.getString(
+            getApplication<android.app.Application>().contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+        ) ?: return false
+        return enabledServices.split(':').any {
+            it.equals(expectedComponent.flattenToString(), ignoreCase = true)
+        }
+    }
+
 
     private val _allApps = MutableStateFlow<List<AppData>>(emptyList())
     val allApps: StateFlow<List<AppData>> = _allApps.asStateFlow()
@@ -142,7 +159,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Cek ulang status permission (dipanggil saat resume dari Settings) */
     fun checkUsagePermission() {
         _hasUsagePermission.value = recentAppsManager.hasPermission()
+        _hasAccessibilityService.value = checkAccessibilityService()
         if (_hasUsagePermission.value) refreshRecentApps()
+    }
+
+    fun openAccessibilitySettings() {
+        val intent = android.content.Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        runCatching { getApplication<android.app.Application>().startActivity(intent) }
     }
 
     /** Buka halaman Settings untuk grant Usage Stats permission */
@@ -159,7 +184,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      */
     fun onRecentAppsButtonPressed() {
         refreshRecentApps()
-        viewModelScope.launch { _recentAppsEvent.send(Unit) }
     }
     fun setRecentAppsEnabled(v: Boolean) = viewModelScope.launch { prefs.setRecentAppsEnabled(v) }
     fun setGridCols(v: Int)       = viewModelScope.launch { prefs.setGridCols(v) }

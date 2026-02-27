@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import id.satria.launcher.MainViewModel
+import id.satria.launcher.recents.RecentAppsEvent
 import id.satria.launcher.data.AppData
 import id.satria.launcher.ui.component.*
 import id.satria.launcher.ui.theme.LocalAppTheme
@@ -92,9 +93,10 @@ fun HomeScreen(vm: MainViewModel) {
             vm.checkUsagePermission()
         }
 
-        // Dengarkan event tombol Recent dari Activity (KEYCODE_APP_SWITCH)
+        // Dengarkan event tombol Recent dari AccessibilityService via singleton flow
         LaunchedEffect(Unit) {
-            vm.recentAppsEvent.collect {
+            RecentAppsEvent.flow.collect {
+                vm.refreshRecentApps()
                 showRecents = true
             }
         }

@@ -1,11 +1,6 @@
 package id.satria.launcher
 
-import android.content.BroadcastReceiver
-import android.content.Context
-import android.content.Intent
-import android.content.IntentFilter
 import android.graphics.Color
-import android.os.Build
 import android.os.Bundle
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
@@ -15,26 +10,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import id.satria.launcher.service.SatriaAccessibilityService
+import id.satria.launcher.recents.RecentAppsEvent
 import id.satria.launcher.ui.screen.HomeScreen
 import id.satria.launcher.ui.theme.SatriaTheme
 
 class MainActivity : ComponentActivity() {
 
     private val vm: MainViewModel by viewModels()
-
-    /**
-     * Receiver lokal (dalam package sendiri) — menerima broadcast dari
-     * SatriaAccessibilityService saat tombol Recent ditekan.
-     * Tidak crash karena ini internal broadcast, bukan sistem broadcast.
-     */
-    private val recentAppsReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            if (intent.action == SatriaAccessibilityService.ACTION_RECENT_APPS) {
-                vm.onRecentAppsButtonPressed()
-            }
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -51,26 +33,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onStart() {
-        super.onStart()
-        val filter = IntentFilter(SatriaAccessibilityService.ACTION_RECENT_APPS)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(recentAppsReceiver, filter, RECEIVER_NOT_EXPORTED)
-        } else {
-            @Suppress("UnspecifiedRegisterReceiverFlag")
-            registerReceiver(recentAppsReceiver, filter)
-        }
-    }
-
-    override fun onStop() {
-        super.onStop()
-        runCatching { unregisterReceiver(recentAppsReceiver) }
-    }
-
-    // Fallback: beberapa ROM mengirim KEYCODE_APP_SWITCH langsung ke Activity
+    /**
+     * Fallback: beberapa ROM mengirim KEYCODE_APP_SWITCH ke Activity
+     * jika AccessibilityService belum aktif / tidak tersedia.
+     */
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_APP_SWITCH && event?.repeatCount == 0) {
-            vm.onRecentAppsButtonPressed()
+            RecentAppsEvent.fire()
             return true
         }
         return super.onKeyDown(keyCode, event)
