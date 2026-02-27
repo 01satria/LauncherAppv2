@@ -34,6 +34,7 @@ object PrefKeys {
     val GRID_ROWS         = intPreferencesKey("grid_rows")
     // ── Theme mode ────────────────────────────────────────────────────────
     val DARK_MODE         = booleanPreferencesKey("dark_mode")
+    val ENABLE_CUSTOM_RECENTS = booleanPreferencesKey("enable_custom_recents")
 }
 
 const val DEFAULT_ICON_SIZE      = 54
@@ -80,6 +81,7 @@ class Prefs(private val context: Context) {
 
     // ── Theme mode — stored as boolean (true = dark, default = true) ──────
     val darkMode     = ds.data.map { it[PrefKeys.DARK_MODE] ?: true }.distinctUntilChanged()
+    val enableCustomRecents = ds.data.map { it[PrefKeys.ENABLE_CUSTOM_RECENTS] ?: true }.distinctUntilChanged()
 
     // ── Grid layout ───────────────────────────────────────────────────────
     val gridCols     = ds.data.map { it[PrefKeys.GRID_COLS] ?: DEFAULT_GRID_COLS }.distinctUntilChanged()
@@ -106,6 +108,7 @@ class Prefs(private val context: Context) {
     suspend fun setMoneyWallets(v: List<MoneyWallet>)             = ds.edit { it[PrefKeys.MONEY_WALLETS]      = json.encodeToString(v) }
     suspend fun setMoneyTransactions(v: List<MoneyTransaction>)   = ds.edit { it[PrefKeys.MONEY_TRANSACTIONS] = json.encodeToString(v) }
     suspend fun setDarkMode(v: Boolean)                        = ds.edit { it[PrefKeys.DARK_MODE]      = v }
-    suspend fun setGridCols(v: Int)      = ds.edit { it[PrefKeys.GRID_COLS] = v }
-    suspend fun setGridRows(v: Int)      = ds.edit { it[PrefKeys.GRID_ROWS] = v }
+    val setGridCols(v: Int)      = ds.edit { it[PrefKeys.GRID_COLS] = v }
+    val setGridRows(v: Int)      = ds.edit { it[PrefKeys.GRID_ROWS] = v }
+    suspend fun setEnableCustomRecents(v: Boolean) = ds.edit { it[PrefKeys.ENABLE_CUSTOM_RECENTS] = v }
 }
