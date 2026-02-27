@@ -198,7 +198,7 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
                                 )
                             }
                             Text(
-                                "Setelah di Settings, cari "Cloudys Launcher" lalu aktifkan.",
+                                "Setelah di Settings, cari 'Cloudys Launcher' lalu aktifkan.",
                                 color = SatriaColors.TextTertiary,
                                 fontSize = 11.sp,
                                 lineHeight = 15.sp,
