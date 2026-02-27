@@ -150,7 +150,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun openUsagePermissionSettings() = recentAppsManager.openPermissionSettings()
 
-    fun setRecentAppsEnabled(v: Boolean) = viewModelScope.launch { prefs.setRecentAppsEnabled(v) }
+    fun setRecentAppsEnabled(v: Boolean) = viewModelScope.launch {
+        prefs.setRecentAppsEnabled(v)
+        // Sync EdgeSwipeService di background thread setelah pref tersimpan
+        // Dipanggil dari MainActivity.syncEdgeSwipeService() saat onResume juga
+    }
     fun setGridCols(v: Int)       = viewModelScope.launch { prefs.setGridCols(v) }
     fun setGridRows(v: Int)       = viewModelScope.launch { prefs.setGridRows(v) }
 

@@ -14,6 +14,9 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
 
+    <!-- Diperlukan untuk EdgeSwipeService: pasang invisible overlay di tepi kiri -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
@@ -40,6 +43,12 @@
                 <category android:name="android.intent.category.MONKEY" />
             </intent-filter>
         </activity>
+
+        <!-- Service overlay tepi kiri untuk recent apps swipe di atas semua app -->
+        <service
+            android:name=".service.EdgeSwipeService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
 
     </application>
 </manifest>

@@ -4,8 +4,6 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -19,7 +17,6 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
-import androidx.compose.ui.input.pointer.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -29,8 +26,11 @@ import id.satria.launcher.data.AppData
 import id.satria.launcher.ui.component.*
 import id.satria.launcher.ui.theme.LocalAppTheme
 import id.satria.launcher.ui.theme.SatriaColors
-import kotlin.math.abs
 import kotlin.math.ceil
+import id.satria.launcher.recents.EdgeSwipeEvent
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ import kotlinx.coroutines.launch
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-fun HomeScreen(vm: MainViewModel) {
+fun HomeScreen(vm: MainViewModel, onRequestOverlayPermission: () -> Unit = {}) {
     val filteredApps      by vm.filteredApps.collectAsState()
     val dockApps          by vm.dockApps.collectAsState()
     val allApps           by vm.allApps.collectAsState()
@@ -91,6 +91,21 @@ fun HomeScreen(vm: MainViewModel) {
         vm.checkUsagePermission()
     }
 
+    // Terima event swipe dari EdgeSwipeService (bekerja di atas app lain)
+    // Lifecycle-aware: hanya aktif saat launcher di RESUMED state
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            EdgeSwipeEvent.flow.collect {
+                EdgeSwipeEvent.consume()
+                if (recentAppsEnabled && !overlayActive) {
+                    vm.refreshRecentApps()
+                    showRecents = true
+                }
+            }
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
 
         // ── App Content ──────────────────────────────────────────────────────
@@ -116,23 +131,6 @@ fun HomeScreen(vm: MainViewModel) {
             dashboardScrollRequest = dashboardScrollRequest,
             onDashboardChanged = { dashboardVisible = it },
         )
-
-        // ── Zona swipe tepi kiri untuk buka Recent Apps ──────────────────────
-        // Zona transparan 48 dp dari tepi kiri, seluruh tinggi layar.
-        // Mendeteksi horizontal drag ke kanan (delta X positif ≥ threshold).
-        // Hanya aktif jika: recentAppsEnabled=true, tidak ada overlay, tidak di dashboard.
-        if (recentAppsEnabled && !overlayActive && !dashboardVisible) {
-            LeftEdgeSwipeZone(
-                onSwipeRight = {
-                    vm.refreshRecentApps()
-                    showRecents = true
-                },
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .width(48.dp)
-                    .fillMaxHeight(),
-            )
-        }
 
         // ── Dock ─────────────────────────────────────────────────────────────
         AnimatedVisibility(
@@ -226,64 +224,6 @@ fun HomeScreen(vm: MainViewModel) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LeftEdgeSwipeZone
-//
-// Box transparan 48 dp dari tepi kiri. Menggunakan awaitEachGesture untuk
-// raw pointer tracking — lebih ringan dan presisi dari detectHorizontalDragGestures
-// karena tidak berkonflik dengan HorizontalPager di belakangnya.
-//
-// Logika:
-// 1. Tunggu jari pertama turun (awaitFirstDown)
-// 2. Jika posisi X awal > 48 dp, lepaskan (bukan dari tepi kiri)
-// 3. Track semua move events; jika deltaX total ≥ 60 dp & |deltaY| < 80 dp → trigger
-// 4. Setelah trigger, konsumsi semua event sisa agar gesture tidak bocor ke Pager
-// ─────────────────────────────────────────────────────────────────────────────
-@Composable
-private fun LeftEdgeSwipeZone(
-    onSwipeRight: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    // Konversi dp ke px sekali saja — tidak re-compute setiap recompose
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val edgeZonePx  = with(density) { 48.dp.toPx() }
-    val minDeltaXPx = with(density) { 60.dp.toPx() }
-    val maxDeltaYPx = with(density) { 80.dp.toPx() }
-
-    Box(
-        modifier = modifier
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    // 1. Tunggu finger down
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    // 2. Hanya proses jika mulai dari tepi kiri (< 48 dp)
-                    if (down.position.x > edgeZonePx) return@awaitEachGesture
-
-                    var totalX = 0f
-                    var totalY = 0f
-                    var triggered = false
-
-                    // 3. Track semua pointer move
-                    do {
-                        val event = awaitPointerEvent(PointerEventPass.Initial)
-                        val change = event.changes.firstOrNull() ?: break
-
-                        totalX += change.positionChange().x
-                        totalY += change.positionChange().y
-
-                        if (!triggered && totalX >= minDeltaXPx && abs(totalY) < maxDeltaYPx) {
-                            triggered = true
-                            onSwipeRight()
-                        }
-
-                        // Jika sudah trigger, konsumsi semua event agar Pager tidak ikut scroll
-                        if (triggered) change.consume()
-
-                    } while (event.changes.any { it.pressed })
-                }
-            }
-    )
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HomeContent

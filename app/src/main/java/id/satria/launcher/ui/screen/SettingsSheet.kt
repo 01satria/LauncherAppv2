@@ -17,6 +17,7 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.ContentScale
+import android.provider.Settings
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.*
@@ -27,7 +28,7 @@ import id.satria.launcher.MainViewModel
 import id.satria.launcher.ui.theme.SatriaColors
 
 @Composable
-fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
+fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit, onRequestOverlayPermission: () -> Unit = {}) {
     val context       = LocalContext.current
     val userName      by vm.userName.collectAsState()
     val assistantName by vm.assistantName.collectAsState()
@@ -134,7 +135,12 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
                     }
                     Switch(
                         checked = recentAppsEnabled,
-                        onCheckedChange = { vm.setRecentAppsEnabled(it) },
+                        onCheckedChange = { enabled ->
+                            vm.setRecentAppsEnabled(enabled)
+                            // Sync EdgeSwipeService via MainActivity
+                            val activity = context as? id.satria.launcher.MainActivity
+                            activity?.syncEdgeSwipeService()
+                        },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
                             checkedTrackColor = SatriaColors.Accent,
@@ -146,32 +152,56 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
 
                 // Info cara buka recent: swipe dari tepi kiri layar
                 if (recentAppsEnabled) {
+                    val hasOverlay = Settings.canDrawOverlays(context)
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFF1A2A3A))
+                            .background(if (hasOverlay) Color(0xFF1A2A3A) else Color(0xFF2A1A1A))
                             .padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text("👈", fontSize = 16.sp)
+                            Text(if (hasOverlay) "👈" else "⚠️", fontSize = 16.sp)
                             Text(
-                                "Swipe dari tepi kiri layar",
-                                color = Color(0xFF4FC3F7),
+                                if (hasOverlay) "Swipe dari tepi kiri layar"
+                                else "Izin overlay diperlukan",
+                                color = if (hasOverlay) Color(0xFF4FC3F7) else Color(0xFFFF6B6B),
                                 fontSize = 13.sp,
                                 fontWeight = FontWeight.SemiBold,
                             )
                         }
-                        Text(
-                            "Geser jari dari tepi paling kiri layar ke kanan untuk membuka panel recent apps. Tidak memerlukan izin accessibility.",
-                            color = SatriaColors.TextSecondary,
-                            fontSize = 12.sp,
-                            lineHeight = 17.sp,
-                        )
+                        if (hasOverlay) {
+                            Text(
+                                "Geser jari dari tepi paling kiri layar ke kanan untuk membuka recent apps — bekerja di atas semua aplikasi.",
+                                color = SatriaColors.TextSecondary,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                            )
+                        } else {
+                            Text(
+                                "Izinkan 'Tampil di atas aplikasi lain' agar swipe tepi kiri bisa bekerja di atas semua aplikasi.",
+                                color = SatriaColors.TextSecondary,
+                                fontSize = 12.sp,
+                                lineHeight = 17.sp,
+                            )
+                            Button(
+                                onClick = { onRequestOverlayPermission() },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = SatriaColors.Accent),
+                                shape = RoundedCornerShape(10.dp),
+                            ) {
+                                Text(
+                                    "Izinkan Overlay →",
+                                    color = Color.White,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                            }
+                        }
                     }
                 }
 
