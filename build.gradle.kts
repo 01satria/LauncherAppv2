@@ -119,5 +119,6 @@ dependencies {
     implementation(libs.com.google.android.material)
     implementation(libs.androidx.constraintlayout)
     implementation(libs.androidx.recyclerview)
+    implementation("androidx.cardview:cardview:1.0.0")
     debugImplementation(libs.compose.tooling)
 }
