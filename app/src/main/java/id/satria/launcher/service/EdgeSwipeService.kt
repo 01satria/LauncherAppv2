@@ -9,23 +9,15 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import id.satria.launcher.recents.EdgeSwipeEvent
 import kotlin.math.abs
 
 /**
  * EdgeSwipeService
  *
- * Service yang memasang View invisible di tepi kiri layar menggunakan
- * TYPE_APPLICATION_OVERLAY (system overlay). View ini mendeteksi swipe
- * horizontal ke kanan dan mengirim event ke launcher via EdgeSwipeEvent.
- *
- * Bekerja di atas semua aplikasi karena overlay permission.
- * RAM sangat minimal: View kosong (tidak ada drawing), tidak ada Compose,
- * tidak ada coroutine — murni TouchEvent native.
- *
- * Lifecycle:
- *  - start: dipanggil saat launcher resume + recentAppsEnabled = true
- *  - stop:  dipanggil saat launcher pause ATAU recentAppsEnabled = false
+ * Pasang View invisible 20dp di tepi kiri layar via TYPE_APPLICATION_OVERLAY.
+ * Saat swipe terdeteksi, langsung buka MainActivity dengan action SHOW_RECENTS
+ * — ini mem-bring launcher ke foreground SEBELUM menampilkan RecentAppsOverlay,
+ * sehingga overlay Compose bisa tampil dengan benar.
  */
 class EdgeSwipeService : Service() {
 
@@ -33,8 +25,8 @@ class EdgeSwipeService : Service() {
     private var overlayView: View? = null
 
     companion object {
-        // Lebar zona sentuh tepi kiri (dp → px dihitung saat runtime)
         const val EDGE_WIDTH_DP = 20
+        const val ACTION_SHOW_RECENTS = "id.satria.launcher.SHOW_RECENTS"
 
         fun start(context: Context) {
             context.startService(Intent(context, EdgeSwipeService::class.java))
@@ -63,10 +55,8 @@ class EdgeSwipeService : Service() {
 
         val density = resources.displayMetrics.density
         val edgeWidthPx = (EDGE_WIDTH_DP * density).toInt()
-
-        // Threshold dalam pixel
-        val minSwipePx = (55 * density).toInt()   // min X travel untuk trigger
-        val maxDriftPx = (80 * density).toInt()   // max Y drift agar tidak trigger scroll
+        val minSwipePx  = (55 * density).toInt()
+        val maxDriftPx  = (80 * density).toInt()
 
         val params = WindowManager.LayoutParams(
             edgeWidthPx,
@@ -101,7 +91,7 @@ class EdgeSwipeService : Service() {
                             val dy = event.rawY - startY
                             if (dx >= minSwipePx && abs(dy) < maxDriftPx) {
                                 triggered = true
-                                EdgeSwipeEvent.fire()
+                                launchMainActivityWithRecents()
                             }
                         }
                         return true
@@ -119,9 +109,29 @@ class EdgeSwipeService : Service() {
         wm.addView(view, params)
     }
 
+    /**
+     * Bawa MainActivity ke foreground dengan membawa extra SHOW_RECENTS=true.
+     * MainActivity.onNewIntent() akan membaca extra ini dan set showRecents=true.
+     *
+     * FLAG_ACTIVITY_REORDER_TO_FRONT: jika launcher sudah running, bring to front
+     * FLAG_ACTIVITY_SINGLE_TOP: tidak buat instance baru jika sudah di top
+     * FLAG_ACTIVITY_NEW_TASK: wajib saat startActivity dari non-Activity context
+     */
+    private fun launchMainActivityWithRecents() {
+        val intent = Intent(this, Class.forName("id.satria.launcher.MainActivity")).apply {
+            action = ACTION_SHOW_RECENTS
+            addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
+                Intent.FLAG_ACTIVITY_SINGLE_TOP
+            )
+        }
+        runCatching { startActivity(intent) }
+    }
+
     private fun removeOverlay() {
         overlayView?.let {
-            windowManager?.removeView(it)
+            runCatching { windowManager?.removeView(it) }
             overlayView = null
         }
         windowManager = null

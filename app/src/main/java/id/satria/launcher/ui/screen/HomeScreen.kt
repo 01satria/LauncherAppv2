@@ -28,9 +28,6 @@ import id.satria.launcher.ui.theme.LocalAppTheme
 import id.satria.launcher.ui.theme.SatriaColors
 import kotlin.math.ceil
 import id.satria.launcher.recents.EdgeSwipeEvent
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.repeatOnLifecycle
 import kotlinx.coroutines.launch
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,17 +88,15 @@ fun HomeScreen(vm: MainViewModel, onRequestOverlayPermission: () -> Unit = {}) {
         vm.checkUsagePermission()
     }
 
-    // Terima event swipe dari EdgeSwipeService (bekerja di atas app lain)
-    // Lifecycle-aware: hanya aktif saat launcher di RESUMED state
-    val lifecycleOwner = LocalLifecycleOwner.current
-    LaunchedEffect(lifecycleOwner) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            EdgeSwipeEvent.flow.collect {
-                EdgeSwipeEvent.consume()
-                if (recentAppsEnabled && !overlayActive) {
-                    vm.refreshRecentApps()
-                    showRecents = true
-                }
+    // Terima event dari EdgeSwipeService.
+    // Launcher sudah pasti di foreground saat event ini diterima
+    // (service mengirim ACTION_SHOW_RECENTS via Intent → MainActivity.onNewIntent → fire()).
+    LaunchedEffect(Unit) {
+        EdgeSwipeEvent.flow.collect {
+            EdgeSwipeEvent.consume()
+            if (recentAppsEnabled && !overlayActive) {
+                vm.refreshRecentApps()
+                showRecents = true
             }
         }
     }
