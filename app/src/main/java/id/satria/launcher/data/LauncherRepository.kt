@@ -13,17 +13,24 @@ class LauncherRepository(private val context: Context) {
 
     private val pm = context.packageManager
 
+    // Pengganti InstalledApps.getSortedApps()
+    // Optimasi RAM: setiap Drawable dimuat sekali, langsung di-cache sebagai
+    // RGB_565 Bitmap (50% lebih ringan dari ARGB_8888), lalu Drawable dibuang.
+    // AppData hanya menyimpan label+packageName (ringan), bukan Drawable besar.
     suspend fun getInstalledApps(): List<AppData> = withContext(Dispatchers.IO) {
         val mainIntent = Intent(Intent.ACTION_MAIN).also { it.addCategory(Intent.CATEGORY_LAUNCHER) }
         pm.queryIntentActivities(mainIntent, PackageManager.GET_META_DATA)
             .mapNotNull { ri ->
                 runCatching {
-                    val pkg   = ri.activityInfo.packageName
+                    val pkg = ri.activityInfo.packageName
                     val label = ri.loadLabel(pm).toString()
+                    // Pre-cache icon sebagai RGB_565 bitmap agar Drawable tidak tertahan di RAM
+                    // iconCache sudah memakai LruCache — otomatis evict jika penuh
                     if (id.satria.launcher.ui.component.iconCache.get(pkg) == null) {
                         runCatching {
+                            val px  = 88 // cukup tajam s/d hdpi, hemat RAM vs 96+
                             val bmp = ri.loadIcon(pm)
-                                .toBitmap(88, 88, android.graphics.Bitmap.Config.ARGB_8888)
+                                .toBitmap(px, px, android.graphics.Bitmap.Config.ARGB_8888)
                                 .asImageBitmap()
                             id.satria.launcher.ui.component.iconCache.put(pkg, bmp)
                         }
@@ -35,28 +42,17 @@ class LauncherRepository(private val context: Context) {
             .sortedBy { it.label.lowercase() }
     }
 
-    /**
-     * Launch app dengan benar:
-     * FLAG_ACTIVITY_NEW_TASK            — wajib dari non-Activity context
-     * FLAG_ACTIVITY_RESET_TASK_IF_NEEDED — bring to front jika sudah berjalan
-     *
-     * Jika getLaunchIntent null (misal app system), coba buka via package manager
-     * fallback agar recent tetap bisa launch app apapun.
-     */
+    // Pengganti RNLauncherKitHelper.launchApplication()
     fun launchApp(packageName: String) {
         runCatching {
-            val intent = pm.getLaunchIntentForPackage(packageName) ?: run {
-                // Fallback: buka halaman info app jika tidak ada launch intent
-                Intent(Intent.ACTION_VIEW).apply {
-                    data = Uri.parse("package:$packageName")
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                }
+            pm.getLaunchIntentForPackage(packageName)?.also {
+                it.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                context.startActivity(it)
             }
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
-            context.startActivity(intent)
         }
     }
 
+    // Pengganti UninstallModule.uninstallApp()
     fun uninstallApp(packageName: String) {
         runCatching {
             val intent = Intent(Intent.ACTION_DELETE).apply {

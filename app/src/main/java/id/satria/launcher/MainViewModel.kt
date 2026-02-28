@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import id.satria.launcher.data.*
-import id.satria.launcher.recents.RecentAppsManager
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
@@ -19,32 +18,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     val prefs = Prefs(app)
     val repo  = LauncherRepository(app)
-    val recentAppsManager = RecentAppsManager(app)
-
-    // Recent apps — list package names, paling baru di depan
-    val recentApps: StateFlow<List<String>> = recentAppsManager.recentPackages
-
-    // Permission Usage Stats
-    private val _hasUsagePermission = MutableStateFlow(recentAppsManager.hasPermission())
-    val hasUsagePermission: StateFlow<Boolean> = _hasUsagePermission.asStateFlow()
 
     private val _allApps = MutableStateFlow<List<AppData>>(emptyList())
     val allApps: StateFlow<List<AppData>> = _allApps.asStateFlow()
 
-    // ── Flow kritis (HomeScreen selalu butuh) — SharingStarted.Eagerly ──────
-    val showNames         = prefs.showNames.stateIn(viewModelScope, SharingStarted.Eagerly, true)
-    val layoutMode        = prefs.layoutMode.stateIn(viewModelScope, SharingStarted.Eagerly, "grid")
-    val iconSize          = prefs.iconSize.stateIn(viewModelScope, SharingStarted.Eagerly, 54)
-    val dockIconSize      = prefs.dockIconSize.stateIn(viewModelScope, SharingStarted.Eagerly, 56)
-    val hiddenPackages    = prefs.hiddenPackages.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val dockPackages      = prefs.dockPackages.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val darkMode          = prefs.darkMode.stateIn(viewModelScope, SharingStarted.Eagerly, true)
-    val recentAppsEnabled = prefs.recentAppsEnabled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    val gridCols          = prefs.gridCols.stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_GRID_COLS)
-    val gridRows          = prefs.gridRows.stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_GRID_ROWS)
-    val showHidden        = prefs.showHidden.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    // Flow kritis (selalu dibutuhkan HomeScreen) → Eagerly agar tidak ada delay
+    val showNames        = prefs.showNames.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val layoutMode       = prefs.layoutMode.stateIn(viewModelScope, SharingStarted.Eagerly, "grid")
+    val iconSize         = prefs.iconSize.stateIn(viewModelScope, SharingStarted.Eagerly, 54)
+    val dockIconSize     = prefs.dockIconSize.stateIn(viewModelScope, SharingStarted.Eagerly, 56)
+    val hiddenPackages   = prefs.hiddenPackages.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val dockPackages     = prefs.dockPackages.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val darkMode         = prefs.darkMode.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val gridCols         = prefs.gridCols.stateIn(viewModelScope, SharingStarted.Eagerly, id.satria.launcher.data.DEFAULT_GRID_COLS)
+    val gridRows         = prefs.gridRows.stateIn(viewModelScope, SharingStarted.Eagerly, id.satria.launcher.data.DEFAULT_GRID_ROWS)
+    val showHidden       = prefs.showHidden.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
-    // ── Flow sekunder — WhileSubscribed(5s) hemat RAM saat layar home ────────
+    // Flow sekunder (hanya dibutuhkan saat Dashboard/tool terbuka)
+    // WhileSubscribed(5_000): flow berhenti 5 detik setelah tidak ada subscriber,
+    // lalu mulai lagi saat dibutuhkan — hemat coroutine & RAM saat layar home
     private val WS = SharingStarted.WhileSubscribed(5_000)
     val userName         = prefs.userName.stateIn(viewModelScope, WS, "User")
     val assistantName    = prefs.assistantName.stateIn(viewModelScope, WS, "Assistant")
@@ -55,7 +47,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val prayerCities     = prefs.prayerCities.stateIn(viewModelScope, WS, emptyList())
     val prayerCache      = prefs.prayerCache.stateIn(viewModelScope, WS, "{}")
     val habits           = prefs.habits.stateIn(viewModelScope, WS, emptyList())
-    val moneyWallets     = prefs.moneyWallets.stateIn(viewModelScope, WS, emptyList())
+    val moneyWallets      = prefs.moneyWallets.stateIn(viewModelScope, WS, emptyList())
     val moneyTransactions = prefs.moneyTransactions.stateIn(viewModelScope, WS, emptyList())
 
     private val _avatarVersion = MutableStateFlow(0)
@@ -72,40 +64,28 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         dock.mapNotNull { pkg -> apps.find { it.packageName == pkg } }.take(5)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    init {
-        refreshApps()
-        // Tidak ada refreshRecentApps() di init — recent dimuat on-demand saat panel dibuka
-    }
+    init { refreshApps() }
 
     fun refreshApps() = viewModelScope.launch {
+        // Jika sudah ada data, hanya refresh jika jumlah app berubah
+        // Ini mencegah reload iconCache penuh setiap kali onResume
         val current = _allApps.value
         val fresh   = repo.getInstalledApps()
         if (current.isEmpty() || current.size != fresh.size ||
             current.map { it.packageName }.toSet() != fresh.map { it.packageName }.toSet()) {
             _allApps.value = fresh
         }
+        // Bersihkan icon yang packageName-nya tidak ada lagi
         if (current.isNotEmpty()) {
             val freshPkgs = fresh.map { it.packageName }.toSet()
             current.filter { it.packageName !in freshPkgs }
                    .forEach { id.satria.launcher.ui.component.iconCache.remove(it.packageName) }
         }
     }
-
-    /**
-     * Launch app + update recent list in-memory (no IO, instant).
-     * Menggunakan FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_RESET_TASK_IF_NEEDED
-     * agar app yang sedang background di-bring ke foreground, bukan dibuat instance baru.
-     */
-    fun launchApp(pkg: String) {
-        repo.launchApp(pkg)
-        if (recentAppsEnabled.value) {
-            recentAppsManager.onAppLaunched(pkg, dockPackages.value.toSet())
-        }
-    }
-
+    fun launchApp(pkg: String) = repo.launchApp(pkg)
     fun uninstallApp(pkg: String) {
         _allApps.value = _allApps.value.filter { it.packageName != pkg }
-        id.satria.launcher.ui.component.removeIconFromCache(pkg)
+        id.satria.launcher.ui.component.removeIconFromCache(pkg) // bebaskan bitmap dari LruCache
         repo.uninstallApp(pkg)
     }
 
@@ -127,38 +107,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         prefs.setDockPackages(dock)
     }
 
-    fun setDarkMode(v: Boolean) = viewModelScope.launch { prefs.setDarkMode(v) }
-
-    /**
-     * Muat recent apps dari UsageStatsManager — on-demand saja,
-     * dipanggil saat panel recent dibuka (bukan polling).
-     */
-    fun refreshRecentApps() = viewModelScope.launch {
-        recentAppsManager.loadRecentApps(excludePackages = dockPackages.value.toSet())
-    }
-
-    /** Kill semua background process dari recent apps, lalu kosongkan list */
-    fun clearRecentApps() = viewModelScope.launch {
-        recentAppsManager.killAndClearAll()
-    }
-
-    /** Kill satu app dari recent dan hapus dari list */
-    fun killOneRecentApp(pkg: String) = viewModelScope.launch {
-        recentAppsManager.killAndClearAll(listOf(pkg))
-    }
-    /** Cek ulang status Usage Stats permission */
-    fun checkUsagePermission() {
-        _hasUsagePermission.value = recentAppsManager.hasPermission()
-        // Tidak auto-refresh recent di sini — hemat CPU/RAM
-    }
-
-    fun openUsagePermissionSettings() = recentAppsManager.openPermissionSettings()
-
-    fun setRecentAppsEnabled(v: Boolean) = viewModelScope.launch {
-        prefs.setRecentAppsEnabled(v)
-        // Sync EdgeSwipeService di background thread setelah pref tersimpan
-        // Dipanggil dari MainActivity.syncEdgeSwipeService() saat onResume juga
-    }
+    fun setDarkMode(v: Boolean)   = viewModelScope.launch { prefs.setDarkMode(v) }
     fun setGridCols(v: Int)       = viewModelScope.launch { prefs.setGridCols(v) }
     fun setGridRows(v: Int)       = viewModelScope.launch { prefs.setGridRows(v) }
 
@@ -202,12 +151,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun removePrayerCity(city: String) = viewModelScope.launch {
         prefs.setPrayerCities(prayerCities.value.filter { it != city })
+        // Hapus cache kota yang dihapus
         val cache = org.json.JSONObject(prayerCache.value)
         cache.remove(city)
         prefs.setPrayerCache(cache.toString())
     }
     fun updatePrayerCache(city: String, timingsJson: String) = viewModelScope.launch {
-        if (!prayerCities.value.contains(city)) return@launch
+        if (!prayerCities.value.contains(city)) return@launch  // hanya simpan jika disave
         val cache = org.json.JSONObject(prayerCache.value)
         cache.put(city, timingsJson)
         prefs.setPrayerCache(cache.toString())
@@ -224,6 +174,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (habit.id != id) return@map habit
             val alreadyDone = habit.doneToday(today)
             if (alreadyDone) {
+                // Uncheck
                 val newDates = habit.doneDates.filter { it != today }
                 habit.copy(doneDates = newDates, streak = calcStreak(newDates))
             } else {
@@ -235,8 +186,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun calcStreak(dates: List<String>): Int {
         if (dates.isEmpty()) return 0
-        val fmt = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val cal = Calendar.getInstance()
+        val fmt   = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val cal   = Calendar.getInstance()
         var streak = 0
         while (true) {
             val key = fmt.format(cal.time)
@@ -246,11 +197,18 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return streak
     }
 
-    fun resetHabitsIfNewDay() { /* streak auto-calc dari doneDates */ }
+    fun resetHabitsIfNewDay() { /* Streaks auto-calc from doneDates — no reset needed */ }
 
-    // ── Money Management ───────────────────────────────────────────────────
+    // ── Money Management ────────────────────────────────────────────────────
+    // CATATAN: Semua fungsi baca state pakai .value dari StateFlow yang sudah
+    // terhubung ke DataStore. WhileSubscribed memastikan flow aktif selama
+    // DashboardScreen terbuka, sehingga .value selalu fresh.
+    // Data disimpan ke DataStore (file proto di /data/data/…/datastore/) —
+    // persist melewati restart HP, clear cache, bahkan app update.
+
     fun addMoneyWallet(name: String, emoji: String, color: String, currency: String) = viewModelScope.launch {
-        val wallet = MoneyWallet(makeId(), name, emoji, currency, color)
+        val wallet = id.satria.launcher.data.MoneyWallet(makeId(), name, emoji, currency, color)
+        // Baca langsung dari prefs flow untuk hindari race condition
         prefs.setMoneyWallets(prefs.moneyWallets.first() + wallet)
     }
     fun deleteMoneyWallet(walletId: String) = viewModelScope.launch {
@@ -263,8 +221,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         walletId: String, type: String, amount: Double,
         categoryKey: String, note: String, date: String, toWalletId: String = ""
     ) = viewModelScope.launch {
-        val tx = MoneyTransaction(makeId(), walletId, type, amount, categoryKey, note, date, toWalletId)
+        val tx = id.satria.launcher.data.MoneyTransaction(makeId(), walletId, type, amount, categoryKey, note, date, toWalletId)
         val current = prefs.moneyTransactions.first()
+        // Simpan max 1000 transaksi terbaru agar DataStore tidak terlalu besar
         prefs.setMoneyTransactions((current + tx).takeLast(1000))
     }
     fun deleteMoneyTransaction(txId: String) = viewModelScope.launch {
@@ -272,14 +231,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
     fun exportMoneyDataJson(): String {
         val json = Json { prettyPrint = true }
-        return """{"wallets":${json.encodeToString(moneyWallets.value)},"transactions":${json.encodeToString(moneyTransactions.value)}}"""
+        // Encode wallets dan transactions sebagai JSON string terpisah,
+        // lalu wrap dalam object JSON — format kompatibel untuk import balik
+        val walletsJson = json.encodeToString(moneyWallets.value)
+        val txJson      = json.encodeToString(moneyTransactions.value)
+        return """{"wallets":$walletsJson,"transactions":$txJson}"""
     }
     fun importMoneyDataJson(jsonStr: String): Boolean {
         return try {
             val j   = Json { ignoreUnknownKeys = true }
             val obj = j.parseToJsonElement(jsonStr).jsonObject
-            val wallets = j.decodeFromString<List<MoneyWallet>>(obj["wallets"]?.toString() ?: return false)
-            val txs     = j.decodeFromString<List<MoneyTransaction>>(obj["transactions"]?.toString() ?: return false)
+            val wallets = j.decodeFromString<List<id.satria.launcher.data.MoneyWallet>>(
+                obj["wallets"]?.toString() ?: return false
+            )
+            val txs = j.decodeFromString<List<id.satria.launcher.data.MoneyTransaction>>(
+                obj["transactions"]?.toString() ?: return false
+            )
             viewModelScope.launch {
                 prefs.setMoneyWallets(wallets)
                 prefs.setMoneyTransactions(txs)

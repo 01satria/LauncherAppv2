@@ -109,7 +109,6 @@ dependencies {
     implementation(libs.compose.tooling.preview)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.ktx)
-    implementation(libs.lifecycle.runtime.compose)
     implementation(libs.navigation.compose)
     implementation(libs.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
