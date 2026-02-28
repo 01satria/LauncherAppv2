@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -715,35 +716,33 @@ private fun AlphaScrollSidebar(
         modifier = modifier
             .onGloballyPositioned { containerHeightPx = it.size.height.toFloat().coerceAtLeast(1f) }
             .pointerInput(letters) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        down.consume()
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
 
-                        fun letterAt(y: Float): Char {
-                            val frac = (y / containerHeightPx).coerceIn(0f, 1f)
-                            val idx  = (frac * letters.size).toInt().coerceIn(0, letters.size - 1)
-                            return letters[idx]
-                        }
-
-                        activeLetter = letterAt(down.position.y)
-                        onLetterSelected(activeLetter!!)
-
-                        do {
-                            val event  = awaitPointerEvent()
-                            val change = event.changes.firstOrNull() ?: break
-                            if (change.pressed) {
-                                change.consume()
-                                val newLetter = letterAt(change.position.y)
-                                if (newLetter != activeLetter) {
-                                    activeLetter = newLetter
-                                    onLetterSelected(newLetter)
-                                }
-                            }
-                        } while (event.changes.any { it.pressed })
-
-                        activeLetter = null
+                    fun letterAt(y: Float): Char {
+                        val frac = (y / containerHeightPx).coerceIn(0f, 1f)
+                        val idx  = (frac * letters.size).toInt().coerceIn(0, letters.size - 1)
+                        return letters[idx]
                     }
+
+                    activeLetter = letterAt(down.position.y)
+                    onLetterSelected(activeLetter!!)
+
+                    do {
+                        val event  = awaitPointerEvent()
+                        val change = event.changes.firstOrNull() ?: break
+                        if (change.pressed) {
+                            change.consume()
+                            val newLetter = letterAt(change.position.y)
+                            if (newLetter != activeLetter) {
+                                activeLetter = newLetter
+                                onLetterSelected(newLetter)
+                            }
+                        }
+                    } while (event.changes.any { it.pressed })
+
+                    activeLetter = null
                 }
             },
         contentAlignment = Alignment.Center,
