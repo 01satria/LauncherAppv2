@@ -20,6 +20,8 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -27,6 +29,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
+import androidx.compose.ui.unit.Velocity
 import id.satria.launcher.MainViewModel
 import id.satria.launcher.data.AppData
 import id.satria.launcher.ui.component.*
@@ -551,102 +554,134 @@ private fun NiagaraAppDrawer(
 
     val letters = letterIndex.keys.toList()
 
-    // Swipe-down saat di top → close
-    var dragTotal by remember { mutableStateOf(0f) }
-
-    Box(modifier = Modifier.fillMaxSize().background(theme.bgColor())) {
-        Row(modifier = Modifier.fillMaxSize()) {
-            LazyColumn(
-                    state = listState,
-                    modifier =
-                            Modifier.weight(1f).fillMaxHeight().pointerInput(Unit) {
-                                detectVerticalDragGestures(
-                                        onDragStart = { dragTotal = 0f },
-                                        onDragCancel = { dragTotal = 0f },
-                                        onDragEnd = {
-                                            if (dragTotal > 140f &&
-                                                            listState.firstVisibleItemIndex == 0 &&
-                                                            listState.firstVisibleItemScrollOffset <
-                                                                    20
-                                            ) {
-                                                onClose()
-                                            }
-                                            dragTotal = 0f
-                                        },
-                                        onVerticalDrag = { _, amt -> dragTotal += amt },
-                                )
-                            },
-                    contentPadding = PaddingValues(top = 20.dp, bottom = 80.dp),
-            ) {
-                items(
-                        count = items.size,
-                        key = {
-                            when (val item = items[it]) {
-                                is DrawerItem.Header -> "hdr_${item.letter}"
-                                is DrawerItem.App -> item.app.packageName
-                            }
-                        },
-                ) { idx ->
-                    when (val item = items[idx]) {
-                        is DrawerItem.Header -> {
-                            Box(
-                                    modifier =
-                                            Modifier.fillMaxWidth()
-                                                    .padding(
-                                                            start = 24.dp,
-                                                            top = 12.dp,
-                                                            bottom = 2.dp
-                                                    ),
-                            ) {
-                                Text(
-                                        text = item.letter.toString(),
-                                        color = theme.accentColor(),
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        letterSpacing = 0.8.sp,
-                                )
-                            }
-                        }
-                        is DrawerItem.App -> {
-                            NiagaraDrawerRow(
-                                    app = item.app,
-                                    darkMode = darkMode,
-                                    overlayActive = overlayActive,
-                                    onPress = onAppPress,
-                                    onLong = onAppLong,
-                            )
-                        }
+    // ── NestedScrollConnection: deteksi fling ke bawah saat list di posisi atas
+    // Ini adalah cara yang benar untuk close drawer via overscroll —
+    // tidak berkompetisi dengan LazyColumn's own scroll gesture
+    val closeOnFlingDown =
+            remember(onClose) {
+                object : NestedScrollConnection {
+                    override suspend fun onPostFling(
+                            consumed: Velocity,
+                            available: Velocity
+                    ): Velocity {
+                        // available.y > 0 = kecepatan ke bawah yang tidak terpakai
+                        // (artinya list sudah di posisi paling atas dan user masih fling ke bawah)
+                        if (available.y > 400f) onClose()
+                        return Velocity.Zero
                     }
                 }
             }
 
-            // A-Z sidebar
-            AlphaScrollSidebar(
-                    letters = letters,
-                    onLetterSelected = { letter ->
-                        letterIndex[letter]?.let { idx ->
-                            scope.launch { listState.scrollToItem(idx) }
-                        }
-                    },
-                    modifier =
-                            Modifier.width(28.dp)
-                                    .fillMaxHeight()
-                                    .navigationBarsPadding()
-                                    .padding(vertical = 12.dp),
-            )
-        }
+    // Drag handle state untuk zona handle di atas (swipe-down lambat tetap berfungsi)
+    var handleDrag by remember { mutableStateOf(0f) }
 
-        // Drag handle di atas
-        Box(
-                modifier =
-                        Modifier.align(Alignment.TopCenter)
-                                .statusBarsPadding()
-                                .padding(top = 6.dp)
-                                .width(36.dp)
-                                .height(4.dp)
-                                .clip(CircleShape)
-                                .background(theme.textTertiary()),
-        )
+    Box(modifier = Modifier.fillMaxSize().background(theme.bgColor())) {
+        Column(modifier = Modifier.fillMaxSize()) {
+
+            // ── Handle zone 52dp — swipe down di sini untuk close ────────
+            Box(
+                    modifier =
+                            Modifier.fillMaxWidth().height(52.dp).pointerInput(Unit) {
+                                detectVerticalDragGestures(
+                                        onDragStart = { handleDrag = 0f },
+                                        onDragCancel = { handleDrag = 0f },
+                                        onDragEnd = {
+                                            if (handleDrag > 60f) onClose()
+                                            handleDrag = 0f
+                                        },
+                                        onVerticalDrag = { change, amt ->
+                                            change.consume()
+                                            if (amt > 0f) handleDrag += amt
+                                        },
+                                )
+                            },
+                    contentAlignment = Alignment.TopCenter,
+            ) {
+                Box(
+                        modifier =
+                                Modifier.padding(top = 10.dp)
+                                        .width(36.dp)
+                                        .height(4.dp)
+                                        .clip(CircleShape)
+                                        .background(theme.textTertiary()),
+                )
+            }
+
+            // ── List + sidebar ────────────────────────────────────────────
+            Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                LazyColumn(
+                        state = listState,
+                        modifier =
+                                Modifier.weight(1f)
+                                        .fillMaxHeight()
+                                        // nestedScroll menangkap fling ke bawah yang tidak
+                                        // dikonsumsi LazyColumn
+                                        .nestedScroll(closeOnFlingDown),
+                        contentPadding = PaddingValues(bottom = 80.dp),
+                ) {
+                    items(
+                            count = items.size,
+                            key = {
+                                when (val item = items[it]) {
+                                    is DrawerItem.Header -> "hdr_${item.letter}"
+                                    is DrawerItem.App -> item.app.packageName
+                                }
+                            },
+                    ) { idx ->
+                        when (val item = items[idx]) {
+                            is DrawerItem.Header -> {
+                                Box(
+                                        modifier =
+                                                Modifier.fillMaxWidth()
+                                                        .padding(
+                                                                start = 24.dp,
+                                                                top = 12.dp,
+                                                                bottom = 2.dp
+                                                        ),
+                                ) {
+                                    Text(
+                                            text = item.letter.toString(),
+                                            color = theme.accentColor(),
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 0.8.sp,
+                                    )
+                                }
+                            }
+                            is DrawerItem.App -> {
+                                NiagaraDrawerRow(
+                                        app = item.app,
+                                        darkMode = darkMode,
+                                        overlayActive = overlayActive,
+                                        onPress = onAppPress,
+                                        onLong = onAppLong,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // A-Z sidebar — animateScrollToItem untuk smooth jump
+                AlphaScrollSidebar(
+                        letters = letters,
+                        onLetterSelected = { letter ->
+                            letterIndex[letter]?.let { idx ->
+                                scope.launch {
+                                    listState.animateScrollToItem(
+                                            index = idx,
+                                            scrollOffset = 0,
+                                    )
+                                }
+                            }
+                        },
+                        modifier =
+                                Modifier.width(28.dp)
+                                        .fillMaxHeight()
+                                        .navigationBarsPadding()
+                                        .padding(vertical = 12.dp),
+                )
+            }
+        }
     }
 }
 
