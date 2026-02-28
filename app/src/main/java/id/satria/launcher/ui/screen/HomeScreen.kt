@@ -4,9 +4,11 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
@@ -21,10 +23,12 @@ import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -243,9 +247,9 @@ private fun HomeContent(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NiagaraListPager
-// Page 0 = Dashboard (swipe kanan)
-// Page 1 = Niagara Home (favorit apps)
-// Overlay = NiagaraAppDrawer (swipe atas)
+// drawerProgress: 1f = drawer tersembunyi, 0f = drawer terbuka penuh
+// Drawer SELALU ada di komposisi — hanya translasi via graphicsLayer (RenderThread)
+// Ini membuat animasi tidak menyebabkan rekomposisi = zero jank
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -263,26 +267,41 @@ private fun NiagaraListPager(
 ) {
     val pagerState = rememberPagerState(initialPage = 1, pageCount = { 2 })
     val scope = rememberCoroutineScope()
-    var showDrawer by remember { mutableStateOf(false) }
+    // 1f = hidden (off-screen below), 0f = fully open
+    val drawerProgress = remember { Animatable(1f) }
 
-    BackHandler(enabled = pagerState.currentPage == 0 && !showDrawer) {
+    val drawerOpen by remember { derivedStateOf { drawerProgress.value < 0.99f } }
+
+    val springSpec =
+            spring<Float>(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMediumLow,
+            )
+
+    suspend fun openDrawer() = drawerProgress.animateTo(0f, springSpec)
+    suspend fun closeDrawer() = drawerProgress.animateTo(1f, springSpec)
+
+    BackHandler(enabled = pagerState.currentPage == 0 && !drawerOpen) {
         scope.launch { pagerState.animateScrollToPage(1) }
     }
-    BackHandler(enabled = showDrawer) { showDrawer = false }
+    BackHandler(enabled = drawerOpen) { scope.launch { closeDrawer() } }
 
     LaunchedEffect(dashboardScrollRequest) {
         if (dashboardScrollRequest > 0) {
-            showDrawer = false
+            closeDrawer()
             pagerState.animateScrollToPage(0)
         }
     }
     LaunchedEffect(pagerState.currentPage) { onDashboardChanged(pagerState.currentPage == 0) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val screenHeightPx = with(LocalDensity.current) { maxHeight.toPx() }
+
+        // ── Pager (home + dashboard) ──────────────────────────────────────
         HorizontalPager(
                 state = pagerState,
                 beyondViewportPageCount = 1,
-                userScrollEnabled = !overlayActive && !showDrawer,
+                userScrollEnabled = !overlayActive && !drawerOpen,
                 modifier = Modifier.fillMaxSize(),
                 key = { it },
         ) { page ->
@@ -293,35 +312,34 @@ private fun NiagaraListPager(
                         dockApps = dockApps,
                         darkMode = darkMode,
                         overlayActive = overlayActive,
+                        drawerProgress = drawerProgress,
+                        screenHeightPx = screenHeightPx,
+                        onOpenDrawer = { scope.launch { openDrawer() } },
+                        onBgLongPress = onBgLongPress,
                         onAppPress = onAppPress,
                         onAppLong = onAppLong,
-                        onBgLongPress = onBgLongPress,
-                        onSwipeUp = { if (!overlayActive) showDrawer = true },
                 )
             }
         }
 
-        // ── App Drawer — slide dari bawah ke atas ────────────────────────
-        AnimatedVisibility(
-                visible = showDrawer,
-                enter =
-                        slideInVertically(
-                                initialOffsetY = { it },
-                                animationSpec = tween(320, easing = FastOutSlowInEasing),
-                        ) + fadeIn(tween(220)),
-                exit =
-                        slideOutVertically(
-                                targetOffsetY = { it },
-                                animationSpec = tween(260, easing = FastOutLinearInEasing),
-                        ) + fadeOut(tween(180)),
+        // ── Drawer — selalu di komposisi, translasi via graphicsLayer ─────
+        // graphicsLayer { translationY } berjalan di RenderThread → zero recomposisi
+        Box(
+                modifier =
+                        Modifier.fillMaxSize().graphicsLayer {
+                            translationY = drawerProgress.value * screenHeightPx
+                        },
         ) {
             NiagaraAppDrawer(
                     apps = allVisibleApps,
                     darkMode = darkMode,
                     overlayActive = overlayActive,
+                    drawerProgress = drawerProgress,
+                    screenHeightPx = screenHeightPx,
+                    springSpec = springSpec,
                     onAppPress = onAppPress,
                     onAppLong = onAppLong,
-                    onClose = { showDrawer = false },
+                    onClose = { scope.launch { closeDrawer() } },
             )
         }
     }
@@ -329,10 +347,7 @@ private fun NiagaraListPager(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NiagaraHomePage
-// Tampilan home screen mode Niagara:
-//   - Dock apps sebagai list besar di tengah layar
-//   - Swipe ke atas → buka app drawer
-//   - Long press background → settings
+// Swipe up → drawer mengikuti jari secara real-time (draggable + snapTo)
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -340,32 +355,49 @@ private fun NiagaraHomePage(
         dockApps: List<AppData>,
         darkMode: Boolean,
         overlayActive: Boolean,
+        drawerProgress: Animatable<Float, AnimationVector1D>,
+        screenHeightPx: Float,
+        onOpenDrawer: () -> Unit,
+        onBgLongPress: () -> Unit,
         onAppPress: (String) -> Unit,
         onAppLong: (String) -> Unit,
-        onBgLongPress: () -> Unit,
-        onSwipeUp: () -> Unit,
 ) {
     val theme = LocalAppTheme.current
-    var totalDragY by remember { mutableStateOf(0f) }
+    val scope = rememberCoroutineScope()
+
+    val springSpec =
+            spring<Float>(
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMediumLow,
+            )
+
+    // Draggable state untuk swipe-up: mengupdate drawerProgress secara real-time
+    val draggableState = rememberDraggableState { delta ->
+        if (!overlayActive && delta < 0f) {
+            val next = (drawerProgress.value + delta / screenHeightPx).coerceIn(0f, 1f)
+            scope.launch { drawerProgress.snapTo(next) }
+        }
+    }
 
     Box(
             modifier =
                     Modifier.fillMaxSize()
-                            .pointerInput(overlayActive) {
-                                if (overlayActive) return@pointerInput
-                                detectVerticalDragGestures(
-                                        onDragStart = { totalDragY = 0f },
-                                        onDragCancel = { totalDragY = 0f },
-                                        onDragEnd = {
-                                            if (totalDragY < -120f) onSwipeUp()
-                                            totalDragY = 0f
-                                        },
-                                        onVerticalDrag = { change, dragAmount ->
-                                            totalDragY += dragAmount
-                                            if (dragAmount < 0f) change.consume()
-                                        },
-                                )
-                            }
+                            // Swipe atas: drawer mengikuti jari
+                            .draggable(
+                                    orientation = Orientation.Vertical,
+                                    state = draggableState,
+                                    onDragStopped = { velocity ->
+                                        if (overlayActive) return@draggable
+                                        scope.launch {
+                                            // velocity negatif = bergerak ke atas = buka drawer
+                                            if (velocity < -600f || drawerProgress.value < 0.45f) {
+                                                drawerProgress.animateTo(0f, springSpec)
+                                            } else {
+                                                drawerProgress.animateTo(1f, springSpec)
+                                            }
+                                        }
+                                    },
+                            )
                             .combinedClickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
@@ -400,7 +432,7 @@ private fun NiagaraHomePage(
             }
         }
 
-        // ── Hint bawah ─────────────────────────────────────────────────
+        // ── Hint swipe-up ───────────────────────────────────────────────
         Column(
                 modifier =
                         Modifier.align(Alignment.BottomCenter)
@@ -422,7 +454,6 @@ private fun NiagaraHomePage(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NiagaraFavoriteRow — satu baris favorit di home screen
-// Icon kecil + nama besar, gaya Niagara
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -437,27 +468,13 @@ private fun NiagaraFavoriteRow(
     val isPressed by interactionSource.collectIsPressedAsState()
     val theme = LocalAppTheme.current
 
-    val alpha by
-            animateFloatAsState(
-                    targetValue = if (isPressed) 0.45f else 1f,
-                    animationSpec = tween(70),
-                    label = "favAlpha",
-            )
-    val offsetX by
-            animateDpAsState(
-                    targetValue = if (isPressed) 6.dp else 0.dp,
-                    animationSpec =
-                            spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessMediumLow),
-                    label = "favOff",
-            )
-
     val bitmap = remember(app.packageName) { iconCache.get(app.packageName) }
 
     Row(
             modifier =
                     Modifier.fillMaxWidth()
-                            .alpha(alpha)
-                            .offset(x = offsetX)
+                            // graphicsLayer alpha: tidak trigger rekomposisi
+                            .graphicsLayer { alpha = if (isPressed) 0.45f else 1f }
                             .combinedClickable(
                                     interactionSource = interactionSource,
                                     indication = null,
@@ -501,14 +518,17 @@ private fun NiagaraFavoriteRow(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NiagaraAppDrawer — full screen, slide dari bawah
-// Daftar semua app dengan A-Z sidebar di kanan
+// NiagaraAppDrawer — full screen app list
+// Swipe-down dari posisi atas → drawerProgress mengikuti jari → tutup
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun NiagaraAppDrawer(
         apps: List<AppData>,
         darkMode: Boolean,
         overlayActive: Boolean,
+        drawerProgress: Animatable<Float, AnimationVector1D>,
+        screenHeightPx: Float,
+        springSpec: AnimationSpec<Float>,
         onAppPress: (String) -> Unit,
         onAppLong: (String) -> Unit,
         onClose: () -> Unit,
@@ -517,7 +537,7 @@ private fun NiagaraAppDrawer(
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
 
-    // Build flat list: DrawerItem.Header + DrawerItem.App
+    // Build flat list
     val items by
             remember(apps) {
                 derivedStateOf {
@@ -554,47 +574,71 @@ private fun NiagaraAppDrawer(
 
     val letters = letterIndex.keys.toList()
 
-    // ── NestedScrollConnection: deteksi fling ke bawah saat list di posisi atas
-    // Ini adalah cara yang benar untuk close drawer via overscroll —
-    // tidak berkompetisi dengan LazyColumn's own scroll gesture
-    val closeOnFlingDown =
-            remember(onClose) {
-                object : NestedScrollConnection {
-                    override suspend fun onPostFling(
-                            consumed: Velocity,
-                            available: Velocity
-                    ): Velocity {
-                        // available.y > 0 = kecepatan ke bawah yang tidak terpakai
-                        // (artinya list sudah di posisi paling atas dan user masih fling ke bawah)
-                        if (available.y > 400f) onClose()
-                        return Velocity.Zero
-                    }
+    // NestedScrollConnection: fling ke bawah saat di posisi atas → tutup drawer
+    // Ini mengikuti jari via pre-scroll (bukan hanya fling), jadi terasa natural
+    val closeConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                // Hanya intercept scroll ke bawah (available.y > 0) saat list di posisi paling atas
+                if (available.y > 0f &&
+                                listState.firstVisibleItemIndex == 0 &&
+                                listState.firstVisibleItemScrollOffset == 0
+                ) {
+                    val next =
+                            (drawerProgress.value + available.y / screenHeightPx).coerceIn(0f, 1f)
+                    scope.launch { drawerProgress.snapTo(next) }
+                    return available // konsumsi scroll agar list tidak ikut bergerak
                 }
+                return Offset.Zero
             }
 
-    // Drag handle state untuk zona handle di atas (swipe-down lambat tetap berfungsi)
-    var handleDrag by remember { mutableStateOf(0f) }
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                if (available.y > 300f) {
+                    drawerProgress.animateTo(1f, springSpec)
+                } else if (drawerProgress.value > 0.1f) {
+                    // Belum cukup untuk tutup → snap kembali ke open
+                    drawerProgress.animateTo(0f, springSpec)
+                }
+                return Velocity.Zero
+            }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(theme.bgColor())) {
         Column(modifier = Modifier.fillMaxSize()) {
 
-            // ── Handle zone 52dp — swipe down di sini untuk close ────────
+            // ── Handle zone 48dp — swipe-down lambat di sini tetap berfungsi ──
             Box(
                     modifier =
-                            Modifier.fillMaxWidth().height(52.dp).pointerInput(Unit) {
-                                detectVerticalDragGestures(
-                                        onDragStart = { handleDrag = 0f },
-                                        onDragCancel = { handleDrag = 0f },
-                                        onDragEnd = {
-                                            if (handleDrag > 60f) onClose()
-                                            handleDrag = 0f
-                                        },
-                                        onVerticalDrag = { change, amt ->
-                                            change.consume()
-                                            if (amt > 0f) handleDrag += amt
-                                        },
-                                )
-                            },
+                            Modifier.fillMaxWidth()
+                                    .height(48.dp)
+                                    .draggable(
+                                            orientation = Orientation.Vertical,
+                                            state =
+                                                    rememberDraggableState { delta ->
+                                                        if (delta > 0f) {
+                                                            val next =
+                                                                    (drawerProgress.value +
+                                                                                    delta /
+                                                                                            screenHeightPx)
+                                                                            .coerceIn(0f, 1f)
+                                                            scope.launch {
+                                                                drawerProgress.snapTo(next)
+                                                            }
+                                                        }
+                                                    },
+                                            onDragStopped = { velocity ->
+                                                scope.launch {
+                                                    if (velocity > 500f ||
+                                                                    drawerProgress.value > 0.35f
+                                                    ) {
+                                                        drawerProgress.animateTo(1f, springSpec)
+                                                    } else {
+                                                        drawerProgress.animateTo(0f, springSpec)
+                                                    }
+                                                }
+                                            },
+                                    ),
                     contentAlignment = Alignment.TopCenter,
             ) {
                 Box(
@@ -612,11 +656,7 @@ private fun NiagaraAppDrawer(
                 LazyColumn(
                         state = listState,
                         modifier =
-                                Modifier.weight(1f)
-                                        .fillMaxHeight()
-                                        // nestedScroll menangkap fling ke bawah yang tidak
-                                        // dikonsumsi LazyColumn
-                                        .nestedScroll(closeOnFlingDown),
+                                Modifier.weight(1f).fillMaxHeight().nestedScroll(closeConnection),
                         contentPadding = PaddingValues(bottom = 80.dp),
                 ) {
                     items(
@@ -637,7 +677,7 @@ private fun NiagaraAppDrawer(
                                                                 start = 24.dp,
                                                                 top = 12.dp,
                                                                 bottom = 2.dp
-                                                        ),
+                                                        )
                                 ) {
                                     Text(
                                             text = item.letter.toString(),
@@ -661,17 +701,11 @@ private fun NiagaraAppDrawer(
                     }
                 }
 
-                // A-Z sidebar — animateScrollToItem untuk smooth jump
                 AlphaScrollSidebar(
                         letters = letters,
                         onLetterSelected = { letter ->
                             letterIndex[letter]?.let { idx ->
-                                scope.launch {
-                                    listState.animateScrollToItem(
-                                            index = idx,
-                                            scrollOffset = 0,
-                                    )
-                                }
+                                scope.launch { listState.animateScrollToItem(idx) }
                             }
                         },
                         modifier =
@@ -709,19 +743,12 @@ private fun NiagaraDrawerRow(
     val isPressed by interactionSource.collectIsPressedAsState()
     val theme = LocalAppTheme.current
 
-    val alpha by
-            animateFloatAsState(
-                    targetValue = if (isPressed) 0.4f else 1f,
-                    animationSpec = tween(60),
-                    label = "drawerAlpha",
-            )
-
     val bitmap = remember(app.packageName) { iconCache.get(app.packageName) }
 
     Row(
             modifier =
                     Modifier.fillMaxWidth()
-                            .alpha(alpha)
+                            .graphicsLayer { alpha = if (isPressed) 0.4f else 1f }
                             .combinedClickable(
                                     interactionSource = interactionSource,
                                     indication = null,
