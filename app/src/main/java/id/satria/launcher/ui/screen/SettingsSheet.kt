@@ -399,7 +399,7 @@ private fun SettingsCard(
             exit    = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
         ) {
             Column(
-                modifier = Modifier.padding(horizontal = 16.dp, bottom = 16.dp),
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
                 content = content,
             )
         }
