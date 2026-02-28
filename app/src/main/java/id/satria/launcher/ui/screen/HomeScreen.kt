@@ -16,6 +16,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -87,7 +89,50 @@ fun HomeScreen(vm: MainViewModel, onRequestOverlayPermission: () -> Unit = {}) {
         vm.checkUsagePermission()
     }
 
+    // Refresh recents every time the panel is opened
+    LaunchedEffect(showRecents) {
+        if (showRecents) {
+            vm.checkUsagePermission()
+            vm.refreshRecentApps()
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
+
+        // ── Left-edge swipe zone → Recent Apps ──────────────────────────────
+        // Zona 56dp di tepi kiri: swipe kanan ≥80dp → buka recent apps
+        if (!overlayActive && recentAppsEnabled) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .width(56.dp)
+                    .fillMaxHeight()
+                    .pointerInput(Unit) {
+                        var startX = 0f
+                        var startY = 0f
+                        var triggered = false
+                        detectHorizontalDragGestures(
+                            onDragStart = { offset ->
+                                startX = offset.x
+                                startY = offset.y
+                                triggered = false
+                            },
+                            onDragEnd = {},
+                            onDragCancel = {},
+                            onHorizontalDrag = { change, dragAmount ->
+                                if (!triggered) {
+                                    val totalX = change.position.x - startX
+                                    val totalY = change.position.y - startY
+                                    if (totalX > 80f && kotlin.math.abs(totalY) < 100f) {
+                                        triggered = true
+                                        showRecents = true
+                                    }
+                                }
+                            },
+                        )
+                    },
+            )
+        }
 
         // ── App Content ──────────────────────────────────────────────────────
         HomeContent(
@@ -138,13 +183,13 @@ fun HomeScreen(vm: MainViewModel, onRequestOverlayPermission: () -> Unit = {}) {
         // ── Recent Apps Overlay ──────────────────────────────────────────────
         AnimatedVisibility(
             visible = showRecents,
-            enter = fadeIn(tween(180)) + slideInVertically(
-                initialOffsetY = { it / 4 },
-                animationSpec = tween(220, easing = FastOutSlowInEasing),
+            enter = fadeIn(tween(160)) + slideInVertically(
+                initialOffsetY = { it },
+                animationSpec = tween(280, easing = FastOutSlowInEasing),
             ),
-            exit = fadeOut(tween(160)) + slideOutVertically(
-                targetOffsetY = { it / 4 },
-                animationSpec = tween(160),
+            exit = fadeOut(tween(180)) + slideOutVertically(
+                targetOffsetY = { it },
+                animationSpec = tween(220, easing = FastOutSlowInEasing),
             ),
         ) {
             RecentAppsOverlay(

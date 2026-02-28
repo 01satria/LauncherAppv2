@@ -24,26 +24,25 @@ import id.satria.launcher.ui.theme.SatriaColors
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RecentAppsBar
-// Menampilkan baris horizontal 5 app terakhir yang digunakan, di atas dock.
-// Karena launcher tidak punya akses ke usage stats secara langsung tanpa
-// permission khusus, kita tampilkan 5 app pertama dari allApps yang bukan
-// ada di dock sebagai "recently installed / suggested apps".
-// Untuk implementasi penuh dengan usage stats, tambahkan PACKAGE_USAGE_STATS
-// permission dan gunakan UsageStatsManager.
+// Menampilkan baris horizontal recent apps berdasarkan recentPackages yang
+// berasal dari UsageStatsManager (via RecentAppsManager).
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun RecentAppsBar(
+    recentPackages: List<String>,
     allApps: List<AppData>,
     iconSize: Int = 44,
     onAppPress: (String) -> Unit,
     onAppLong: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (allApps.isEmpty()) return
+    val appMap = remember(allApps) { allApps.associateBy { it.packageName } }
+    val recentApps = remember(recentPackages, appMap) {
+        recentPackages.mapNotNull { appMap[it] }.take(8)
+    }
 
-    // Tampilkan max 8 app (urutan dari allApps yang sudah di-sort oleh sistem)
-    val recentApps = remember(allApps) { allApps.take(8) }
+    if (recentApps.isEmpty()) return
 
     Box(
         modifier = modifier
