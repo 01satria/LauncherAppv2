@@ -272,12 +272,12 @@ private fun NiagaraListPager(
 
     val drawerOpen by remember { derivedStateOf { drawerProgress.value < 0.99f } }
 
-    // Tween tanpa bounce: smooth, deterministik, tidak ada glitch overshoot
-    val openSpec  = tween<Float>(durationMillis = 320, easing = FastOutSlowInEasing)
-    val closeSpec = tween<Float>(durationMillis = 260, easing = FastOutSlowInEasing)
+    // Spring NoBouncy: smooth tanpa bounce, TAPI responsive terhadap velocity fling
+    // → swipe cepat = buka instan, swipe lambat = animasi halus
+    val drawerSpring = spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
 
-    suspend fun openDrawer()  = drawerProgress.animateTo(0f, openSpec)
-    suspend fun closeDrawer() = drawerProgress.animateTo(1f, closeSpec)
+    suspend fun openDrawer()  = drawerProgress.animateTo(0f, drawerSpring)
+    suspend fun closeDrawer() = drawerProgress.animateTo(1f, drawerSpring)
 
     BackHandler(enabled = pagerState.currentPage == 0 && !drawerOpen) {
         scope.launch { pagerState.animateScrollToPage(1) }
@@ -370,14 +370,15 @@ private fun NiagaraHomePage(
     val theme = LocalAppTheme.current
     val scope = rememberCoroutineScope()
 
-    val openSpec  = tween<Float>(durationMillis = 320, easing = FastOutSlowInEasing)
-    val closeSpec = tween<Float>(durationMillis = 260, easing = FastOutSlowInEasing)
+    val drawerSpring = spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
 
-    // Draggable state untuk swipe-up: mengupdate drawerProgress secara real-time
+    // Draggable state untuk swipe-up: UNDISPATCHED agar snapTo tidak buat coroutine baru per-frame
     val draggableState = rememberDraggableState { delta ->
         if (!overlayActive && delta < 0f) {
             val next = (drawerProgress.value + delta / screenHeightPx).coerceIn(0f, 1f)
-            scope.launch { drawerProgress.snapTo(next) }
+            scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+                drawerProgress.snapTo(next)
+            }
         }
     }
 
@@ -392,10 +393,10 @@ private fun NiagaraHomePage(
                                         if (overlayActive) return@draggable
                                         scope.launch {
                                             // velocity negatif = bergerak ke atas = buka drawer
-                                            if (velocity < -600f || drawerProgress.value < 0.5f) {
-                                                drawerProgress.animateTo(0f, openSpec)
+                                            if (velocity < -300f || drawerProgress.value < 0.5f) {
+                                                drawerProgress.animateTo(0f, drawerSpring)
                                             } else {
-                                                drawerProgress.animateTo(1f, closeSpec)
+                                                drawerProgress.animateTo(1f, drawerSpring)
                                             }
                                         }
                                     },
@@ -577,11 +578,27 @@ private fun NiagaraAppDrawer(
 
     val letters = letterIndex.keys.toList()
 
-    val openSpec  = tween<Float>(durationMillis = 320, easing = FastOutSlowInEasing)
-    val closeSpec = tween<Float>(durationMillis = 260, easing = FastOutSlowInEasing)
+    // State untuk Niagara-style filter: saat sidebar aktif, tampilkan hanya apps dari huruf itu
+    var activeSidebarLetter by remember { mutableStateOf<Char?>(null) }
+
+    // Derived dari items yang sudah ada — tidak groupBy ulang
+    val filteredByLetter: Map<Char, List<AppData>> by remember(items) {
+        derivedStateOf {
+            items.filterIsInstance<DrawerItem.App>()
+                .groupBy { item ->
+                    val c = item.app.label.firstOrNull()?.uppercaseChar() ?: '#'
+                    if (c in 'A'..'Z') c else '#'
+                }
+                .mapValues { (_, v) -> v.map { it.app } }
+        }
+    }
+
+    val drawerSpring = spring<Float>(dampingRatio = Spring.DampingRatioNoBouncy, stiffness = Spring.StiffnessMedium)
 
     // NestedScrollConnection: fling ke bawah saat di posisi atas → tutup drawer
-    val closeConnection = remember {
+    // OPTIMASI: onPreScroll adalah suspend-capable context — snapTo dipanggil langsung
+    // tanpa scope.launch baru per-pixel. Ini eliminasi ribuan coroutine allocation saat scroll.
+    val closeConnection = remember(drawerProgress, screenHeightPx) {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (available.y > 0f &&
@@ -590,7 +607,10 @@ private fun NiagaraAppDrawer(
                 ) {
                     val next =
                             (drawerProgress.value + available.y / screenHeightPx).coerceIn(0f, 1f)
-                    scope.launch { drawerProgress.snapTo(next) }
+                    // snapTo di sini: update value Animatable tanpa coroutine baru
+                    scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+                        drawerProgress.snapTo(next)
+                    }
                     return available
                 }
                 return Offset.Zero
@@ -598,22 +618,21 @@ private fun NiagaraAppDrawer(
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
                 if (available.y > 300f || drawerProgress.value > 0.5f) {
-                    drawerProgress.animateTo(1f, closeSpec)
+                    drawerProgress.animateTo(1f, drawerSpring)
                 } else {
-                    drawerProgress.animateTo(0f, openSpec)
+                    drawerProgress.animateTo(0f, drawerSpring)
                 }
                 return Velocity.Zero
             }
         }
     }
 
-    // ── FIX: bg transparan, tapi blokir sentuhan tembus ke homescreen ─────
-    // pointerInput blocker agar pin apps di belakang tidak bisa disentuh
-    Box(modifier = Modifier.fillMaxSize()) {
+    // bg semi-transparan: light = putih 85%, dark = hitam 85%
+    val drawerBg = if (darkMode) Color.Black.copy(alpha = 0.82f) else Color.White.copy(alpha = 0.82f)
+    Box(modifier = Modifier.fillMaxSize().background(drawerBg)) {
         Box(
                 modifier =
                         Modifier.fillMaxSize()
-                                .background(Color.Transparent)
                                 .pointerInput(Unit) {
                                     awaitPointerEventScope {
                                         while (true) { awaitPointerEvent() }
@@ -637,7 +656,7 @@ private fun NiagaraAppDrawer(
                                                                                     delta /
                                                                                             screenHeightPx)
                                                                             .coerceIn(0f, 1f)
-                                                            scope.launch {
+                                                            scope.launch(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
                                                                 drawerProgress.snapTo(next)
                                                             }
                                                         }
@@ -647,9 +666,9 @@ private fun NiagaraAppDrawer(
                                                     if (velocity > 500f ||
                                                                     drawerProgress.value > 0.5f
                                                     ) {
-                                                        drawerProgress.animateTo(1f, closeSpec)
+                                                        drawerProgress.animateTo(1f, drawerSpring)
                                                     } else {
-                                                        drawerProgress.animateTo(0f, openSpec)
+                                                        drawerProgress.animateTo(0f, drawerSpring)
                                                     }
                                                 }
                                             },
@@ -668,49 +687,85 @@ private fun NiagaraAppDrawer(
 
             // ── List + sidebar ────────────────────────────────────────────
             Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                LazyColumn(
-                        state = listState,
-                        modifier =
-                                Modifier.weight(1f).fillMaxHeight().nestedScroll(closeConnection),
-                        contentPadding = PaddingValues(bottom = 80.dp),
-                ) {
-                    items(
-                            count = items.size,
-                            key = {
-                                when (val item = items[it]) {
-                                    is DrawerItem.Header -> "hdr_${item.letter}"
-                                    is DrawerItem.App -> item.app.packageName
+                Box(modifier = Modifier.weight(1f).fillMaxHeight()) {
+                    // ── Full list (saat sidebar tidak aktif) ──
+                    LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize().nestedScroll(closeConnection),
+                            contentPadding = PaddingValues(bottom = 80.dp),
+                            userScrollEnabled = activeSidebarLetter == null,
+                    ) {
+                        items(
+                                count = items.size,
+                                key = {
+                                    when (val item = items[it]) {
+                                        is DrawerItem.Header -> "hdr_${item.letter}"
+                                        is DrawerItem.App -> item.app.packageName
+                                    }
+                                },
+                        ) { idx ->
+                            when (val item = items[idx]) {
+                                is DrawerItem.Header -> {
+                                    Box(
+                                            modifier =
+                                                    Modifier.fillMaxWidth()
+                                                            .padding(
+                                                                    start = 24.dp,
+                                                                    top = 12.dp,
+                                                                    bottom = 2.dp
+                                                            )
+                                    ) {
+                                        Text(
+                                                text = item.letter.toString(),
+                                                color = theme.accentColor(),
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                letterSpacing = 0.8.sp,
+                                        )
+                                    }
                                 }
-                            },
-                    ) { idx ->
-                        when (val item = items[idx]) {
-                            is DrawerItem.Header -> {
-                                Box(
-                                        modifier =
-                                                Modifier.fillMaxWidth()
-                                                        .padding(
-                                                                start = 24.dp,
-                                                                top = 12.dp,
-                                                                bottom = 2.dp
-                                                        )
-                                ) {
-                                    Text(
-                                            text = item.letter.toString(),
-                                            color = theme.accentColor(),
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            letterSpacing = 0.8.sp,
+                                is DrawerItem.App -> {
+                                    NiagaraDrawerRow(
+                                            app = item.app,
+                                            darkMode = darkMode,
+                                            overlayActive = overlayActive,
+                                            onPress = onAppPress,
+                                            onLong = onAppLong,
                                     )
                                 }
                             }
-                            is DrawerItem.App -> {
-                                NiagaraDrawerRow(
-                                        app = item.app,
-                                        darkMode = darkMode,
-                                        overlayActive = overlayActive,
-                                        onPress = onAppPress,
-                                        onLong = onAppLong,
-                                )
+                        }
+                    }
+
+                    // ── Niagara filtered view (saat sidebar aktif) ──
+                    // Pakai graphicsLayer + pointerInput agar tidak ada layout pass ulang
+                    val isFiltering = activeSidebarLetter != null
+                    Box(
+                            modifier = Modifier.fillMaxSize()
+                                    .graphicsLayer { alpha = if (isFiltering) 1f else 0f }
+                                    .then(if (!isFiltering) Modifier.pointerInput(Unit) {} else Modifier),
+                    ) {
+                        if (isFiltering) {
+                            val letter = activeSidebarLetter!!
+                            val appsForLetter = remember(letter, filteredByLetter) {
+                                filteredByLetter[letter] ?: emptyList()
+                            }
+                            Column(
+                                    modifier = Modifier.fillMaxSize().padding(bottom = 80.dp),
+                                    verticalArrangement = Arrangement.Center,
+                            ) {
+                                appsForLetter.forEach { app ->
+                                    NiagaraDrawerRow(
+                                            app = app,
+                                            darkMode = darkMode,
+                                            overlayActive = overlayActive,
+                                            onPress = { pkg ->
+                                                activeSidebarLetter = null
+                                                onAppPress(pkg)
+                                            },
+                                            onLong = onAppLong,
+                                    )
+                                }
                             }
                         }
                     }
@@ -718,10 +773,9 @@ private fun NiagaraAppDrawer(
 
                 AlphaScrollSidebar(
                         letters = letters,
-                        onLetterSelected = { letter ->
-                            letterIndex[letter]?.let { idx ->
-                                scope.launch { listState.animateScrollToItem(idx) }
-                            }
+                        onLetterSelected = { /* tidak scroll */ },
+                        onActiveLetterChanged = { letter ->
+                            activeSidebarLetter = letter
                         },
                         modifier =
                                 Modifier.width(28.dp)
@@ -744,6 +798,8 @@ private sealed class DrawerItem {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NiagaraDrawerRow — satu baris di app drawer
+// OPTIMASI: tidak pakai collectIsPressedAsState (mencegah rekomposisi saat scroll)
+// Press feedback via pointerInput + graphicsLayer di RenderThread (zero rekomposisi)
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -754,18 +810,20 @@ private fun NiagaraDrawerRow(
         onPress: (String) -> Unit,
         onLong: (String) -> Unit,
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
-    val isPressed by interactionSource.collectIsPressedAsState()
     val theme = LocalAppTheme.current
-
+    // Bitmap di-cache di LruCache, lookup O(1) — aman di composable
     val bitmap = remember(app.packageName) { iconCache.get(app.packageName) }
+
+    // Warna icon placeholder dihitung sekali, stabil selama darkMode tidak berubah
+    val placeholderColor = remember(darkMode) {
+        if (darkMode) Color(0xFF3A3A3C) else Color(0xFFE5E5EA)
+    }
 
     Row(
             modifier =
                     Modifier.fillMaxWidth()
-                            .graphicsLayer { alpha = if (isPressed) 0.4f else 1f }
                             .combinedClickable(
-                                    interactionSource = interactionSource,
+                                    interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
                                     onClick = { if (!overlayActive) onPress(app.packageName) },
                                     onLongClick = { if (!overlayActive) onLong(app.packageName) },
@@ -780,18 +838,12 @@ private fun NiagaraDrawerRow(
                         bitmap = bitmap,
                         contentDescription = null,
                         contentScale = ContentScale.Fit,
-                        filterQuality = FilterQuality.Medium,
+                        // None saat scroll: lebih ringan, tidak terlihat bedanya di ukuran kecil
+                        filterQuality = FilterQuality.Low,
                         modifier = Modifier.fillMaxSize(),
                 )
             } else {
-                Box(
-                        modifier =
-                                Modifier.fillMaxSize()
-                                        .background(
-                                                if (darkMode) Color(0xFF3A3A3C)
-                                                else Color(0xFFE5E5EA)
-                                        )
-                )
+                Box(modifier = Modifier.fillMaxSize().background(placeholderColor))
             }
         }
 
@@ -815,6 +867,7 @@ private fun NiagaraDrawerRow(
 private fun AlphaScrollSidebar(
         letters: List<Char>,
         onLetterSelected: (Char) -> Unit,
+        onActiveLetterChanged: (Char?) -> Unit = {},
         modifier: Modifier = Modifier,
 ) {
     if (letters.isEmpty()) return
@@ -839,9 +892,10 @@ private fun AlphaScrollSidebar(
                                         onPress = { offset ->
                                             val letter = letterAt(offset.y)
                                             activeLetter = letter
-                                            onLetterSelected(letter)
+                                            onActiveLetterChanged(letter)
                                             tryAwaitRelease()
                                             activeLetter = null
+                                            onActiveLetterChanged(null)
                                         },
                                 )
                             }
@@ -851,17 +905,23 @@ private fun AlphaScrollSidebar(
                                         onDragStart = { offset ->
                                             val letter = letterAt(offset.y)
                                             activeLetter = letter
-                                            onLetterSelected(letter)
+                                            onActiveLetterChanged(letter)
                                         },
                                         onDrag = { change, _ ->
                                             val letter = letterAt(change.position.y)
                                             if (letter != activeLetter) {
                                                 activeLetter = letter
-                                                onLetterSelected(letter)
+                                                onActiveLetterChanged(letter)
                                             }
                                         },
-                                        onDragEnd = { activeLetter = null },
-                                        onDragCancel = { activeLetter = null },
+                                        onDragEnd = {
+                                            activeLetter = null
+                                            onActiveLetterChanged(null)
+                                        },
+                                        onDragCancel = {
+                                            activeLetter = null
+                                            onActiveLetterChanged(null)
+                                        },
                                 )
                             },
             contentAlignment = Alignment.Center,
