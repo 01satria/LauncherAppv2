@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
 
         window.setBackgroundDrawableResource(android.R.color.transparent)
 
-        // 🔥 Navigation Bar otomatis tersembunyi setelah beberapa detik
+        // Navigation Bar otomatis tersembunyi setelah beberapa detik
         val controller = WindowInsetsControllerCompat(window, window.decorView)
         controller.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE

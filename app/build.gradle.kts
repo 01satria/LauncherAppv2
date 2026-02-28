@@ -20,19 +20,22 @@ android {
     // ── Signing — baca dari environment variable yang di-inject GitHub Actions
     signingConfigs {
         create("release") {
-            storeFile     = file(System.getenv("KEYSTORE_PATH") ?: "keystore.jks")
+            storeFile = file(System.getenv("KEYSTORE_PATH") ?: "keystore.jks")
             storePassword = System.getenv("KEYSTORE_PASSWORD") ?: ""
-            keyAlias      = System.getenv("KEY_ALIAS") ?: ""
-            keyPassword   = System.getenv("KEY_PASSWORD") ?: ""
+            keyAlias = System.getenv("KEY_ALIAS") ?: ""
+            keyPassword = System.getenv("KEY_PASSWORD") ?: ""
         }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled   = true
+            isMinifyEnabled = true
             isShrinkResources = true
             // proguard-android-optimize.txt: lebih agresif dari proguard-android.txt
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            proguardFiles(
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
+                    "proguard-rules.pro"
+            )
             signingConfig = signingConfigs.getByName("release")
             // Optimasi tambahan: hapus unused resources via resource shrinker
             // (sudah di-handle isShrinkResources = true di atas)
@@ -48,7 +51,7 @@ android {
             isEnable = true
             reset()
             include("arm64-v8a", "armeabi-v7a", "x86_64")
-            isUniversalApk = false   // tidak buat APK universal (hemat storage)
+            isUniversalApk = false // tidak buat APK universal (hemat storage)
         }
     }
 
@@ -64,24 +67,15 @@ android {
     // Karena AGP 8.x tidak lagi mendukung versionCodeOverride,
     // kita pakai productFlavors atau cukup rename file saja.
     // Untuk launcher personal (non Play Store), rename file sudah cukup.
-    applicationVariants.all {
-        val variant = this
-        outputs.all {
-            // Cast ke ApkVariantOutput untuk akses outputFileName
-            val output = this as com.android.build.gradle.internal.api.ApkVariantOutputImpl
-            val abiFilter = output.getFilter("ABI")
-            if (variant.buildType.name == "release") {
-                output.outputFileName =
-                    "CloudysLauncher-${variant.versionName}-${abiFilter ?: "universal"}.apk"
-            }
-        }
-    }
+    // Variant naming logic removed as it uses internal APIs (ApkVariantOutputImpl)
+    // which are unstable in AGP 8.x and can cause sync issues.
+    // Use productFlavors or standard output naming if needed.
 
     buildFeatures { compose = true }
 
     packaging {
         resources {
-            // Buang file meta yang tidak dipakai — kecil tapi hemat RAM saat class loading
+            // Buang file meta yang tidak dipakai, biar kecil tapi hemat RAM saat class loading
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
             excludes += "/META-INF/LICENSE*"
             excludes += "/*.txt"
@@ -101,6 +95,8 @@ dependencies {
     implementation(composeBom)
 
     implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity)
+    implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.activity.compose)
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.graphics)
