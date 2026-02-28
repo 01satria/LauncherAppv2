@@ -219,9 +219,9 @@ private fun PermissionPrompt(onRequestPermission: () -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("🔒 Izin Diperlukan", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+        Text("🔒 Permission Required", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
         Text(
-            "Izinkan akses Usage Statistics agar recent apps bisa dimuat dari luar launcher.",
+            "Allow Usage Statistics access to load recent apps.",
             color = Color.White.copy(alpha = 0.60f),
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
@@ -232,7 +232,7 @@ private fun PermissionPrompt(onRequestPermission: () -> Unit) {
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF27AE60)),
             shape = RoundedCornerShape(12.dp),
         ) {
-            Text("Buka Settings", color = Color.White, fontWeight = FontWeight.SemiBold)
+            Text("Open Settings", color = Color.White, fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -245,7 +245,7 @@ private fun EmptyState() {
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            "Belum ada app yang digunakan",
+            "No recent apps",
             color = Color.White.copy(alpha = 0.40f),
             fontSize = 14.sp,
         )
