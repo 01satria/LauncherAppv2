@@ -13,6 +13,8 @@ import android.view.*
 import android.widget.*
 import android.animation.*
 import android.graphics.Typeface
+import android.view.animation.AccelerateInterpolator
+import android.view.animation.DecelerateInterpolator
 import android.util.TypedValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
