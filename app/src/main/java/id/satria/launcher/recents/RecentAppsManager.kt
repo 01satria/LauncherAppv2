@@ -19,11 +19,12 @@ class RecentAppsManager(private val context: Context) {
     val recentPackages: StateFlow<List<String>> = _recentPackages.asStateFlow()
 
     /**
-     * Flag: user sudah tekan "Clear All".
-     * Saat flag ini true, loadRecentApps() TIDAK akan mengisi list dari UsageStats.
-     * Flag di-reset hanya saat user launch app (berarti mulai pakai lagi).
+     * Set package yang sudah di-kill oleh user via "Close All".
+     * Package ini di-exclude dari UsageStats load sampai user membuka app tersebut lagi.
+     * Ini perlu karena UsageStatsManager menyimpan *riwayat pemakaian*, bukan status proses —
+     * app yang sudah di-kill masih muncul di UsageStats sampai kita explicitly exclude.
      */
-    private var userCleared = false
+    private val killedPackages = mutableSetOf<String>()
 
     fun hasPermission(): Boolean {
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
@@ -43,16 +44,18 @@ class RecentAppsManager(private val context: Context) {
     }
 
     /**
-     * Load on-demand dari UsageStatsManager.
-     * userCleared direset di sini agar setiap kali panel dibuka, data fresh dari UsageStats.
+     * Load recent apps dari UsageStatsManager.
+     * Package yang ada di killedPackages di-exclude — tetap tidak muncul
+     * sampai user launch sendiri (onAppLaunched dipanggil).
      */
     suspend fun loadRecentApps(
         excludePackages: Set<String> = emptySet(),
         limit: Int = 10,
     ) = withContext(Dispatchers.IO) {
-        // Reset flag — kalau user sudah clear, biarkan UsageStats isi ulang saat dibuka lagi
-        userCleared = false
         if (!hasPermission()) return@withContext
+
+        // Gabungkan exclusion eksplisit + package yang sudah di-kill
+        val effectiveExclude = excludePackages + killedPackages
 
         runCatching {
             val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
@@ -61,27 +64,27 @@ class RecentAppsManager(private val context: Context) {
 
             val fromUsage = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, threeDaysAgo, now)
                 .filter { it.packageName != context.packageName }
-                .filter { it.packageName !in excludePackages }
+                .filter { it.packageName !in effectiveExclude }
                 .filter { it.lastTimeUsed > 0 }
                 .sortedByDescending { it.lastTimeUsed }
                 .map { it.packageName }
                 .distinct()
 
-            val merged = (_recentPackages.value + fromUsage)
-                .distinct()
-                .filter { it !in excludePackages }
-                .take(limit)
-
-            _recentPackages.value = merged
+            _recentPackages.value = fromUsage.take(limit)
         }
     }
 
-    /** Panggil saat user launch app — reset flag cleared, update list in-memory */
+    /**
+     * Panggil saat user launch app.
+     * Hapus dari killedPackages → app muncul kembali di recent saat berikutnya.
+     */
     fun onAppLaunched(packageName: String, excludePackages: Set<String> = emptySet()) {
         if (packageName == context.packageName) return
         if (packageName in excludePackages) return
-        // User mulai pakai app lagi → boleh load dari UsageStats berikutnya
-        userCleared = false
+
+        // App ini sudah dipakai lagi → tidak perlu di-exclude lagi
+        killedPackages.remove(packageName)
+
         val current = _recentPackages.value.toMutableList()
         current.remove(packageName)
         current.add(0, packageName)
@@ -89,28 +92,24 @@ class RecentAppsManager(private val context: Context) {
     }
 
     /**
-     * Kill background processes untuk semua package di list recents,
-     * lalu kosongkan list.
+     * Kill semua background process dari recent apps, lalu kosongkan list.
+     * Tambahkan ke killedPackages agar tidak muncul lagi di UsageStats load berikutnya.
      *
-     * Menggunakan ActivityManager.killBackgroundProcesses() yang memerlukan
-     * permission KILL_BACKGROUND_PROCESSES (normal permission, tidak perlu root).
-     *
-     * Catatan: ini setara dengan swipe-dismiss di sistem task switcher Android —
-     * process yang sedang di foreground tidak akan terkena.
+     * KILL_BACKGROUND_PROCESSES permission (normal, auto-granted) diperlukan.
+     * Proses foreground tidak terpengaruh — ini adalah batasan Android.
      */
     suspend fun killAndClearAll(
-        packages: List<String> = _recentPackages.value,
+        packages: List<String> = _recentPackages.value.toList(),
     ) = withContext(Dispatchers.IO) {
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+
         packages.forEach { pkg ->
             runCatching { am.killBackgroundProcesses(pkg) }
+            // Tambahkan ke exclusion set agar tidak muncul lagi dari UsageStats
+            killedPackages.add(pkg)
         }
-        // Kosongkan list setelah kill
-        _recentPackages.value = emptyList()
-    }
 
-    /** Hanya kosongkan list tanpa kill (internal use) */
-    fun clearAll() {
+        // Langsung kosongkan list yang ditampilkan
         _recentPackages.value = emptyList()
     }
 }

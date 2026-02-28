@@ -214,10 +214,12 @@ fun HomeScreen(vm: MainViewModel, onRequestOverlayPermission: () -> Unit = {}) {
                     vm.openUsagePermissionSettings()
                     showRecents = false
                 },
-                // Fix: clearAll benar-benar menghapus data, bukan hanya tutup overlay
                 onClearAll = {
                     vm.clearRecentApps()
                     showRecents = false
+                },
+                onDismissOne = { pkg ->
+                    vm.killOneRecentApp(pkg)
                 },
             )
             }
