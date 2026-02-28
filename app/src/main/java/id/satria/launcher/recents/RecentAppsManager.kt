@@ -43,14 +43,14 @@ class RecentAppsManager(private val context: Context) {
 
     /**
      * Load on-demand dari UsageStatsManager.
-     * Jika userCleared = true, skip load — hormati keputusan user.
+     * userCleared direset di sini agar setiap kali panel dibuka, data fresh dari UsageStats.
      */
     suspend fun loadRecentApps(
         excludePackages: Set<String> = emptySet(),
         limit: Int = 10,
     ) = withContext(Dispatchers.IO) {
-        // Jika user sudah clear, jangan isi ulang dari UsageStats
-        if (userCleared) return@withContext
+        // Reset flag — kalau user sudah clear, biarkan UsageStats isi ulang saat dibuka lagi
+        userCleared = false
         if (!hasPermission()) return@withContext
 
         runCatching {

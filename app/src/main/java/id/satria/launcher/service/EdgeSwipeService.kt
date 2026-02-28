@@ -26,6 +26,16 @@ class EdgeSwipeService : Service() {
     companion object {
         const val EDGE_WIDTH_DP = 20
 
+        /**
+         * Cooldown flag — set true saat overlay dibuka, false saat overlay dismiss.
+         * Pakai AtomicBoolean (bukan reflection) agar reliable dari thread manapun.
+         */
+        val overlayShowing = java.util.concurrent.atomic.AtomicBoolean(false)
+
+        fun notifyDismissed() {
+            overlayShowing.set(false)
+        }
+
         fun start(context: Context) {
             context.startService(Intent(context, EdgeSwipeService::class.java))
         }
@@ -76,11 +86,7 @@ class EdgeSwipeService : Service() {
         val view = object : View(this) {
             private var startX = 0f
             private var startY = 0f
-            // Per-gesture trigger flag — reset only on ACTION_DOWN (new finger down)
             private var triggeredThisGesture = false
-            // Cooldown flag — prevents re-trigger while overlay is animating/showing
-            // Reset by RecentAppsOverlayService calling notifyDismissed()
-            @Volatile var overlayShowing = false
 
             override fun onTouchEvent(event: MotionEvent): Boolean {
                 when (event.action) {
@@ -91,30 +97,24 @@ class EdgeSwipeService : Service() {
                         return true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        // Guard: only trigger once per gesture AND only if no overlay showing
-                        if (!triggeredThisGesture && !overlayShowing) {
+                        if (!triggeredThisGesture && !overlayShowing.get()) {
                             val dx = event.rawX - startX
                             val dy = event.rawY - startY
                             if (dx >= minSwipePx && abs(dy) < maxDriftPx) {
                                 triggeredThisGesture = true
-                                overlayShowing = true
+                                overlayShowing.set(true)
                                 RecentAppsOverlayService.show(applicationContext)
                             }
                         }
                         return true
                     }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        // Do NOT reset triggeredThisGesture here — it resets on next DOWN.
-                        // This prevents double-fire if user lifts finger slowly after trigger.
-                        return true
-                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> return true
                 }
                 return false
             }
         }
 
-        // Give RecentAppsOverlayService a reference to clear the cooldown on dismiss
-        RecentAppsOverlayService.edgeView = view
+        // Tidak lagi butuh edgeView reference — pakai companion.notifyDismissed() langsung
 
         overlayView = view
         wm.addView(view, params)

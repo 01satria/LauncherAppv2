@@ -68,6 +68,7 @@ fun HomeScreen(vm: MainViewModel, onRequestOverlayPermission: () -> Unit = {}) {
 
     var showSettings by remember { mutableStateOf(false) }
     var showRecents  by remember { mutableStateOf(false) }
+    var recentsOpenCount by remember { mutableIntStateOf(0) }
     var actionTarget by remember { mutableStateOf<String?>(null) }
     var dashboardScrollRequest by remember { mutableIntStateOf(0) }
     var dashboardVisible by remember { mutableStateOf(false) }
@@ -92,6 +93,7 @@ fun HomeScreen(vm: MainViewModel, onRequestOverlayPermission: () -> Unit = {}) {
     // Refresh recents every time the panel is opened
     LaunchedEffect(showRecents) {
         if (showRecents) {
+            recentsOpenCount++
             vm.checkUsagePermission()
             vm.refreshRecentApps()
         }
@@ -125,7 +127,7 @@ fun HomeScreen(vm: MainViewModel, onRequestOverlayPermission: () -> Unit = {}) {
                                     val totalY = change.position.y - startY
                                     if (totalX > 80f && kotlin.math.abs(totalY) < 100f) {
                                         triggered = true
-                                        showRecents = true
+                                        if (!showRecents) showRecents = true
                                     }
                                 }
                             },
@@ -192,6 +194,9 @@ fun HomeScreen(vm: MainViewModel, onRequestOverlayPermission: () -> Unit = {}) {
                 animationSpec = tween(220, easing = FastOutSlowInEasing),
             ),
         ) {
+            // key(recentsOpenCount) memaksa RecentAppsOverlay di-recompose dari awal
+            // setiap kali overlay dibuka — dismissedPkgsList pun reset otomatis
+            key(recentsOpenCount) {
             RecentAppsOverlay(
                 recentPackages = recentPackages,
                 allApps = allApps,
@@ -215,6 +220,7 @@ fun HomeScreen(vm: MainViewModel, onRequestOverlayPermission: () -> Unit = {}) {
                     showRecents = false
                 },
             )
+            }
         }
 
         // ── Settings ─────────────────────────────────────────────────────────

@@ -44,9 +44,6 @@ class RecentAppsOverlayService : Service() {
         fun show(context: Context) {
             context.startService(Intent(context, RecentAppsOverlayService::class.java))
         }
-
-        // Reference to EdgeSwipeService view — used to reset the cooldown flag on dismiss
-        @Volatile var edgeView: Any? = null
     }
 
     private var isMounted = false
@@ -70,16 +67,8 @@ class RecentAppsOverlayService : Service() {
     override fun onDestroy() {
         scope.cancel()
         removeOverlay()
-        // Reset EdgeSwipeService cooldown so next swipe works
-        try {
-            val v = edgeView
-            if (v != null) {
-                val f = v.javaClass.getDeclaredField("overlayShowing")
-                f.isAccessible = true
-                f.setBoolean(v, false)
-            }
-        } catch (_: Exception) {}
-        edgeView = null
+        // Reset EdgeSwipeService cooldown — pakai companion object langsung, bukan reflection
+        EdgeSwipeService.notifyDismissed()
         super.onDestroy()
     }
 
