@@ -282,7 +282,7 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
                 }
 
                 // Card 4: Grid (only in grid mode)
-                Box(
+                Column(
                     modifier = Modifier.graphicsLayer {
                         translationY = (1f - enterProgress[4].value) * 48f
                         alpha        = enterProgress[4].value
