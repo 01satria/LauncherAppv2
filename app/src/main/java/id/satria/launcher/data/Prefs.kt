@@ -109,7 +109,12 @@ class Prefs(private val context: Context) {
     suspend fun setHabits(v: List<HabitItem>)         = ds.edit { it[PrefKeys.HABITS]            = json.encodeToString(v) }
     suspend fun setMoneyWallets(v: List<MoneyWallet>)             = ds.edit { it[PrefKeys.MONEY_WALLETS]      = json.encodeToString(v) }
     suspend fun setMoneyTransactions(v: List<MoneyTransaction>)   = ds.edit { it[PrefKeys.MONEY_TRANSACTIONS] = json.encodeToString(v) }
-    suspend fun setDarkMode(v: Boolean)          = ds.edit { it[PrefKeys.DARK_MODE]            = v }
+    suspend fun setDarkMode(v: Boolean) {
+        ds.edit { it[PrefKeys.DARK_MODE] = v }
+        // Mirror to SharedPreferences so services can read synchronously
+        id.satria.launcher.LauncherApp.get()?.uiPrefs()?.edit()
+            ?.putBoolean(id.satria.launcher.LauncherApp.KEY_DARK_MODE, v)?.apply()
+    }
     suspend fun setRecentAppsEnabled(v: Boolean)  = ds.edit { it[PrefKeys.RECENT_APPS_ENABLED]  = v }
     suspend fun setGridCols(v: Int)      = ds.edit { it[PrefKeys.GRID_COLS] = v }
     suspend fun setGridRows(v: Int)      = ds.edit { it[PrefKeys.GRID_ROWS] = v }

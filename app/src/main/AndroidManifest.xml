@@ -16,6 +16,7 @@
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
+        android:name=".LauncherApp"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
@@ -42,15 +43,8 @@
             </intent-filter>
         </activity>
 
-        <!-- Service: zona sentuh tepi kiri layar -->
-        <service
-            android:name=".service.EdgeSwipeService"
-            android:exported="false" />
-
-        <!-- Service: render RecentAppsOverlay langsung ke WindowManager -->
-        <service
-            android:name=".service.RecentAppsOverlayService"
-            android:exported="false" />
+        <service android:name=".service.EdgeSwipeService" android:exported="false" />
+        <service android:name=".service.RecentAppsOverlayService" android:exported="false" />
 
     </application>
 </manifest>
