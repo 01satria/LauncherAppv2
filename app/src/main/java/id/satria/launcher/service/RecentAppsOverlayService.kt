@@ -3,20 +3,17 @@ package id.satria.launcher.service
 import android.app.Service
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.PixelFormat
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.IBinder
+import android.util.TypedValue
 import android.view.*
-import android.widget.*
-import android.animation.*
-import android.graphics.Typeface
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
-import android.util.TypedValue
-import androidx.compose.ui.graphics.ImageBitmap
+import android.widget.*
+import android.animation.*
 import androidx.compose.ui.graphics.asAndroidBitmap
 import id.satria.launcher.data.AppData
 import id.satria.launcher.data.LauncherRepository
@@ -27,14 +24,17 @@ import kotlinx.coroutines.*
 /**
  * RecentAppsOverlayService
  *
- * Menampilkan panel Recent Apps sebagai system overlay menggunakan
- * pure Android View — BUKAN Compose. Tidak butuh LifecycleOwner,
- * SavedStateRegistry, atau dependency Compose apapun.
+ * Render panel Recent Apps langsung ke WindowManager — pure Android View,
+ * bukan Compose — sehingga tampil di atas SEMUA aplikasi termasuk Settings.
  *
- * Flow:
- * EdgeSwipeService deteksi swipe → RecentAppsOverlayService.show()
- * → tampil di atas semua aplikasi via TYPE_APPLICATION_OVERLAY
- * → user pilih app / tap scrim / Clear All → stopSelf()
+ * Fix overlay tidak muncul di Settings:
+ *   FLAG_NOT_TOUCH_MODAL → overlay bisa menerima touch secara eksklusif
+ *   Hapus FLAG_NOT_FOCUSABLE → agar touch events diteruskan ke child views
+ *
+ * Fix Clear All tidak merespon:
+ *   Jangan pasang setOnClickListener di panel (intercept click malah
+ *   memblok dispatch ke child). Cukup setOnTouchListener yang return false
+ *   agar touch tetap di-dispatch ke child views.
  */
 class RecentAppsOverlayService : Service() {
 
@@ -81,22 +81,17 @@ class RecentAppsOverlayService : Service() {
     private fun sp(v: Int) = TypedValue.applyDimension(
         TypedValue.COMPLEX_UNIT_SP, v.toFloat(), resources.displayMetrics)
 
-    // ── Mount overlay to WindowManager ────────────────────────────────────────
+    // ── Mount ─────────────────────────────────────────────────────────────────
     private fun mountOverlay(recentApps: List<AppData>, hasPermission: Boolean) {
         val wm = getSystemService(WINDOW_SERVICE) as WindowManager
         windowManager = wm
 
-        // Fullscreen transparent root — tap → dismiss
-        val root = FrameLayout(this).apply {
-            setBackgroundColor(Color.TRANSPARENT)
-            isClickable = true
-            setOnClickListener { animateDismiss() }
-        }
+        // Root: fullscreen scrim, tap di luar panel → dismiss
+        val root = FrameLayout(this)
+        root.setBackgroundColor(Color.TRANSPARENT)
 
-        // Bottom sheet panel
+        // Panel
         val panel = buildPanel(recentApps, hasPermission)
-        panel.isClickable = true
-        panel.setOnClickListener { /* intercept — jangan dismiss */ }
 
         root.addView(panel, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -104,35 +99,46 @@ class RecentAppsOverlayService : Service() {
             Gravity.BOTTOM,
         ))
 
+        // Scrim tap detection — hanya area DI LUAR panel
+        root.setOnTouchListener { _, ev ->
+            if (ev.action == MotionEvent.ACTION_DOWN) {
+                val panelTop = root.height - panel.height
+                if (ev.y < panelTop) {
+                    animateDismiss()
+                    true
+                } else false
+            } else false
+        }
+
         rootView = root
 
         wm.addView(root, WindowManager.LayoutParams(
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.MATCH_PARENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+            // FLAG_NOT_TOUCH_MODAL: overlay intercept semua touch (bukan hanya area sendiri)
+            // Tanpa FLAG_NOT_FOCUSABLE agar child view bisa menerima click events
+            WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                     WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+                    WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                    WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT,
         ))
 
-        // Animate in after layout
         root.post { animateIn(root, panel) }
     }
 
     // ── Animations ────────────────────────────────────────────────────────────
     private fun animateIn(root: FrameLayout, panel: View) {
-        val panelH = panel.height.toFloat().coerceAtLeast(dp(200).toFloat())
-        panel.translationY = panelH
+        val h = panel.height.toFloat().coerceAtLeast(dp(160).toFloat())
+        panel.translationY = h
 
         ValueAnimator.ofInt(0, 153).apply {
             duration = 220
-            addUpdateListener {
-                runCatching { root.setBackgroundColor(Color.argb(it.animatedValue as Int, 0, 0, 0)) }
-            }
+            addUpdateListener { runCatching { root.setBackgroundColor(Color.argb(it.animatedValue as Int, 0, 0, 0)) } }
             start()
         }
-        ObjectAnimator.ofFloat(panel, View.TRANSLATION_Y, panelH, 0f).apply {
+        ObjectAnimator.ofFloat(panel, View.TRANSLATION_Y, h, 0f).apply {
             duration = 260
             interpolator = DecelerateInterpolator(2f)
             start()
@@ -142,24 +148,26 @@ class RecentAppsOverlayService : Service() {
     private fun animateDismiss() {
         val root = rootView ?: run { stopSelf(); return }
         val panel = if (root.childCount > 0) root.getChildAt(0) else null
-        val panelH = panel?.height?.toFloat()?.coerceAtLeast(dp(200).toFloat()) ?: dp(200).toFloat()
+        val h = panel?.height?.toFloat()?.coerceAtLeast(dp(160).toFloat()) ?: dp(160).toFloat()
 
-        val set = AnimatorSet()
         val fade = ValueAnimator.ofInt(153, 0).apply {
             duration = 200
             addUpdateListener { runCatching { root.setBackgroundColor(Color.argb(it.animatedValue as Int, 0, 0, 0)) } }
         }
         val slide = panel?.let {
-            ObjectAnimator.ofFloat(it, View.TRANSLATION_Y, 0f, panelH + dp(40)).apply {
+            ObjectAnimator.ofFloat(it, View.TRANSLATION_Y, 0f, h + dp(40)).apply {
                 duration = 200
                 interpolator = AccelerateInterpolator(1.5f)
             }
         }
-        set.addListener(object : AnimatorListenerAdapter() {
-            override fun onAnimationEnd(animation: Animator) { stopSelf() }
-        })
-        if (slide != null) set.playTogether(fade, slide) else set.play(fade)
-        set.start()
+
+        AnimatorSet().apply {
+            addListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) { stopSelf() }
+            })
+            if (slide != null) playTogether(fade, slide) else play(fade)
+            start()
+        }
     }
 
     // ── Panel ─────────────────────────────────────────────────────────────────
@@ -170,8 +178,10 @@ class RecentAppsOverlayService : Service() {
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 intArrayOf(Color.TRANSPARENT, Color.argb(245, 13, 13, 13)),
             )
-            val navH = getNavBarHeight()
-            setPadding(0, 0, 0, navH + dp(16))
+            setPadding(0, 0, 0, getNavBarHeight() + dp(16))
+            // PENTING: jangan pasang setOnClickListener di sini —
+            // itu akan memblok dispatch ke child (Clear All, app card, dll).
+            // Touch interception dilakukan di root.setOnTouchListener saja.
         }
 
         // Handle bar
@@ -200,16 +210,7 @@ class RecentAppsOverlayService : Service() {
         }, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
 
         if (recentApps.isNotEmpty()) {
-            header.addView(TextView(this).apply {
-                text = "Clear All"
-                setTextColor(Color.argb(128, 255, 255, 255))
-                setTextSize(TypedValue.COMPLEX_UNIT_PX, sp(13))
-                setPadding(dp(8), dp(4), dp(8), dp(4))
-                setOnClickListener {
-                    recentsManager.clearAll()
-                    animateDismiss()
-                }
-            })
+            header.addView(buildClearAllButton())
         }
         panel.addView(header, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
@@ -221,7 +222,29 @@ class RecentAppsOverlayService : Service() {
             else -> panel.addView(buildScrollerView(recentApps))
         }
 
+        panel.addView(View(this), LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(20)))
+
         return panel
+    }
+
+    // ── Clear All ─────────────────────────────────────────────────────────────
+    // Dibuat sebagai fungsi terpisah untuk memastikan click listener terpasang
+    // langsung ke view yang benar tanpa interference dari parent.
+    private fun buildClearAllButton(): TextView {
+        return TextView(this).apply {
+            text = "Clear All"
+            setTextColor(Color.argb(128, 255, 255, 255))
+            setTextSize(TypedValue.COMPLEX_UNIT_PX, sp(13))
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            isClickable = true
+            isFocusable = true
+            // Pasang listener SEBELUM ditambah ke parent
+            setOnClickListener {
+                recentsManager.clearAll()
+                animateDismiss()
+            }
+        }
     }
 
     // ── App scroller ──────────────────────────────────────────────────────────
@@ -235,9 +258,8 @@ class RecentAppsOverlayService : Service() {
             setPadding(dp(20), 0, dp(20), 0)
         }
         apps.forEach { app ->
-            row.addView(buildAppCard(app), LinearLayout.LayoutParams(dp(76), ViewGroup.LayoutParams.WRAP_CONTENT).apply {
-                marginEnd = dp(14)
-            })
+            row.addView(buildAppCard(app), LinearLayout.LayoutParams(
+                dp(76), ViewGroup.LayoutParams.WRAP_CONTENT).apply { marginEnd = dp(14) })
         }
         scroller.addView(row)
         return scroller
@@ -248,6 +270,8 @@ class RecentAppsOverlayService : Service() {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
+            isClickable = true
+            isFocusable = true
         }
 
         // Icon
@@ -261,18 +285,14 @@ class RecentAppsOverlayService : Service() {
         }
         iconBox.addView(ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_CENTER
-            // iconCache berisi ImageBitmap (Compose) — konversi ke android Bitmap
-            val imgBitmap: ImageBitmap? = iconCache.get(app.packageName)
-            if (imgBitmap != null) {
-                setImageBitmap(imgBitmap.asAndroidBitmap())
-            }
+            val imgBitmap = iconCache.get(app.packageName)
+            if (imgBitmap != null) setImageBitmap(imgBitmap.asAndroidBitmap())
         }, FrameLayout.LayoutParams(iconSize, iconSize))
         card.addView(iconBox, LinearLayout.LayoutParams(iconSize, iconSize))
 
-        // Spacer
-        card.addView(View(this), LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(7)))
+        card.addView(View(this), LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, dp(7)))
 
-        // Label
         card.addView(TextView(this).apply {
             text = app.label
             setTextColor(Color.argb(224, 255, 255, 255))
@@ -283,13 +303,11 @@ class RecentAppsOverlayService : Service() {
             gravity = Gravity.CENTER_HORIZONTAL
         }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT))
 
-        // Click
         card.setOnClickListener {
             animateDismiss()
             repo.launchApp(app.packageName)
             recentsManager.onAppLaunched(app.packageName)
         }
-        // Touch scale feedback
         card.setOnTouchListener { v, ev ->
             when (ev.action) {
                 MotionEvent.ACTION_DOWN -> v.animate().scaleX(0.90f).scaleY(0.90f).setDuration(80).start()
@@ -313,13 +331,15 @@ class RecentAppsOverlayService : Service() {
             setTextSize(TypedValue.COMPLEX_UNIT_PX, sp(15))
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(8) })
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            .apply { bottomMargin = dp(8) })
         layout.addView(TextView(this).apply {
             text = "Izinkan Usage Statistics agar recent apps bisa dimuat."
             setTextColor(Color.argb(153, 255, 255, 255))
             setTextSize(TypedValue.COMPLEX_UNIT_PX, sp(13))
             gravity = Gravity.CENTER
-        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(12) })
+        }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+            .apply { bottomMargin = dp(12) })
         layout.addView(TextView(this).apply {
             text = "Buka Settings"
             setTextColor(Color.WHITE)
@@ -327,6 +347,8 @@ class RecentAppsOverlayService : Service() {
             setTextSize(TypedValue.COMPLEX_UNIT_PX, sp(13))
             gravity = Gravity.CENTER
             setPadding(dp(24), dp(12), dp(24), dp(12))
+            isClickable = true
+            isFocusable = true
             background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 cornerRadius = dp(12).toFloat()
@@ -346,7 +368,6 @@ class RecentAppsOverlayService : Service() {
         setPadding(dp(32), dp(28), dp(32), dp(28))
     }
 
-    // ── Remove from WindowManager ─────────────────────────────────────────────
     private fun removeOverlay() {
         rootView?.let { v ->
             runCatching { windowManager?.removeView(v) }
