@@ -104,7 +104,6 @@ fun HomeScreen(vm: MainViewModel) {
             onAppPress             = { if (!overlayActive) vm.launchApp(it) },
             onAppLong              = { if (!overlayActive) actionTarget = it },
             onBgLongPress          = { if (!overlayActive) showSettings = true },
-            onOpenSettings         = { if (!overlayActive) showSettings = true },
             dashboardContent       = { onClose ->
                 DashboardScreen(
                     vm               = vm,
@@ -188,7 +187,6 @@ private fun HomeContent(
     onAppPress: (String) -> Unit,
     onAppLong: (String) -> Unit,
     onBgLongPress: () -> Unit,
-    onOpenSettings: () -> Unit,
     dashboardContent: @Composable (onClose: () -> Unit) -> Unit = {},
     dashboardScrollRequest: Int = 0,
     onDashboardChanged: (Boolean) -> Unit = {},
@@ -229,7 +227,6 @@ private fun HomeContent(
                 onAppPress             = onAppPress,
                 onAppLong              = onAppLong,
                 onBgLongPress          = onBgLongPress,
-                onOpenSettings         = onOpenSettings,
                 dashboardContent       = dashboardContent,
                 dashboardScrollRequest = dashboardScrollRequest,
                 onDashboardChanged     = onDashboardChanged,
@@ -251,7 +248,6 @@ private fun NiagaraListPager(
     onAppPress: (String) -> Unit,
     onAppLong: (String) -> Unit,
     onBgLongPress: () -> Unit,
-    onOpenSettings: () -> Unit,
     dashboardContent: @Composable (onClose: () -> Unit) -> Unit,
     dashboardScrollRequest: Int,
     onDashboardChanged: (Boolean) -> Unit,
@@ -298,7 +294,6 @@ private fun NiagaraListPager(
                     screenHeightPx = screenHeightPx,
                     onOpenDrawer   = { scope.launch { openDrawer() } },
                     onBgLongPress  = onBgLongPress,
-                    onOpenSettings = onOpenSettings,
                     onAppPress     = onAppPress,
                     onAppLong      = onAppLong,
                 )
@@ -332,44 +327,42 @@ private fun NiagaraListPager(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NiagaraClock
+// NiagaraClock — identik dengan DashboardHeader clock
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun NiagaraClock(darkMode: Boolean, modifier: Modifier = Modifier) {
-    val theme    = LocalAppTheme.current
-    var timeText by remember { mutableStateOf("") }
-    var dateText by remember { mutableStateOf("") }
+private fun NiagaraClock(modifier: Modifier = Modifier) {
+    var clockStr by remember { mutableStateOf(fmtClock("HH:mm")) }
+    var dateStr  by remember { mutableStateOf(fmtClock("EEEE, d MMMM")) }
 
+    // Update setiap menit — sama dengan DashboardHeader
     LaunchedEffect(Unit) {
-        val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
-        val dateFmt = SimpleDateFormat("EEEE, d MMMM", Locale.getDefault())
         while (true) {
-            val now = Date()
-            timeText = timeFmt.format(now)
-            dateText = dateFmt.format(now)
-            delay(10_000L)
+            delay(60_000L)
+            clockStr = fmtClock("HH:mm")
+            dateStr  = fmtClock("EEEE, d MMMM")
         }
     }
 
     Column(modifier = modifier, horizontalAlignment = Alignment.Start) {
         Text(
-            text          = timeText,
-            color         = theme.fontColor(),
-            fontSize      = 62.sp,
-            fontWeight    = FontWeight.Light,
-            letterSpacing = (-1.5).sp,
-            lineHeight    = 62.sp,
+            text          = clockStr,
+            color         = SatriaColors.TextPrimary,
+            fontSize      = 56.sp,
+            fontWeight    = FontWeight.Thin,
+            letterSpacing = 2.sp,
         )
-        Spacer(Modifier.height(3.dp))
+        Spacer(Modifier.height(2.dp))
         Text(
-            text          = dateText,
-            color         = theme.textSecondary(),
-            fontSize      = 16.sp,
-            fontWeight    = FontWeight.Normal,
-            letterSpacing = 0.1.sp,
+            text     = dateStr,
+            color    = SatriaColors.TextSecondary,
+            fontSize = 14.sp,
         )
     }
 }
+
+// Helper — sama seperti DashboardHeader.kt
+private fun fmtClock(pattern: String): String =
+    SimpleDateFormat(pattern, Locale.getDefault()).format(Date())
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NiagaraHomePage
@@ -384,7 +377,6 @@ private fun NiagaraHomePage(
     screenHeightPx: Float,
     onOpenDrawer: () -> Unit,
     onBgLongPress: () -> Unit,
-    onOpenSettings: () -> Unit,
     onAppPress: (String) -> Unit,
     onAppLong: (String) -> Unit,
 ) {
@@ -401,11 +393,12 @@ private fun NiagaraHomePage(
         }
     }
 
-    // Infinite bounce for chevron
+    // Chevron bounce — hanya aktif saat home screen terlihat penuh (hemat CPU)
+    val homeVisible by remember { derivedStateOf { drawerProgress.value >= 0.98f } }
     val infiniteTransition = rememberInfiniteTransition(label = "chevronBounce")
     val chevronOffset by infiniteTransition.animateFloat(
         initialValue  = 0f,
-        targetValue   = -6f,
+        targetValue   = if (homeVisible) -6f else 0f,
         animationSpec = infiniteRepeatable(
             animation  = tween(900, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse,
@@ -447,12 +440,12 @@ private fun NiagaraHomePage(
         ) {
             Spacer(Modifier.height(24.dp))
 
-            // Clock
-            NiagaraClock(darkMode = darkMode)
+            // Clock — identik dengan dashboard
+            NiagaraClock()
 
             Spacer(Modifier.weight(1f))
 
-            // Favorites section
+            // Favorites
             if (dockApps.isEmpty()) {
                 Text(
                     text       = "Hold an app to pin as favorite",
@@ -475,68 +468,28 @@ private fun NiagaraHomePage(
 
             Spacer(Modifier.height(28.dp))
 
-            // Bottom bar: settings | drawer hint | dashboard hint
-            Row(
-                modifier              = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment     = Alignment.CenterVertically,
+            // Swipe-up hint only — no settings/dashboard buttons
+            Column(
+                modifier            = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
-                // Settings pill
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(theme.fontColor().copy(alpha = 0.08f))
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication        = null,
-                        ) { if (!overlayActive) onOpenSettings() },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text      = "⚙",
-                        color     = theme.textTertiary(),
-                        fontSize  = 18.sp,
-                    )
-                }
-
-                // Animated swipe-up hint
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    Text(
-                        text     = "⌃",
-                        color    = theme.textTertiary(),
-                        fontSize = 22.sp,
-                        modifier = Modifier.offset(y = chevronOffset.dp),
-                    )
-                    Text(
-                        text          = "All apps",
-                        color         = theme.textTertiary(),
-                        fontSize      = 10.sp,
-                        letterSpacing = 0.8.sp,
-                        fontWeight    = FontWeight.Medium,
-                    )
-                }
-
-                // Dashboard indicator
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(theme.fontColor().copy(alpha = 0.08f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        text     = "◁",
-                        color    = theme.textTertiary(),
-                        fontSize = 13.sp,
-                    )
-                }
+                Text(
+                    text     = "⌃",
+                    color    = theme.textTertiary(),
+                    fontSize = 22.sp,
+                    modifier = Modifier.offset(y = chevronOffset.dp),
+                )
+                Text(
+                    text          = "All apps",
+                    color         = theme.textTertiary(),
+                    fontSize      = 10.sp,
+                    letterSpacing = 0.8.sp,
+                    fontWeight    = FontWeight.Medium,
+                )
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(18.dp))
         }
     }
 }
@@ -668,6 +621,18 @@ private fun NiagaraAppDrawer(
         else {
             val q = searchQuery.trim().lowercase()
             allItems.filter { it is DrawerItem.App && it.app.label.lowercase().contains(q) }
+        }
+    }
+
+    // Auto-launch saat hasil pencarian tepat 1 aplikasi
+    LaunchedEffect(visibleItems, searchQuery) {
+        if (searchQuery.isNotBlank() && visibleItems.size == 1) {
+            val single = visibleItems[0]
+            if (single is DrawerItem.App) {
+                keyboardController?.hide()
+                searchQuery = ""
+                onAppPress(single.app.packageName)
+            }
         }
     }
 
