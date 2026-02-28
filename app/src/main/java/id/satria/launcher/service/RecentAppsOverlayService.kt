@@ -443,7 +443,14 @@ class RecentAppsOverlayService : Service() {
     // ── Dismiss single card via swipe ─────────────────────────────────────────
 
     private fun dismissCard(cardView: View, app: AppData) {
+        // 1. Hapus dari killedPackages + kill background process
         scope.launch { recentsManager.killAndClearAll(listOf(app.packageName)) }
+
+        // 2. Jika Accessibility Service aktif, minta sistem tutup task juga
+        if (SatriaAccessibilityService.isEnabled()) {
+            SatriaAccessibilityService.sendCloseOne(applicationContext, app.packageName)
+        }
+
         val parent = cardView.parent as? LinearLayout ?: return
         cardView.animate()
             .translationY(-dp(500).toFloat())
@@ -452,9 +459,7 @@ class RecentAppsOverlayService : Service() {
             .setDuration(260)
             .setInterpolator(AccelerateInterpolator(1.6f))
             .withEndAction {
-                // Animate width collapse
-                val startW = cardView.width + dp(14)
-                ValueAnimator.ofInt(startW, 0).apply {
+                ValueAnimator.ofInt(cardView.width + dp(14), 0).apply {
                     duration = 200
                     addUpdateListener {
                         val lp = cardView.layoutParams as LinearLayout.LayoutParams
@@ -530,8 +535,16 @@ class RecentAppsOverlayService : Service() {
         pill.isClickable = true
         pill.isFocusable = true
         pill.setOnClickListener {
+            // Kill semua background processes via ActivityManager
             scope.launch { recentsManager.killAndClearAll() }
-            animateDismiss()
+
+            // Jika Accessibility Service aktif: gunakan untuk close all tasks di sistem
+            if (SatriaAccessibilityService.isEnabled()) {
+                SatriaAccessibilityService.sendCloseAll(applicationContext)
+                // Tidak perlu animateDismiss — accessibility service akan kembali ke home
+            } else {
+                animateDismiss()
+            }
         }
         pill.setOnTouchListener { v, ev ->
             when (ev.action) {

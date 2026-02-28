@@ -2,6 +2,7 @@ package id.satria.launcher.recents
 
 import android.app.ActivityManager
 import android.app.AppOpsManager
+import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
@@ -18,13 +19,14 @@ class RecentAppsManager(private val context: Context) {
     private val _recentPackages = MutableStateFlow<List<String>>(emptyList())
     val recentPackages: StateFlow<List<String>> = _recentPackages.asStateFlow()
 
-    /**
-     * Set package yang sudah di-kill oleh user via "Close All".
-     * Package ini di-exclude dari UsageStats load sampai user membuka app tersebut lagi.
-     * Ini perlu karena UsageStatsManager menyimpan *riwayat pemakaian*, bukan status proses —
-     * app yang sudah di-kill masih muncul di UsageStats sampai kita explicitly exclude.
-     */
-    private val killedPackages = mutableSetOf<String>()
+    companion object {
+        /**
+         * killedPackages sebagai companion object (static) — TETAP ADA selama proses hidup.
+         * Ini kritis karena RecentAppsManager dibuat ulang setiap kali service restart,
+         * tapi exclusion set tidak boleh hilang antar-sesi overlay.
+         */
+        private val killedPackages = mutableSetOf<String>()
+    }
 
     fun hasPermission(): Boolean {
         val appOps = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
@@ -44,72 +46,84 @@ class RecentAppsManager(private val context: Context) {
     }
 
     /**
-     * Load recent apps dari UsageStatsManager.
-     * Package yang ada di killedPackages di-exclude — tetap tidak muncul
-     * sampai user launch sendiri (onAppLaunched dipanggil).
+     * Load recent apps berdasarkan UsageEvents (app-switch events) — jauh lebih akurat
+     * daripada UsageStats aggregate. Mengambil app yang berpindah ke foreground dalam
+     * 6 jam terakhir, diurutkan dari yang paling baru.
      */
     suspend fun loadRecentApps(
         excludePackages: Set<String> = emptySet(),
-        limit: Int = 10,
+        limit: Int = 15,
     ) = withContext(Dispatchers.IO) {
         if (!hasPermission()) return@withContext
 
-        // Gabungkan exclusion eksplisit + package yang sudah di-kill
-        val effectiveExclude = excludePackages + killedPackages
+        val effectiveExclude = excludePackages + killedPackages + context.packageName
 
         runCatching {
             val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
             val now = System.currentTimeMillis()
-            val threeDaysAgo = now - 3L * 24 * 60 * 60 * 1000
+            val sixHoursAgo = now - 6L * 60 * 60 * 1000
 
-            val fromUsage = usm.queryUsageStats(UsageStatsManager.INTERVAL_DAILY, threeDaysAgo, now)
-                .filter { it.packageName != context.packageName }
-                .filter { it.packageName !in effectiveExclude }
-                .filter { it.lastTimeUsed > 0 }
-                .sortedByDescending { it.lastTimeUsed }
-                .map { it.packageName }
+            // Query event-by-event — ACTIVITY_RESUMED = user benar-benar membuka app tersebut
+            val events = usm.queryEvents(sixHoursAgo, now)
+            val event = UsageEvents.Event()
+
+            // Linked map: packageName → timestamp terakhir foreground
+            val lastSeen = LinkedHashMap<String, Long>()
+            while (events.hasNextEvent()) {
+                events.getNextEvent(event)
+                if (event.eventType == UsageEvents.Event.ACTIVITY_RESUMED ||
+                    event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+                    val pkg = event.packageName ?: continue
+                    if (pkg !in effectiveExclude) {
+                        lastSeen[pkg] = event.timeStamp
+                    }
+                }
+            }
+
+            // Sort by most recent, deduplicate, take limit
+            val sorted = lastSeen.entries
+                .sortedByDescending { it.value }
+                .map { it.key }
                 .distinct()
+                .take(limit)
 
-            _recentPackages.value = fromUsage.take(limit)
+            _recentPackages.value = sorted
         }
     }
 
     /**
      * Panggil saat user launch app.
-     * Hapus dari killedPackages → app muncul kembali di recent saat berikutnya.
+     * Hapus dari killedPackages → app muncul kembali di recent saat dibuka lagi.
      */
     fun onAppLaunched(packageName: String, excludePackages: Set<String> = emptySet()) {
         if (packageName == context.packageName) return
-        if (packageName in excludePackages) return
-
-        // App ini sudah dipakai lagi → tidak perlu di-exclude lagi
         killedPackages.remove(packageName)
-
         val current = _recentPackages.value.toMutableList()
         current.remove(packageName)
         current.add(0, packageName)
-        _recentPackages.value = current.take(10)
+        _recentPackages.value = current.take(15)
     }
 
     /**
-     * Kill semua background process dari recent apps, lalu kosongkan list.
-     * Tambahkan ke killedPackages agar tidak muncul lagi di UsageStats load berikutnya.
-     *
-     * KILL_BACKGROUND_PROCESSES permission (normal, auto-granted) diperlukan.
-     * Proses foreground tidak terpengaruh — ini adalah batasan Android.
+     * Kill packages dan exclude dari tampilan.
+     * - killBackgroundProcesses: membunuh proses background
+     * - killedPackages: exclude dari query berikutnya (persists sepanjang hidup proses)
      */
     suspend fun killAndClearAll(
         packages: List<String> = _recentPackages.value.toList(),
     ) = withContext(Dispatchers.IO) {
         val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-
         packages.forEach { pkg ->
             runCatching { am.killBackgroundProcesses(pkg) }
-            // Tambahkan ke exclusion set agar tidak muncul lagi dari UsageStats
             killedPackages.add(pkg)
         }
+        // Update list secara atomik
+        _recentPackages.value = _recentPackages.value.filter { it !in killedPackages }
+    }
 
-        // Langsung kosongkan list yang ditampilkan
-        _recentPackages.value = emptyList()
+    /** Singkir satu package dari tampilan tanpa kill (karena sudah di-handle ActivityManager) */
+    fun removeFromList(packageName: String) {
+        killedPackages.add(packageName)
+        _recentPackages.value = _recentPackages.value.filter { it != packageName }
     }
 }

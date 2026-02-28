@@ -338,6 +338,8 @@ fun SettingsSheet(
 
                 if (recentAppsEnabled) {
                     OverlayPermissionCard(onRequestOverlayPermission = onRequestOverlayPermission)
+                    Spacer(Modifier.height(8.dp))
+                    AccessibilityServiceCard()
                 }
 
                 Spacer(Modifier.height(8.dp))
@@ -420,6 +422,66 @@ private fun OverlayPermissionCard(onRequestOverlayPermission: () -> Unit) {
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 14.sp,
                 )
+            }
+        }
+    }
+}
+
+// ── Accessibility Service card ────────────────────────────────────────────────
+@Composable
+private fun AccessibilityServiceCard() {
+    val context = LocalContext.current
+    val isEnabled = id.satria.launcher.service.SatriaAccessibilityService.isEnabled()
+
+    val bgColor     = if (isEnabled) SatriaColors.Accent.copy(alpha = 0.12f)
+                      else Color(0xFFFF9500).copy(alpha = 0.10f)
+    val borderColor = if (isEnabled) SatriaColors.Accent.copy(alpha = 0.35f)
+                      else Color(0xFFFF9500).copy(alpha = 0.40f)
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(bgColor)
+            .border(0.8.dp, borderColor, RoundedCornerShape(12.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(if (isEnabled) "✅" else "⚡", fontSize = 16.sp)
+            Text(
+                if (isEnabled) "Accessibility service active" else "Enable for full Close All",
+                color = if (isEnabled) SatriaColors.Accent else Color(0xFFFF9500),
+                fontSize = 13.sp,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            )
+        }
+        Text(
+            if (isEnabled)
+                "Close All will remove tasks from system recents."
+            else
+                "Without this, Close All only kills background processes. Enable in Settings → Accessibility → Satria Launcher.",
+            color = SatriaColors.TextSecondary,
+            fontSize = 12.sp,
+            lineHeight = 17.sp,
+        )
+        if (!isEnabled) {
+            androidx.compose.material3.Button(
+                onClick = {
+                    context.startActivity(
+                        android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFFF9500)),
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(vertical = 10.dp),
+            ) {
+                Text("Open Accessibility Settings", color = androidx.compose.ui.graphics.Color.White,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold, fontSize = 13.sp)
             }
         }
     }

@@ -146,7 +146,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun killOneRecentApp(pkg: String) = viewModelScope.launch {
         recentAppsManager.killAndClearAll(listOf(pkg))
     }
-
     /** Cek ulang status Usage Stats permission */
     fun checkUsagePermission() {
         _hasUsagePermission.value = recentAppsManager.hasPermission()
