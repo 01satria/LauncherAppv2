@@ -265,7 +265,7 @@ class RecentAppsOverlayService : Service() {
         btn.isClickable = true
         btn.isFocusable = true
         btn.setOnClickListener {
-            recentsManager.clearAll()
+            scope.launch { recentsManager.killAndClearAll() }
             animateDismiss()
         }
         return btn

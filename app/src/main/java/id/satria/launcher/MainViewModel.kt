@@ -137,9 +137,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         recentAppsManager.loadRecentApps(excludePackages = dockPackages.value.toSet())
     }
 
-    /** Clear semua recent — delegasikan ke RecentAppsManager */
-    fun clearRecentApps() {
-        recentAppsManager.clearAll()
+    /** Kill semua background process dari recent apps, lalu kosongkan list */
+    fun clearRecentApps() = viewModelScope.launch {
+        recentAppsManager.killAndClearAll()
     }
 
     /** Cek ulang status Usage Stats permission */

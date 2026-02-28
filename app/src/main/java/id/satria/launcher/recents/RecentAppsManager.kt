@@ -1,5 +1,6 @@
 package id.satria.launcher.recents
 
+import android.app.ActivityManager
 import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
 import android.content.Context
@@ -87,9 +88,29 @@ class RecentAppsManager(private val context: Context) {
         _recentPackages.value = current.take(10)
     }
 
-    /** Clear All — kosongkan list DAN set flag agar reload tidak override */
+    /**
+     * Kill background processes untuk semua package di list recents,
+     * lalu kosongkan list.
+     *
+     * Menggunakan ActivityManager.killBackgroundProcesses() yang memerlukan
+     * permission KILL_BACKGROUND_PROCESSES (normal permission, tidak perlu root).
+     *
+     * Catatan: ini setara dengan swipe-dismiss di sistem task switcher Android —
+     * process yang sedang di foreground tidak akan terkena.
+     */
+    suspend fun killAndClearAll(
+        packages: List<String> = _recentPackages.value,
+    ) = withContext(Dispatchers.IO) {
+        val am = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        packages.forEach { pkg ->
+            runCatching { am.killBackgroundProcesses(pkg) }
+        }
+        // Kosongkan list setelah kill
+        _recentPackages.value = emptyList()
+    }
+
+    /** Hanya kosongkan list tanpa kill (internal use) */
     fun clearAll() {
-        userCleared = true
         _recentPackages.value = emptyList()
     }
 }
