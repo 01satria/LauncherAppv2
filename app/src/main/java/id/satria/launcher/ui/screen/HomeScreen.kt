@@ -25,6 +25,7 @@ import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.SolidColor
@@ -596,6 +597,18 @@ private fun NiagaraAppDrawer(
     var searchQuery        by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester     = remember { FocusRequester() }
+    val focusManager       = LocalFocusManager.current
+
+    // Setiap kali drawer kembali ke posisi tertutup (termasuk saat Activity resume),
+    // paksa clear focus agar BasicTextField tidak memunculkan keyboard.
+    val drawerClosed by remember { derivedStateOf { drawerProgress.value >= 0.99f } }
+    LaunchedEffect(drawerClosed) {
+        if (drawerClosed) {
+            keyboardController?.hide()
+            focusManager.clearFocus(force = true)
+            searchQuery = ""
+        }
+    }
 
     val openSpec  = tween<Float>(durationMillis = 340, easing = FastOutSlowInEasing)
     val closeSpec = tween<Float>(durationMillis = 280, easing = FastOutSlowInEasing)
