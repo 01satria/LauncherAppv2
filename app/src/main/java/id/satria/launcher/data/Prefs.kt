@@ -34,10 +34,7 @@ object PrefKeys {
     val GRID_ROWS         = intPreferencesKey("grid_rows")
     // ── Theme mode ────────────────────────────────────────────────────────
     val DARK_MODE         = booleanPreferencesKey("dark_mode")
-    // Icon Style / Category system
-    val APP_CATEGORIES     = stringPreferencesKey("app_categories")
-    val CATEGORY_OVERRIDES = stringPreferencesKey("category_overrides")
-    val CATEGORY_STYLES    = stringPreferencesKey("category_styles")
+
 }
 
 const val DEFAULT_ICON_SIZE      = 54
@@ -85,10 +82,7 @@ class Prefs(private val context: Context) {
     // ── Theme mode — stored as boolean (true = dark, default = true) ──────
     val darkMode     = ds.data.map { it[PrefKeys.DARK_MODE] ?: true }.distinctUntilChanged()
 
-    // Icon Style / Category flows
-    val appCategories     = ds.data.map { it[PrefKeys.APP_CATEGORIES]     ?: "{}" }
-    val categoryOverrides = ds.data.map { it[PrefKeys.CATEGORY_OVERRIDES] ?: "{}" }
-    val categoryStyles    = ds.data.map { it[PrefKeys.CATEGORY_STYLES]    ?: "{}" }
+
 
     // ── Grid layout ───────────────────────────────────────────────────────
     val gridCols     = ds.data.map { it[PrefKeys.GRID_COLS] ?: DEFAULT_GRID_COLS }.distinctUntilChanged()
@@ -114,10 +108,7 @@ class Prefs(private val context: Context) {
     suspend fun setHabits(v: List<HabitItem>)         = ds.edit { it[PrefKeys.HABITS]            = json.encodeToString(v) }
     suspend fun setMoneyWallets(v: List<MoneyWallet>)             = ds.edit { it[PrefKeys.MONEY_WALLETS]      = json.encodeToString(v) }
     suspend fun setMoneyTransactions(v: List<MoneyTransaction>)   = ds.edit { it[PrefKeys.MONEY_TRANSACTIONS] = json.encodeToString(v) }
-    suspend fun setDarkMode(v: Boolean)                        = ds.edit { it[PrefKeys.DARK_MODE]      = v }
-    suspend fun setAppCategories(v: String)    = ds.edit { it[PrefKeys.APP_CATEGORIES]     = v }
-    suspend fun setCategoryOverrides(v: String)= ds.edit { it[PrefKeys.CATEGORY_OVERRIDES] = v }
-    suspend fun setCategoryStyles(v: String)   = ds.edit { it[PrefKeys.CATEGORY_STYLES]    = v }
+    suspend fun setDarkMode(v: Boolean) = ds.edit { it[PrefKeys.DARK_MODE] = v }
     suspend fun setGridCols(v: Int)      = ds.edit { it[PrefKeys.GRID_COLS] = v }
     suspend fun setGridRows(v: Int)      = ds.edit { it[PrefKeys.GRID_ROWS] = v }
 }
