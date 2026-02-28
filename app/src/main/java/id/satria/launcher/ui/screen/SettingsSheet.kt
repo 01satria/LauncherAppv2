@@ -9,6 +9,7 @@ import androidx.compose.animation.*
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -26,15 +27,15 @@ import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import id.satria.launcher.MainViewModel
 import id.satria.launcher.ui.theme.SatriaColors
+import kotlinx.coroutines.delay
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Performance notes:
-//  • NO InfiniteTransition at top level — avoids constant recomposition
-//  • Static gradient background — drawn once, never redrawn
-//  • AnimatedVisibility uses only fadeIn/fadeOut (cheap) — no expand layout pass
-//  • animateColorAsState instead of animateFloatAsState for color interpolation
-//  • remember(key){} used everywhere to avoid redundant allocations
-//  • Slider: onValueChangeFinished only → DataStore only written on lift-off
+// SettingsSheet — animated, smooth, lightweight
+// Animation strategy:
+//  • Staggered slide-up entrance per card (offset + alpha, no layout invalidation)
+//  • Press-scale on cards via collectIsPressedAsState (runs on UI thread only)
+//  • expand/shrink collapse uses clip — no expensive measure passes
+//  • All colors resolved once at top level
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
@@ -71,7 +72,7 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
             val size = minOf(rawBmp.width, rawBmp.height)
             val sq   = android.graphics.Bitmap.createBitmap(rawBmp, (rawBmp.width - size) / 2, (rawBmp.height - size) / 2, size, size)
             if (sq !== rawBmp) rawBmp.recycle()
-            val sc = android.graphics.Bitmap.createScaledBitmap(sq, 512, 512, true)
+            val sc   = android.graphics.Bitmap.createScaledBitmap(sq, 512, 512, true)
             if (sc !== sq) sq.recycle()
             vm.saveAvatar(sc)
             coil.Coil.imageLoader(context).memoryCache?.clear()
@@ -79,40 +80,82 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
         }
     }
 
-    // Resolve colors ONCE at top level — not inside loops/lambdas
+    // Resolve colors once at composition root — never inside loops
     val accent      = SatriaColors.Accent
     val surface     = SatriaColors.Surface
     val surfaceMid  = SatriaColors.SurfaceMid
     val surfaceHigh = SatriaColors.SurfaceHigh
     val textPrimary = SatriaColors.TextPrimary
 
+    // ── Entrance animation state (staggered per item) ─────────────────────
+    // Each card has its own animated float so they animate independently
+    val cardCount = 5
+    val enterProgress = remember { List(cardCount) { Animatable(0f) } }
+    LaunchedEffect(Unit) {
+        enterProgress.forEachIndexed { i, anim ->
+            delay(i * 55L) // 55ms stagger between cards
+            anim.animateTo(
+                targetValue   = 1f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness    = Spring.StiffnessMedium,
+                ),
+            )
+        }
+    }
+
+    // Top-bar header entrance (slides down from above)
+    val headerAnim = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        headerAnim.animateTo(1f, tween(280, easing = EaseOutCubic))
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(surface)) {
-        // Static decorative gradient — drawn once, zero animation overhead
+        // Static decorative gradient header wash
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(280.dp)
+                .height(300.dp)
                 .background(
                     Brush.verticalGradient(
-                        colors = listOf(
-                            accent.copy(alpha = 0.08f),
-                            Color.Transparent,
-                        )
+                        listOf(accent.copy(alpha = 0.09f), Color.Transparent)
                     )
                 )
         )
 
         Column(modifier = Modifier.fillMaxSize()) {
-            // ── Top Bar ───────────────────────────────────────────────────
+
+            // ── Top Bar — slides down from top ────────────────────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .graphicsLayer {
+                        translationY = (1f - headerAnim.value) * -40f
+                        alpha        = headerAnim.value
+                    }
                     .padding(horizontal = 4.dp, vertical = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(onClick = onClose) {
-                    Text("←", color = textPrimary, fontSize = 20.sp)
+                // Back button with press-scale
+                val backSource = remember { MutableInteractionSource() }
+                val backPressed by backSource.collectIsPressedAsState()
+                val backScale by animateFloatAsState(
+                    targetValue   = if (backPressed) 0.88f else 1f,
+                    animationSpec = spring(Spring.DampingRatioMediumBouncy),
+                    label         = "backScale",
+                )
+                IconButton(
+                    onClick           = onClose,
+                    interactionSource = backSource,
+                ) {
+                    Text(
+                        "←",
+                        color    = textPrimary,
+                        fontSize = 20.sp,
+                        modifier = Modifier.scale(backScale),
+                    )
                 }
+
                 Text(
                     "Settings",
                     color      = textPrimary,
@@ -120,16 +163,25 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
                     fontWeight = FontWeight.Bold,
                     modifier   = Modifier.weight(1f).padding(start = 4.dp),
                 )
-                TextButton(onClick = {
-                    vm.saveUserName(tempName)
-                    vm.saveAssistantName(tempAssist)
-                    onClose()
-                }) {
+
+                // Save button with press-scale
+                val saveSource = remember { MutableInteractionSource() }
+                val savePressed by saveSource.collectIsPressedAsState()
+                val saveScale by animateFloatAsState(
+                    targetValue   = if (savePressed) 0.9f else 1f,
+                    animationSpec = spring(Spring.DampingRatioMediumBouncy),
+                    label         = "saveScale",
+                )
+                TextButton(
+                    onClick           = { vm.saveUserName(tempName); vm.saveAssistantName(tempAssist); onClose() },
+                    interactionSource = saveSource,
+                ) {
                     Text(
                         "Save",
                         color      = accent,
                         fontWeight = FontWeight.SemiBold,
                         fontSize   = 15.sp,
+                        modifier   = Modifier.scale(saveScale),
                     )
                 }
             }
@@ -145,100 +197,109 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
             ) {
                 Spacer(Modifier.height(4.dp))
 
-                // ── Assistant Card (avatar + name) ────────────────────────
-                AssistantCard(
-                    assistantName = tempAssist,
-                    avatarPath    = avatarPath,
-                    avatarKey     = avatarKey,
-                    onChangeName  = { tempAssist = it },
-                    onPickAvatar  = { imagePicker.launch("image/*") },
-                    accent        = accent,
-                    surfaceMid    = surfaceMid,
-                    surfaceHigh   = surfaceHigh,
-                    textPrimary   = textPrimary,
-                )
+                // Cards with staggered slide-up entrance
+                // graphicsLayer does NOT trigger recompose — runs purely on render thread
 
-                // ── Profile Card (user name only) ─────────────────────────
-                SettingsCard(title = "PROFILE", emoji = "👤", surfaceMid = surfaceMid, surfaceHigh = surfaceHigh, textPrimary = textPrimary, accent = accent) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SectionLabel("Your name", accent)
-                        SField(tempName, { tempName = it }, "User", surfaceHigh, textPrimary, accent)
+                // Card 0: Assistant
+                Box(
+                    modifier = Modifier.graphicsLayer {
+                        translationY = (1f - enterProgress[0].value) * 48f
+                        alpha        = enterProgress[0].value
                     }
-                }
-
-                // ── Display Card ──────────────────────────────────────────
-                SettingsCard(title = "DISPLAY", emoji = "🎨", surfaceMid = surfaceMid, surfaceHigh = surfaceHigh, textPrimary = textPrimary, accent = accent) {
-                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        SectionLabel("Appearance", accent)
-                        SegmentedControl(
-                            options     = listOf("🌙  Dark" to true, "☀️  Light" to false),
-                            selectedKey = darkMode,
-                            onSelect    = { vm.setDarkMode(it) },
-                            accent      = accent,
-                            surfaceHigh = surfaceHigh,
-                        )
-                        SectionLabel("Layout", accent)
-                        SegmentedControl(
-                            options     = listOf("⊞  Grid" to "grid", "☰  List" to "list"),
-                            selectedKey = layoutMode,
-                            onSelect    = { vm.setLayoutMode(it) },
-                            accent      = accent,
-                            surfaceHigh = surfaceHigh,
-                        )
-                    }
-                }
-
-                // ── Icons Card ────────────────────────────────────────────
-                SettingsCard(title = "ICONS", emoji = "📱", surfaceMid = surfaceMid, surfaceHigh = surfaceHigh, textPrimary = textPrimary, accent = accent) {
-                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        SToggleRow("Show app names",  showNames,  textPrimary, accent, surfaceHigh) { vm.setShowNames(it) }
-                        SToggleRow("Show hidden apps", showHidden, textPrimary, accent, surfaceHigh) { vm.setShowHidden(it) }
-                        SectionLabel("App icon size  (${tempIconSize.toInt()} dp)", accent)
-                        PerfSlider(
-                            value                 = tempIconSize,
-                            onValueChange         = { tempIconSize = it },
-                            onValueChangeFinished = { vm.setIconSize(tempIconSize.toInt()) },
-                            valueRange            = MIN_ICON_SIZE.toFloat()..MAX_ICON_SIZE.toFloat(),
-                            accent                = accent,
-                            surfaceHigh           = surfaceHigh,
-                        )
-                        SectionLabel("Dock icon size  (${tempDockIconSize.toInt()} dp)", accent)
-                        PerfSlider(
-                            value                 = tempDockIconSize,
-                            onValueChange         = { tempDockIconSize = it },
-                            onValueChangeFinished = { vm.setDockIconSize(tempDockIconSize.toInt()) },
-                            valueRange            = MIN_DOCK_ICON_SIZE.toFloat()..MAX_DOCK_ICON_SIZE.toFloat(),
-                            accent                = accent,
-                            surfaceHigh           = surfaceHigh,
-                        )
-                    }
-                }
-
-                // ── Grid Card (visible only in grid mode) ─────────────────
-                // Using crossfade + fast tween — no expand layout thrashing
-                AnimatedVisibility(
-                    visible = layoutMode == "grid",
-                    enter   = fadeIn(tween(160)),
-                    exit    = fadeOut(tween(120)),
                 ) {
-                    SettingsCard(title = "GRID", emoji = "⊞", surfaceMid = surfaceMid, surfaceHigh = surfaceHigh, textPrimary = textPrimary, accent = accent) {
+                    AssistantCard(
+                        assistantName = tempAssist,
+                        avatarPath    = avatarPath,
+                        avatarKey     = avatarKey,
+                        onChangeName  = { tempAssist = it },
+                        onPickAvatar  = { imagePicker.launch("image/*") },
+                        accent        = accent,
+                        surfaceMid    = surfaceMid,
+                        surfaceHigh   = surfaceHigh,
+                        textPrimary   = textPrimary,
+                    )
+                }
+
+                // Card 1: Profile
+                Box(
+                    modifier = Modifier.graphicsLayer {
+                        translationY = (1f - enterProgress[1].value) * 48f
+                        alpha        = enterProgress[1].value
+                    }
+                ) {
+                    AnimCard(title = "PROFILE", emoji = "👤", surfaceMid = surfaceMid, surfaceHigh = surfaceHigh, textPrimary = textPrimary, accent = accent) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            SectionLabel("Your name", accent)
+                            SField(tempName, { tempName = it }, "User", surfaceHigh, textPrimary, accent)
+                        }
+                    }
+                }
+
+                // Card 2: Display
+                Box(
+                    modifier = Modifier.graphicsLayer {
+                        translationY = (1f - enterProgress[2].value) * 48f
+                        alpha        = enterProgress[2].value
+                    }
+                ) {
+                    AnimCard(title = "DISPLAY", emoji = "🎨", surfaceMid = surfaceMid, surfaceHigh = surfaceHigh, textPrimary = textPrimary, accent = accent) {
                         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                            SectionLabel("Columns  ($gridCols)", accent)
-                            NumberPicker(
-                                range       = MIN_GRID_COLS..MAX_GRID_COLS,
-                                selected    = gridCols,
-                                onSelect    = { vm.setGridCols(it) },
-                                accent      = accent,
-                                surfaceHigh = surfaceHigh,
+                            SectionLabel("Appearance", accent)
+                            SegmentedControl(
+                                options     = listOf("🌙  Dark" to true, "☀️  Light" to false),
+                                selectedKey = darkMode,
+                                onSelect    = { vm.setDarkMode(it) },
+                                accent      = accent, surfaceHigh = surfaceHigh,
                             )
-                            SectionLabel("Rows  ($gridRows)", accent)
-                            NumberPicker(
-                                range       = MIN_GRID_ROWS..MAX_GRID_ROWS,
-                                selected    = gridRows,
-                                onSelect    = { vm.setGridRows(it) },
-                                accent      = accent,
-                                surfaceHigh = surfaceHigh,
+                            SectionLabel("Layout", accent)
+                            SegmentedControl(
+                                options     = listOf("⊞  Grid" to "grid", "☰  List" to "list"),
+                                selectedKey = layoutMode,
+                                onSelect    = { vm.setLayoutMode(it) },
+                                accent      = accent, surfaceHigh = surfaceHigh,
                             )
+                        }
+                    }
+                }
+
+                // Card 3: Icons
+                Box(
+                    modifier = Modifier.graphicsLayer {
+                        translationY = (1f - enterProgress[3].value) * 48f
+                        alpha        = enterProgress[3].value
+                    }
+                ) {
+                    AnimCard(title = "ICONS", emoji = "📱", surfaceMid = surfaceMid, surfaceHigh = surfaceHigh, textPrimary = textPrimary, accent = accent) {
+                        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                            SToggleRow("Show app names",   showNames,  textPrimary, accent, surfaceHigh) { vm.setShowNames(it) }
+                            SToggleRow("Show hidden apps", showHidden, textPrimary, accent, surfaceHigh) { vm.setShowHidden(it) }
+                            SectionLabel("App icon size  (${tempIconSize.toInt()} dp)", accent)
+                            PerfSlider(tempIconSize, { tempIconSize = it }, { vm.setIconSize(tempIconSize.toInt()) }, MIN_ICON_SIZE.toFloat()..MAX_ICON_SIZE.toFloat(), accent, surfaceHigh)
+                            SectionLabel("Dock icon size  (${tempDockIconSize.toInt()} dp)", accent)
+                            PerfSlider(tempDockIconSize, { tempDockIconSize = it }, { vm.setDockIconSize(tempDockIconSize.toInt()) }, MIN_DOCK_ICON_SIZE.toFloat()..MAX_DOCK_ICON_SIZE.toFloat(), accent, surfaceHigh)
+                        }
+                    }
+                }
+
+                // Card 4: Grid (only in grid mode)
+                Box(
+                    modifier = Modifier.graphicsLayer {
+                        translationY = (1f - enterProgress[4].value) * 48f
+                        alpha        = enterProgress[4].value
+                    }
+                ) {
+                    AnimatedVisibility(
+                        visible = layoutMode == "grid",
+                        enter   = fadeIn(tween(180)) + expandVertically(tween(220, easing = EaseOutCubic)),
+                        exit    = fadeOut(tween(140)) + shrinkVertically(tween(180, easing = EaseInCubic)),
+                    ) {
+                        AnimCard(title = "GRID", emoji = "⊞", surfaceMid = surfaceMid, surfaceHigh = surfaceHigh, textPrimary = textPrimary, accent = accent) {
+                            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                SectionLabel("Columns  ($gridCols)", accent)
+                                NumberPicker(MIN_GRID_COLS..MAX_GRID_COLS, gridCols, { vm.setGridCols(it) }, accent, surfaceHigh)
+                                SectionLabel("Rows  ($gridRows)", accent)
+                                NumberPicker(MIN_GRID_ROWS..MAX_GRID_ROWS, gridRows, { vm.setGridRows(it) }, accent, surfaceHigh)
+                            }
                         }
                     }
                 }
@@ -250,7 +311,7 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AssistantCard — avatar + assistant name (correctly labelled)
+// AssistantCard — avatar + assistant name with tap-to-press feedback
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun AssistantCard(
@@ -266,6 +327,15 @@ private fun AssistantCard(
 ) {
     val context = LocalContext.current
 
+    // Avatar press feedback
+    val avatarSource  = remember { MutableInteractionSource() }
+    val avatarPressed by avatarSource.collectIsPressedAsState()
+    val avatarScale   by animateFloatAsState(
+        targetValue   = if (avatarPressed) 0.93f else 1f,
+        animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessHigh),
+        label         = "avatarScale",
+    )
+
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -277,25 +347,27 @@ private fun AssistantCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // Avatar + camera badge — no animation = zero overhead
+            // Avatar
             Box(
-                modifier         = Modifier.size(84.dp),
+                modifier         = Modifier.size(84.dp).scale(avatarScale),
                 contentAlignment = Alignment.Center,
             ) {
-                // Accent ring
                 Box(
                     modifier = Modifier
                         .matchParentSize()
                         .clip(CircleShape)
-                        .border(2.dp, accent.copy(alpha = 0.5f), CircleShape)
+                        .border(2.dp, accent.copy(alpha = 0.45f), CircleShape)
                 )
-                // Avatar
                 Box(
                     modifier = Modifier
                         .size(76.dp)
                         .clip(CircleShape)
                         .background(surfaceHigh)
-                        .clickable(onClick = onPickAvatar),
+                        .clickable(
+                            interactionSource = avatarSource,
+                            indication        = null,
+                            onClick           = onPickAvatar,
+                        ),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (avatarPath != null) {
@@ -316,7 +388,6 @@ private fun AssistantCard(
                         Text("🤖", fontSize = 36.sp)
                     }
                 }
-                // Camera badge
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
@@ -325,12 +396,9 @@ private fun AssistantCard(
                         .background(accent)
                         .clickable(onClick = onPickAvatar),
                     contentAlignment = Alignment.Center,
-                ) {
-                    Text("📷", fontSize = 11.sp)
-                }
+                ) { Text("📷", fontSize = 11.sp) }
             }
 
-            // Assistant name field
             Column(
                 modifier            = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -343,11 +411,10 @@ private fun AssistantCard(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SettingsCard — collapsible section card
-// Colors passed in to avoid @Composable reads inside animation lambdas
+// AnimCard — collapsible card with press-scale + arrow rotation
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun SettingsCard(
+private fun AnimCard(
     title      : String,
     emoji      : String,
     surfaceMid : Color,
@@ -360,23 +427,33 @@ private fun SettingsCard(
 
     val arrowRotation by animateFloatAsState(
         targetValue   = if (expanded) 0f else -90f,
-        animationSpec = tween(200, easing = FastOutSlowInEasing),
+        animationSpec = tween(220, easing = FastOutSlowInEasing),
         label         = "arrow",
+    )
+
+    // Header press-scale
+    val headerSource  = remember { MutableInteractionSource() }
+    val headerPressed by headerSource.collectIsPressedAsState()
+    val headerScale   by animateFloatAsState(
+        targetValue   = if (headerPressed) 0.97f else 1f,
+        animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessHigh),
+        label         = "cardScale",
     )
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .scale(headerScale)
             .clip(RoundedCornerShape(20.dp))
             .background(surfaceMid),
     ) {
-        // Header
+        // Header row
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication        = null, // no ripple = no extra draw pass
+                    interactionSource = headerSource,
+                    indication        = null,
                 ) { expanded = !expanded }
                 .padding(horizontal = 16.dp, vertical = 14.dp),
             verticalAlignment     = Alignment.CenterVertically,
@@ -409,11 +486,11 @@ private fun SettingsCard(
             )
         }
 
-        // Content — fade only (no layout expand/shrink = no measure pass per frame)
+        // Collapsible content — AnimatedVisibility with expand+fade for natural feel
         AnimatedVisibility(
             visible = expanded,
-            enter   = fadeIn(tween(160)),
-            exit    = fadeOut(tween(120)),
+            enter   = fadeIn(tween(160)) + expandVertically(tween(200, easing = EaseOutCubic)),
+            exit    = fadeOut(tween(120)) + shrinkVertically(tween(160, easing = EaseInCubic)),
         ) {
             Column(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
@@ -424,8 +501,7 @@ private fun SettingsCard(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SegmentedControl
-// Uses animateColorAsState — single color lerp per segment, no alpha math
+// SegmentedControl — animated color sweep
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun <T> SegmentedControl(
@@ -446,23 +522,30 @@ private fun <T> SegmentedControl(
             val active = selectedKey == key
             val bgColor by animateColorAsState(
                 targetValue   = if (active) accent.copy(alpha = 0.18f) else Color.Transparent,
-                animationSpec = tween(180),
-                label         = "segColor",
+                animationSpec = tween(200, easing = EaseInOutQuad),
+                label         = "segBg",
             )
             val textColor by animateColorAsState(
-                targetValue   = if (active) accent else accent.copy(alpha = 0.4f),
-                animationSpec = tween(180),
-                label         = "segText",
+                targetValue   = if (active) accent else accent.copy(alpha = 0.38f),
+                animationSpec = tween(200),
+                label         = "segTxt",
             )
+
+            val src      = remember { MutableInteractionSource() }
+            val pressed  by src.collectIsPressedAsState()
+            val itemScale by animateFloatAsState(
+                targetValue   = if (pressed) 0.94f else 1f,
+                animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessHigh),
+                label         = "segScale",
+            )
+
             Box(
                 modifier = Modifier
                     .weight(1f)
+                    .scale(itemScale)
                     .clip(RoundedCornerShape(10.dp))
                     .background(bgColor)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication        = null,
-                    ) { onSelect(key) }
+                    .clickable(interactionSource = src, indication = null) { onSelect(key) }
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -478,7 +561,7 @@ private fun <T> SegmentedControl(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NumberPicker — instant color swap, no scale animation (lighter)
+// NumberPicker — color + scale animation on select
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun NumberPicker(
@@ -496,23 +579,28 @@ private fun NumberPicker(
             val active = v == selected
             val bgColor by animateColorAsState(
                 targetValue   = if (active) accent else surfaceHigh,
-                animationSpec = tween(160),
+                animationSpec = tween(180, easing = EaseInOutQuad),
                 label         = "numBg",
             )
             val txtColor by animateColorAsState(
-                targetValue   = if (active) Color.White else accent.copy(alpha = 0.45f),
-                animationSpec = tween(160),
+                targetValue   = if (active) Color.White else accent.copy(alpha = 0.42f),
+                animationSpec = tween(180),
                 label         = "numTxt",
             )
+            val numScale by animateFloatAsState(
+                targetValue   = if (active) 1.07f else 1f,
+                animationSpec = spring(Spring.DampingRatioMediumBouncy),
+                label         = "numScale",
+            )
+
+            val src = remember { MutableInteractionSource() }
             Box(
                 modifier = Modifier
                     .weight(1f)
+                    .scale(numScale)
                     .clip(RoundedCornerShape(10.dp))
                     .background(bgColor)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication        = null,
-                    ) { onSelect(v) }
+                    .clickable(interactionSource = src, indication = null) { onSelect(v) }
                     .padding(vertical = 11.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -528,7 +616,7 @@ private fun NumberPicker(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// PerfSlider — no extra wrapper, direct Slider (minimizes composition depth)
+// PerfSlider — minimal wrapper
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun PerfSlider(
@@ -538,23 +626,21 @@ private fun PerfSlider(
     valueRange           : ClosedFloatingPointRange<Float>,
     accent               : Color,
     surfaceHigh          : Color,
-) {
-    Slider(
-        value                 = value,
-        onValueChange         = onValueChange,
-        onValueChangeFinished = onValueChangeFinished,
-        valueRange            = valueRange,
-        colors                = SliderDefaults.colors(
-            thumbColor         = accent,
-            activeTrackColor   = accent,
-            inactiveTrackColor = surfaceHigh,
-        ),
-        modifier = Modifier.fillMaxWidth(),
-    )
-}
+) = Slider(
+    value                 = value,
+    onValueChange         = onValueChange,
+    onValueChangeFinished = onValueChangeFinished,
+    valueRange            = valueRange,
+    colors                = SliderDefaults.colors(
+        thumbColor         = accent,
+        activeTrackColor   = accent,
+        inactiveTrackColor = surfaceHigh,
+    ),
+    modifier = Modifier.fillMaxWidth(),
+)
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SToggleRow
+// SToggleRow — switch with smooth track color transition (built-in via Material3)
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun SToggleRow(
@@ -572,9 +658,9 @@ private fun SToggleRow(
     ) {
         Text(label, color = textPrimary, fontSize = 15.sp)
         Switch(
-            checked        = value,
+            checked         = value,
             onCheckedChange = onToggle,
-            colors         = SwitchDefaults.colors(
+            colors          = SwitchDefaults.colors(
                 checkedThumbColor   = Color.White,
                 checkedTrackColor   = accent,
                 uncheckedThumbColor = Color.White,
@@ -588,14 +674,10 @@ private fun SToggleRow(
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun SectionLabel(text: String, accent: Color) =
-    Text(
-        text,
-        color         = accent.copy(alpha = 0.55f),
-        fontSize      = 12.sp,
-        fontWeight    = FontWeight.Medium,
-        letterSpacing = 0.3.sp,
-    )
+private fun SectionLabel(text: String, accent: Color) = Text(
+    text, color = accent.copy(alpha = 0.55f),
+    fontSize = 12.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.3.sp,
+)
 
 @Composable
 private fun SField(
