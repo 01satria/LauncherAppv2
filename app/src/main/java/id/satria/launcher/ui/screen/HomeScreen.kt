@@ -598,19 +598,17 @@ private fun NiagaraAppDrawer(
     }
 
     // ── FIX: bg transparan, tapi blokir sentuhan tembus ke homescreen ─────
-    // Color.Transparent agar wallpaper/bg terlihat; Box blocker agar pin apps tidak bisa disentuh
+    // pointerInput blocker agar pin apps di belakang tidak bisa disentuh
     Box(modifier = Modifier.fillMaxSize()) {
-        // Blocker: tangkap semua sentuhan supaya pin apps di belakang tidak tersentuh
         Box(
                 modifier =
                         Modifier.fillMaxSize()
                                 .background(Color.Transparent)
-                                .combinedClickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
-                                        onClick = {},
-                                        onLongClick = {},
-                                ),
+                                .pointerInput(Unit) {
+                                    awaitPointerEventScope {
+                                        while (true) { awaitPointerEvent() }
+                                    }
+                                },
         )
         Column(modifier = Modifier.fillMaxSize()) {
 
