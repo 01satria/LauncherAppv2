@@ -320,6 +320,14 @@ private fun NiagaraListPager(
             }
         }
 
+        // ── Dim overlay — makin gelap seiring drawer naik, jalankan di RenderThread ─
+        Box(
+                modifier =
+                        Modifier.fillMaxSize().graphicsLayer {
+                            alpha = (1f - drawerProgress.value).coerceIn(0f, 1f) * 0.45f
+                        }.background(Color.Black),
+        )
+
         // ── Drawer — selalu di komposisi, translasi via graphicsLayer ─────
         // graphicsLayer { translationY } berjalan di RenderThread → zero recomposisi
         Box(
@@ -399,9 +407,10 @@ private fun NiagaraHomePage(
                                     onLongClick = { if (!overlayActive) onBgLongPress() },
                             ),
     ) {
-        // ── Favorit apps di tengah ────────────────────────────────────────
+        // ── Favorit apps di tengah — fade out saat drawer naik ─────────────
         Column(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp).statusBarsPadding(),
+                modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp).statusBarsPadding()
+                        .graphicsLayer { alpha = drawerProgress.value.coerceIn(0f, 1f) },
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.Start,
         ) {
@@ -426,12 +435,13 @@ private fun NiagaraHomePage(
             }
         }
 
-        // ── Hint swipe-up ───────────────────────────────────────────────
+        // ── Hint swipe-up — fade out saat drawer naik ──────────────────────
         Column(
                 modifier =
                         Modifier.align(Alignment.BottomCenter)
                                 .navigationBarsPadding()
-                                .padding(bottom = 22.dp),
+                                .padding(bottom = 22.dp)
+                                .graphicsLayer { alpha = drawerProgress.value.coerceIn(0f, 1f) },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
