@@ -37,6 +37,11 @@ class EdgeSwipeService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    // Called on every startService() — only do setup once (onCreate handles first call)
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        return START_STICKY
+    }
+
     override fun onCreate() {
         super.onCreate()
         setupOverlay()
@@ -71,36 +76,45 @@ class EdgeSwipeService : Service() {
         val view = object : View(this) {
             private var startX = 0f
             private var startY = 0f
-            private var triggered = false
+            // Per-gesture trigger flag — reset only on ACTION_DOWN (new finger down)
+            private var triggeredThisGesture = false
+            // Cooldown flag — prevents re-trigger while overlay is animating/showing
+            // Reset by RecentAppsOverlayService calling notifyDismissed()
+            @Volatile var overlayShowing = false
 
             override fun onTouchEvent(event: MotionEvent): Boolean {
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
                         startX = event.rawX
                         startY = event.rawY
-                        triggered = false
+                        triggeredThisGesture = false
                         return true
                     }
                     MotionEvent.ACTION_MOVE -> {
-                        if (!triggered) {
+                        // Guard: only trigger once per gesture AND only if no overlay showing
+                        if (!triggeredThisGesture && !overlayShowing) {
                             val dx = event.rawX - startX
                             val dy = event.rawY - startY
                             if (dx >= minSwipePx && abs(dy) < maxDriftPx) {
-                                triggered = true
-                                // Tampilkan overlay langsung — tanpa buka launcher
+                                triggeredThisGesture = true
+                                overlayShowing = true
                                 RecentAppsOverlayService.show(applicationContext)
                             }
                         }
                         return true
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                        triggered = false
+                        // Do NOT reset triggeredThisGesture here — it resets on next DOWN.
+                        // This prevents double-fire if user lifts finger slowly after trigger.
                         return true
                     }
                 }
                 return false
             }
         }
+
+        // Give RecentAppsOverlayService a reference to clear the cooldown on dismiss
+        RecentAppsOverlayService.edgeView = view
 
         overlayView = view
         wm.addView(view, params)

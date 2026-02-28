@@ -74,20 +74,43 @@ class RecentAppsOverlayService : Service() {
         fun show(context: Context) {
             context.startService(Intent(context, RecentAppsOverlayService::class.java))
         }
+
+        // Reference to the EdgeSwipeService view so we can clear its cooldown on dismiss
+        @Volatile var edgeView: Any? = null
     }
 
+    // Track if overlay is already mounted — prevents stacking on repeated startService() calls
+    private var isMounted = false
+
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // If overlay is already showing, ignore repeated calls (e.g. fast repeated swipes)
+        if (isMounted) return START_NOT_STICKY
+        isMounted = true
+        loadThenShow()
+        return START_NOT_STICKY
+    }
 
     override fun onCreate() {
         super.onCreate()
         recentsManager = RecentAppsManager(applicationContext)
         repo = LauncherRepository(applicationContext)
-        loadThenShow()
     }
 
     override fun onDestroy() {
         scope.cancel()
         removeOverlay()
+        // Release the cooldown lock in EdgeSwipeService so next swipe works
+        try {
+            val view = edgeView
+            if (view != null) {
+                val f = view.javaClass.getDeclaredField("overlayShowing")
+                f.isAccessible = true
+                f.setBoolean(view, false)
+            }
+        } catch (_: Exception) {}
+        edgeView = null
         super.onDestroy()
     }
 
