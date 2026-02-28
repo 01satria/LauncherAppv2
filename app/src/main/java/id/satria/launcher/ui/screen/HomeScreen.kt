@@ -27,7 +27,6 @@ import id.satria.launcher.ui.component.*
 import id.satria.launcher.ui.theme.LocalAppTheme
 import id.satria.launcher.ui.theme.SatriaColors
 import kotlin.math.ceil
-import id.satria.launcher.recents.EdgeSwipeEvent
 import kotlinx.coroutines.launch
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -86,19 +85,6 @@ fun HomeScreen(vm: MainViewModel, onRequestOverlayPermission: () -> Unit = {}) {
 
     LaunchedEffect(Unit) {
         vm.checkUsagePermission()
-    }
-
-    // Terima event dari EdgeSwipeService.
-    // Launcher sudah pasti di foreground saat event ini diterima
-    // (service mengirim ACTION_SHOW_RECENTS via Intent → MainActivity.onNewIntent → fire()).
-    LaunchedEffect(Unit) {
-        EdgeSwipeEvent.flow.collect {
-            EdgeSwipeEvent.consume()
-            if (recentAppsEnabled && !overlayActive) {
-                vm.refreshRecentApps()
-                showRecents = true
-            }
-        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {

@@ -13,8 +13,6 @@
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
-
-    <!-- Diperlukan untuk EdgeSwipeService: pasang invisible overlay di tepi kiri -->
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
 
     <application
@@ -44,11 +42,15 @@
             </intent-filter>
         </activity>
 
-        <!-- Service overlay tepi kiri untuk recent apps swipe di atas semua app -->
+        <!-- Service: zona sentuh tepi kiri layar -->
         <service
             android:name=".service.EdgeSwipeService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:exported="false" />
+
+        <!-- Service: render RecentAppsOverlay langsung ke WindowManager -->
+        <service
+            android:name=".service.RecentAppsOverlayService"
+            android:exported="false" />
 
     </application>
 </manifest>

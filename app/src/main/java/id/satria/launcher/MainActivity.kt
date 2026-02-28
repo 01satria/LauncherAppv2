@@ -13,7 +13,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import id.satria.launcher.recents.EdgeSwipeEvent
 import id.satria.launcher.service.EdgeSwipeService
 import id.satria.launcher.ui.screen.HomeScreen
 import id.satria.launcher.ui.theme.SatriaTheme
@@ -22,15 +21,10 @@ class MainActivity : ComponentActivity() {
 
     private val vm: MainViewModel by viewModels()
 
-    /**
-     * Launcher untuk membuka Settings overlay permission.
-     * Menggunakan ActivityResultLauncher agar properly track result
-     * dan sync service setelah user kembali dari Settings.
-     */
     private val overlayPermLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        // User kembali dari Settings — sync service sesuai state permission terbaru
+        // User kembali dari Settings — sync service
         syncEdgeSwipeService()
     }
 
@@ -49,29 +43,6 @@ class MainActivity : ComponentActivity() {
                     onRequestOverlayPermission = { openOverlayPermissionSettings() },
                 )
             }
-        }
-
-        // Handle intent dari onCreate (app cold start dengan intent SHOW_RECENTS)
-        handleIntent(intent)
-    }
-
-    /**
-     * onNewIntent dipanggil saat MainActivity sudah running dan menerima intent baru.
-     * Kasus utama: EdgeSwipeService mengirim ACTION_SHOW_RECENTS saat swipe terdeteksi
-     * di atas app lain → launcher di-bring ke foreground → overlay ditampilkan.
-     */
-    override fun onNewIntent(intent: Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        handleIntent(intent)
-    }
-
-    private fun handleIntent(intent: Intent?) {
-        if (intent?.action == EdgeSwipeService.ACTION_SHOW_RECENTS) {
-            // Kirim event ke HomeScreen untuk tampilkan RecentAppsOverlay
-            EdgeSwipeEvent.fire()
-            // Bersihkan action agar tidak re-trigger saat Activity recreated
-            setIntent(intent.apply { action = null })
         }
     }
 
@@ -98,11 +69,6 @@ class MainActivity : ComponentActivity() {
 
     fun hasOverlayPermission(): Boolean = Settings.canDrawOverlays(this)
 
-    /**
-     * Buka Settings overlay permission dengan ActivityResultLauncher.
-     * Ini memastikan Intent benar-benar terbuka (tidak silent fail seperti startActivity biasa
-     * dari Compose context) dan sync service otomatis saat user kembali.
-     */
     private fun openOverlayPermissionSettings() {
         val intent = Intent(
             Settings.ACTION_MANAGE_OVERLAY_PERMISSION,

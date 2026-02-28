@@ -14,10 +14,9 @@ import kotlin.math.abs
 /**
  * EdgeSwipeService
  *
- * Pasang View invisible 20dp di tepi kiri layar via TYPE_APPLICATION_OVERLAY.
- * Saat swipe terdeteksi, langsung buka MainActivity dengan action SHOW_RECENTS
- * — ini mem-bring launcher ke foreground SEBELUM menampilkan RecentAppsOverlay,
- * sehingga overlay Compose bisa tampil dengan benar.
+ * View invisible 20dp di tepi kiri layar.
+ * Saat swipe terdeteksi → langsung show RecentAppsOverlayService
+ * (tidak perlu bawa launcher ke foreground).
  */
 class EdgeSwipeService : Service() {
 
@@ -26,7 +25,6 @@ class EdgeSwipeService : Service() {
 
     companion object {
         const val EDGE_WIDTH_DP = 20
-        const val ACTION_SHOW_RECENTS = "id.satria.launcher.SHOW_RECENTS"
 
         fun start(context: Context) {
             context.startService(Intent(context, EdgeSwipeService::class.java))
@@ -68,8 +66,6 @@ class EdgeSwipeService : Service() {
             PixelFormat.TRANSLUCENT,
         ).apply {
             gravity = Gravity.START or Gravity.TOP
-            x = 0
-            y = 0
         }
 
         val view = object : View(this) {
@@ -91,7 +87,8 @@ class EdgeSwipeService : Service() {
                             val dy = event.rawY - startY
                             if (dx >= minSwipePx && abs(dy) < maxDriftPx) {
                                 triggered = true
-                                launchMainActivityWithRecents()
+                                // Tampilkan overlay langsung — tanpa buka launcher
+                                RecentAppsOverlayService.show(applicationContext)
                             }
                         }
                         return true
@@ -107,26 +104,6 @@ class EdgeSwipeService : Service() {
 
         overlayView = view
         wm.addView(view, params)
-    }
-
-    /**
-     * Bawa MainActivity ke foreground dengan membawa extra SHOW_RECENTS=true.
-     * MainActivity.onNewIntent() akan membaca extra ini dan set showRecents=true.
-     *
-     * FLAG_ACTIVITY_REORDER_TO_FRONT: jika launcher sudah running, bring to front
-     * FLAG_ACTIVITY_SINGLE_TOP: tidak buat instance baru jika sudah di top
-     * FLAG_ACTIVITY_NEW_TASK: wajib saat startActivity dari non-Activity context
-     */
-    private fun launchMainActivityWithRecents() {
-        val intent = Intent(this, Class.forName("id.satria.launcher.MainActivity")).apply {
-            action = ACTION_SHOW_RECENTS
-            addFlags(
-                Intent.FLAG_ACTIVITY_NEW_TASK or
-                Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or
-                Intent.FLAG_ACTIVITY_SINGLE_TOP
-            )
-        }
-        runCatching { startActivity(intent) }
     }
 
     private fun removeOverlay() {
