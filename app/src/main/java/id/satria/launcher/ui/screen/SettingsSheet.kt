@@ -45,7 +45,8 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
     var tempName   by remember(userName)      { mutableStateOf(userName) }
     var tempAssist by remember(assistantName) { mutableStateOf(assistantName) }
 
-    var avatarKey by remember { mutableStateOf(0) }
+    var showIconStyles by remember { mutableStateOf(false) }
+        var avatarKey by remember { mutableStateOf(0) }
     val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
         uri ?: return@rememberLauncherForActivityResult
         runCatching {
@@ -63,6 +64,11 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
             coil.Coil.imageLoader(context).memoryCache?.clear()
             avatarKey++
         }
+    }
+
+    if (showIconStyles) {
+        IconStyleScreen(vm = vm, onClose = { showIconStyles = false })
+        return
     }
 
     Column(
@@ -204,7 +210,39 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
                     }
                 }
 
-                // ── Theme Mode ─────────────────────────────────────────────
+                // ── Icon Styles ────────────────────────────────────────────
+                SLabel("ICON STYLES ✦")
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(SatriaColors.SurfaceMid)
+                        .clickable { showIconStyles = true }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                ) {
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment     = Alignment.CenterVertically,
+                    ) {
+                        Column {
+                            Text(
+                                "Auto-categorize & style icons",
+                                color      = SatriaColors.TextPrimary,
+                                fontSize   = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Text(
+                                "Shape, gradient, watercolor, glass",
+                                color    = SatriaColors.TextSecondary,
+                                fontSize = 12.sp,
+                            )
+                        }
+                        Text("→", color = SatriaColors.TextTertiary, fontSize = 18.sp)
+                    }
+                }
+
+                                // ── Theme Mode ─────────────────────────────────────────────
                 SLabel("APPEARANCE")
                 Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(SatriaColors.SurfaceMid)) {
                     listOf(true to "🌙  Dark", false to "☀️  Light").forEach { (isDark, label) ->

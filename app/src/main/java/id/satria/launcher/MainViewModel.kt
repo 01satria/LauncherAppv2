@@ -5,10 +5,16 @@ import android.graphics.Bitmap
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import id.satria.launcher.data.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import id.satria.launcher.data.AppCategory
+import id.satria.launcher.data.AppClassifier
+import id.satria.launcher.data.CategoryStyle
+import id.satria.launcher.data.DEFAULT_CATEGORY_STYLES
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.jsonObject
 import java.io.File
 import java.text.SimpleDateFormat
@@ -33,6 +39,23 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val gridCols         = prefs.gridCols.stateIn(viewModelScope, SharingStarted.Eagerly, id.satria.launcher.data.DEFAULT_GRID_COLS)
     val gridRows         = prefs.gridRows.stateIn(viewModelScope, SharingStarted.Eagerly, id.satria.launcher.data.DEFAULT_GRID_ROWS)
     val showHidden       = prefs.showHidden.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    // ── Icon Style / Category flows ───────────────────────────────────────────
+    val appCategoriesJson  = prefs.appCategories.stateIn(viewModelScope, SharingStarted.Eagerly, "{}")
+    val categoryStylesJson = prefs.categoryStyles.stateIn(viewModelScope, SharingStarted.Eagerly, "{}")
+    private val categoryOverridesJson = prefs.categoryOverrides.stateIn(viewModelScope, SharingStarted.Eagerly, "{}")
+
+    // Parsed Maps — derived from JSON flows
+    val appCategories: StateFlow<Map<String, AppCategory>> = appCategoriesJson.map { json ->
+        runCatching { Json.decodeFromString<Map<String, String>>(json)
+            .mapValues { (_, v) -> runCatching { AppCategory.valueOf(v) }.getOrDefault(AppCategory.OTHER) }
+        }.getOrDefault(emptyMap())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    val categoryStyles: StateFlow<Map<AppCategory, CategoryStyle>> = categoryStylesJson.map { json ->
+        runCatching { Json.decodeFromString<Map<String, CategoryStyle>>(json)
+            .mapKeys { (k, _) -> runCatching { AppCategory.valueOf(k) }.getOrDefault(AppCategory.OTHER) }
+        }.getOrDefault(emptyMap())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     // Flow sekunder (hanya dibutuhkan saat Dashboard/tool terbuka)
     // WhileSubscribed(5_000): flow berhenti 5 detik setelah tidak ada subscriber,
@@ -64,7 +87,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         dock.mapNotNull { pkg -> apps.find { it.packageName == pkg } }.take(5)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    init { refreshApps() }
+    init { refreshApps(); initCategoriesIfEmpty() }
 
     fun refreshApps() = viewModelScope.launch {
         // Jika sudah ada data, hanya refresh jika jumlah app berubah
@@ -255,6 +278,72 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         } catch (e: Exception) { false }
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Icon Style / Category methods
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /** Jalankan classifier untuk SEMUA app (dipanggil sekali saat pertama kali atau user minta re-scan) */
+    fun reclassifyAll() = viewModelScope.launch(Dispatchers.Default) {
+        val overrides = runCatching {
+            Json.decodeFromString<Map<String, String>>(categoryOverridesJson.value)
+        }.getOrDefault(emptyMap())
+
+        val result = AppClassifier.classifyAll(_allApps.value, overrides)
+        val encoded = Json.encodeToString(
+            result.mapValues { (_, cat) -> cat.name } as Map<String, String>
+        )
+        prefs.setAppCategories(encoded)
+    }
+
+    /** Override kategori satu app oleh user — disimpan sebagai "correction" yang tidak akan ditimpa re-scan */
+    fun overrideAppCategory(packageName: String, category: AppCategory) = viewModelScope.launch {
+        // Simpan ke overrides
+        val overrides: MutableMap<String, String> = runCatching {
+            Json.decodeFromString<Map<String, String>>(categoryOverridesJson.value).toMutableMap()
+        }.getOrDefault(mutableMapOf())
+        overrides[packageName] = category.name
+        prefs.setCategoryOverrides(Json.encodeToString(overrides as Map<String, String>))
+
+        // Update kategori aktif juga
+        val categories: MutableMap<String, String> = runCatching {
+            Json.decodeFromString<Map<String, String>>(appCategoriesJson.value).toMutableMap()
+        }.getOrDefault(mutableMapOf())
+        categories[packageName] = category.name
+        prefs.setAppCategories(Json.encodeToString(categories as Map<String, String>))
+    }
+
+    /** Simpan style untuk satu kategori */
+    fun saveCategoryStyle(category: AppCategory, style: CategoryStyle) = viewModelScope.launch {
+        val styles: MutableMap<String, CategoryStyle> = runCatching {
+            Json.decodeFromString<Map<String, CategoryStyle>>(categoryStylesJson.value).toMutableMap()
+        }.getOrDefault(mutableMapOf())
+        styles[category.name] = style
+        prefs.setCategoryStyles(Json.encodeToString(styles as Map<String, CategoryStyle>))
+    }
+
+    /** Reset style satu kategori ke default */
+    fun resetCategoryStyle(category: AppCategory) = viewModelScope.launch {
+        val styles: MutableMap<String, CategoryStyle> = runCatching {
+            Json.decodeFromString<Map<String, CategoryStyle>>(categoryStylesJson.value).toMutableMap()
+        }.getOrDefault(mutableMapOf())
+        styles.remove(category.name)
+        prefs.setCategoryStyles(Json.encodeToString(styles as Map<String, CategoryStyle>))
+    }
+
+    /** Classify semua app saat pertama kali (hanya jika map masih kosong) */
+    private fun initCategoriesIfEmpty() = viewModelScope.launch {
+        if (appCategoriesJson.value == "{}") {
+            // Tunggu allApps terisi dulu
+            _allApps.collect { apps ->
+                if (apps.isNotEmpty()) {
+                    reclassifyAll()
+                    return@collect
+                }
+            }
+        }
+    }
+
+    
     private fun todayKey(): String = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
     private fun makeId()   = "${System.currentTimeMillis()}-${(Math.random() * 100000).toInt()}"
 }
