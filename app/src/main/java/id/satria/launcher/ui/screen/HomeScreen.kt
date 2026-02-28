@@ -274,7 +274,7 @@ private fun NiagaraListPager(
 
     val springSpec =
             spring<Float>(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    dampingRatio = Spring.DampingRatioLowBouncy,
                     stiffness = Spring.StiffnessMediumLow,
             )
 
@@ -295,7 +295,7 @@ private fun NiagaraListPager(
     LaunchedEffect(pagerState.currentPage) { onDashboardChanged(pagerState.currentPage == 0) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        val screenWidthPx = with(LocalDensity.current) { maxWidth.toPx() }
+        val screenHeightPx = with(LocalDensity.current) { maxHeight.toPx() }
 
         // ── Pager (home + dashboard) ──────────────────────────────────────
         HorizontalPager(
@@ -313,7 +313,7 @@ private fun NiagaraListPager(
                         darkMode = darkMode,
                         overlayActive = overlayActive,
                         drawerProgress = drawerProgress,
-                        screenWidthPx = screenWidthPx,
+                        screenHeightPx = screenHeightPx,
                         onOpenDrawer = { scope.launch { openDrawer() } },
                         onBgLongPress = onBgLongPress,
                         onAppPress = onAppPress,
@@ -322,13 +322,12 @@ private fun NiagaraListPager(
             }
         }
 
-        // ── Drawer — selalu di komposisi, translasi HORIZONTAL via graphicsLayer ─
-        // graphicsLayer { translationX } berjalan di RenderThread → zero rekomposisi
-        // Drawer muncul dari kanan saat swipe kiri di homescreen
+        // ── Drawer — selalu di komposisi, translasi via graphicsLayer ─────
+        // graphicsLayer { translationY } berjalan di RenderThread → zero recomposisi
         Box(
                 modifier =
                         Modifier.fillMaxSize().graphicsLayer {
-                            translationX = drawerProgress.value * screenWidthPx
+                            translationY = drawerProgress.value * screenHeightPx
                         },
         ) {
             NiagaraAppDrawer(
@@ -336,7 +335,7 @@ private fun NiagaraListPager(
                     darkMode = darkMode,
                     overlayActive = overlayActive,
                     drawerProgress = drawerProgress,
-                    screenWidthPx = screenWidthPx,
+                    screenHeightPx = screenHeightPx,
                     springSpec = springSpec,
                     onAppPress = onAppPress,
                     onAppLong = onAppLong,
@@ -348,7 +347,7 @@ private fun NiagaraListPager(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NiagaraHomePage
-// Swipe kiri → drawer muncul dari kanan mengikuti jari secara real-time (draggable + snapTo)
+// Swipe up → drawer mengikuti jari secara real-time (draggable + snapTo)
 // ─────────────────────────────────────────────────────────────────────────────
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -357,7 +356,7 @@ private fun NiagaraHomePage(
         darkMode: Boolean,
         overlayActive: Boolean,
         drawerProgress: Animatable<Float, AnimationVector1D>,
-        screenWidthPx: Float,
+        screenHeightPx: Float,
         onOpenDrawer: () -> Unit,
         onBgLongPress: () -> Unit,
         onAppPress: (String) -> Unit,
@@ -368,15 +367,14 @@ private fun NiagaraHomePage(
 
     val springSpec =
             spring<Float>(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    dampingRatio = Spring.DampingRatioLowBouncy,
                     stiffness = Spring.StiffnessMediumLow,
             )
 
-    // Draggable state untuk swipe-kiri: mengupdate drawerProgress secara real-time
-    // delta negatif = gerak ke kiri = buka drawer dari kanan
+    // Draggable state untuk swipe-up: mengupdate drawerProgress secara real-time
     val draggableState = rememberDraggableState { delta ->
         if (!overlayActive && delta < 0f) {
-            val next = (drawerProgress.value + delta / screenWidthPx).coerceIn(0f, 1f)
+            val next = (drawerProgress.value + delta / screenHeightPx).coerceIn(0f, 1f)
             scope.launch { drawerProgress.snapTo(next) }
         }
     }
@@ -384,14 +382,14 @@ private fun NiagaraHomePage(
     Box(
             modifier =
                     Modifier.fillMaxSize()
-                            // Swipe kiri: drawer mengikuti jari dari kanan
+                            // Swipe atas: drawer mengikuti jari
                             .draggable(
-                                    orientation = Orientation.Horizontal,
+                                    orientation = Orientation.Vertical,
                                     state = draggableState,
                                     onDragStopped = { velocity ->
                                         if (overlayActive) return@draggable
                                         scope.launch {
-                                            // velocity negatif = bergerak ke kiri = buka drawer
+                                            // velocity negatif = bergerak ke atas = buka drawer
                                             if (velocity < -600f || drawerProgress.value < 0.45f) {
                                                 drawerProgress.animateTo(0f, springSpec)
                                             } else {
@@ -434,22 +432,22 @@ private fun NiagaraHomePage(
             }
         }
 
-        // ── Hint swipe-kiri ──────────────────────────────────────────────
-        Row(
+        // ── Hint swipe-up ───────────────────────────────────────────────
+        Column(
                 modifier =
-                        Modifier.align(Alignment.CenterEnd)
+                        Modifier.align(Alignment.BottomCenter)
                                 .navigationBarsPadding()
-                                .padding(end = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                .padding(bottom = 22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
+            Text("⌃", color = theme.textTertiary(), fontSize = 18.sp)
             Text(
                     text = "All apps",
                     color = theme.textTertiary(),
                     fontSize = 11.sp,
                     letterSpacing = 0.5.sp,
             )
-            Text("›", color = theme.textTertiary(), fontSize = 18.sp)
         }
     }
 }
@@ -521,7 +519,7 @@ private fun NiagaraFavoriteRow(
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NiagaraAppDrawer — full screen app list
-// Swipe-kanan dari sisi kiri → drawerProgress mengikuti jari → tutup (kembali ke homescreen)
+// Swipe-down dari posisi atas → drawerProgress mengikuti jari → tutup
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun NiagaraAppDrawer(
@@ -529,7 +527,7 @@ private fun NiagaraAppDrawer(
         darkMode: Boolean,
         overlayActive: Boolean,
         drawerProgress: Animatable<Float, AnimationVector1D>,
-        screenWidthPx: Float,
+        screenHeightPx: Float,
         springSpec: AnimationSpec<Float>,
         onAppPress: (String) -> Unit,
         onAppLong: (String) -> Unit,
@@ -576,37 +574,53 @@ private fun NiagaraAppDrawer(
 
     val letters = letterIndex.keys.toList()
 
-    // NestedScrollConnection: tidak dipakai untuk close drawer (karena sekarang horizontal)
-    // Drawer ditutup via handle zone di kiri atau back gesture
+    // NestedScrollConnection: fling ke bawah saat di posisi atas → tutup drawer
+    // Ini mengikuti jari via pre-scroll (bukan hanya fling), jadi terasa natural
     val closeConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                // Hanya intercept scroll ke bawah (available.y > 0) saat list di posisi paling atas
+                if (available.y > 0f &&
+                                listState.firstVisibleItemIndex == 0 &&
+                                listState.firstVisibleItemScrollOffset == 0
+                ) {
+                    val next =
+                            (drawerProgress.value + available.y / screenHeightPx).coerceIn(0f, 1f)
+                    scope.launch { drawerProgress.snapTo(next) }
+                    return available // konsumsi scroll agar list tidak ikut bergerak
+                }
                 return Offset.Zero
             }
 
             override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                if (available.y > 300f) {
+                    drawerProgress.animateTo(1f, springSpec)
+                } else if (drawerProgress.value > 0.1f) {
+                    // Belum cukup untuk tutup → snap kembali ke open
+                    drawerProgress.animateTo(0f, springSpec)
+                }
                 return Velocity.Zero
             }
         }
     }
 
     Box(modifier = Modifier.fillMaxSize().background(theme.bgColor())) {
-        Row(modifier = Modifier.fillMaxSize()) {
+        Column(modifier = Modifier.fillMaxSize()) {
 
-            // ── Handle zone 48dp di sisi KIRI — swipe-kanan untuk tutup drawer ──
+            // ── Handle zone 48dp — swipe-down lambat di sini tetap berfungsi ──
             Box(
                     modifier =
-                            Modifier.fillMaxHeight()
-                                    .width(48.dp)
+                            Modifier.fillMaxWidth()
+                                    .height(48.dp)
                                     .draggable(
-                                            orientation = Orientation.Horizontal,
+                                            orientation = Orientation.Vertical,
                                             state =
                                                     rememberDraggableState { delta ->
                                                         if (delta > 0f) {
                                                             val next =
                                                                     (drawerProgress.value +
                                                                                     delta /
-                                                                                            screenWidthPx)
+                                                                                            screenHeightPx)
                                                                             .coerceIn(0f, 1f)
                                                             scope.launch {
                                                                 drawerProgress.snapTo(next)
@@ -625,20 +639,20 @@ private fun NiagaraAppDrawer(
                                                 }
                                             },
                                     ),
-                    contentAlignment = Alignment.CenterStart,
+                    contentAlignment = Alignment.TopCenter,
             ) {
                 Box(
                         modifier =
-                                Modifier.padding(start = 10.dp)
-                                        .width(4.dp)
-                                        .height(36.dp)
+                                Modifier.padding(top = 10.dp)
+                                        .width(36.dp)
+                                        .height(4.dp)
                                         .clip(CircleShape)
                                         .background(theme.textTertiary()),
                 )
             }
 
             // ── List + sidebar ────────────────────────────────────────────
-            Row(modifier = Modifier.weight(1f).fillMaxHeight()) {
+            Row(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 LazyColumn(
                         state = listState,
                         modifier =
