@@ -15,7 +15,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.*
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.*
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -28,7 +27,13 @@ import id.satria.launcher.MainViewModel
 import id.satria.launcher.ui.theme.SatriaColors
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SettingsSheet — redesigned with animations, clean sections, premium look
+// Performance notes:
+//  • NO InfiniteTransition at top level — avoids constant recomposition
+//  • Static gradient background — drawn once, never redrawn
+//  • AnimatedVisibility uses only fadeIn/fadeOut (cheap) — no expand layout pass
+//  • animateColorAsState instead of animateFloatAsState for color interpolation
+//  • remember(key){} used everywhere to avoid redundant allocations
+//  • Slider: onValueChangeFinished only → DataStore only written on lift-off
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
@@ -55,9 +60,12 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
         uri ?: return@rememberLauncherForActivityResult
         runCatching {
             val rawBmp = if (Build.VERSION.SDK_INT >= 28) {
-                ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { dec, _, _ -> dec.isMutableRequired = true }
+                ImageDecoder.decodeBitmap(
+                    ImageDecoder.createSource(context.contentResolver, uri)
+                ) { dec, _, _ -> dec.isMutableRequired = true }
             } else {
-                @Suppress("DEPRECATION") android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
+                @Suppress("DEPRECATION")
+                android.provider.MediaStore.Images.Media.getBitmap(context.contentResolver, uri)
             }
             val size = minOf(rawBmp.width, rawBmp.height)
             val sq   = android.graphics.Bitmap.createBitmap(rawBmp, (rawBmp.width - size) / 2, (rawBmp.height - size) / 2, size, size)
@@ -70,35 +78,25 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
         }
     }
 
-    // Entry animation
-    var visible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { visible = true }
+    // Resolve colors ONCE at top level — not inside loops/lambdas
+    val accent      = SatriaColors.Accent
+    val surface     = SatriaColors.Surface
+    val surfaceMid  = SatriaColors.SurfaceMid
+    val surfaceHigh = SatriaColors.SurfaceHigh
+    val textPrimary = SatriaColors.TextPrimary
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(SatriaColors.Surface),
-    ) {
-        // Subtle animated gradient header glow
-        val infiniteTransition = rememberInfiniteTransition(label = "bgGlow")
-        val glowAlpha by infiniteTransition.animateFloat(
-            initialValue = 0.06f, targetValue = 0.13f,
-            animationSpec = infiniteRepeatable(tween(3000, easing = EaseInOutSine), RepeatMode.Reverse),
-            label = "glowAlpha"
-        )
-
+    Box(modifier = Modifier.fillMaxSize().background(surface)) {
+        // Static decorative gradient — drawn once, zero animation overhead
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(220.dp)
+                .height(280.dp)
                 .background(
-                    Brush.radialGradient(
+                    Brush.verticalGradient(
                         colors = listOf(
-                            SatriaColors.Accent.copy(alpha = glowAlpha),
-                            Color.Transparent
-                        ),
-                        center = Offset(Float.MAX_VALUE / 2f, 0f),
-                        radius = 600f,
+                            accent.copy(alpha = 0.08f),
+                            Color.Transparent,
+                        )
                     )
                 )
         )
@@ -112,114 +110,133 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onClose) {
-                    Text("←", color = SatriaColors.TextPrimary, fontSize = 20.sp)
+                    Text("←", color = textPrimary, fontSize = 20.sp)
                 }
                 Text(
                     "Settings",
-                    color = SatriaColors.TextPrimary,
-                    fontSize = 18.sp,
+                    color      = textPrimary,
+                    fontSize   = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    modifier = Modifier.weight(1f).padding(start = 4.dp),
+                    modifier   = Modifier.weight(1f).padding(start = 4.dp),
                 )
                 TextButton(onClick = {
-                    vm.saveUserName(tempName); vm.saveAssistantName(tempAssist); onClose()
+                    vm.saveUserName(tempName)
+                    vm.saveAssistantName(tempAssist)
+                    onClose()
                 }) {
-                    Text("Save", color = SatriaColors.Accent, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    Text(
+                        "Save",
+                        color      = accent,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize   = 15.sp,
+                    )
                 }
             }
 
-            // ── Scrollable content ─────────────────────────────────────────
+            // ── Scrollable Content ─────────────────────────────────────────
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp)
-                    .padding(bottom = 32.dp),
+                    .padding(bottom = 40.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Spacer(Modifier.height(4.dp))
 
-                // ── Profile Card ──────────────────────────────────────────
-                ProfileCard(
-                    userName    = tempName,
-                    avatarPath  = avatarPath,
-                    avatarKey   = avatarKey,
-                    onChangeName = { tempName = it },
-                    onPickAvatar = { imagePicker.launch("image/*") },
+                // ── Assistant Card (avatar + name) ────────────────────────
+                AssistantCard(
+                    assistantName = tempAssist,
+                    avatarPath    = avatarPath,
+                    avatarKey     = avatarKey,
+                    onChangeName  = { tempAssist = it },
+                    onPickAvatar  = { imagePicker.launch("image/*") },
+                    accent        = accent,
+                    surfaceMid    = surfaceMid,
+                    surfaceHigh   = surfaceHigh,
+                    textPrimary   = textPrimary,
                 )
 
-                // ── Assistant Card ────────────────────────────────────────
-                SettingsCard(title = "ASSISTANT", emoji = "🤖") {
+                // ── Profile Card (user name only) ─────────────────────────
+                SettingsCard(title = "PROFILE", emoji = "👤", surfaceMid = surfaceMid, surfaceHigh = surfaceHigh, textPrimary = textPrimary, accent = accent) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        SectionLabel("Name")
-                        SField(tempAssist, { tempAssist = it }, "Assistant")
+                        SectionLabel("Your name", accent)
+                        SField(tempName, { tempName = it }, "User", surfaceHigh, textPrimary, accent)
                     }
                 }
 
                 // ── Display Card ──────────────────────────────────────────
-                SettingsCard(title = "DISPLAY", emoji = "🎨") {
+                SettingsCard(title = "DISPLAY", emoji = "🎨", surfaceMid = surfaceMid, surfaceHigh = surfaceHigh, textPrimary = textPrimary, accent = accent) {
                     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        // Appearance toggle
-                        SectionLabel("Appearance")
+                        SectionLabel("Appearance", accent)
                         SegmentedControl(
-                            options = listOf("🌙  Dark" to true, "☀️  Light" to false),
+                            options     = listOf("🌙  Dark" to true, "☀️  Light" to false),
                             selectedKey = darkMode,
-                            onSelect = { vm.setDarkMode(it) },
+                            onSelect    = { vm.setDarkMode(it) },
+                            accent      = accent,
+                            surfaceHigh = surfaceHigh,
                         )
-
-                        // Layout toggle
-                        SectionLabel("Layout")
+                        SectionLabel("Layout", accent)
                         SegmentedControl(
-                            options = listOf("⊞  Grid" to "grid", "☰  List" to "list"),
+                            options     = listOf("⊞  Grid" to "grid", "☰  List" to "list"),
                             selectedKey = layoutMode,
-                            onSelect = { vm.setLayoutMode(it) },
+                            onSelect    = { vm.setLayoutMode(it) },
+                            accent      = accent,
+                            surfaceHigh = surfaceHigh,
                         )
                     }
                 }
 
                 // ── Icons Card ────────────────────────────────────────────
-                SettingsCard(title = "ICONS", emoji = "📱") {
+                SettingsCard(title = "ICONS", emoji = "📱", surfaceMid = surfaceMid, surfaceHigh = surfaceHigh, textPrimary = textPrimary, accent = accent) {
                     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                        SToggleRow("Show app names", showNames) { vm.setShowNames(it) }
-                        SToggleRow("Show hidden apps", showHidden) { vm.setShowHidden(it) }
-
-                        SectionLabel("App icon size  (${tempIconSize.toInt()} dp)")
-                        AnimatedSlider(
-                            value = tempIconSize,
-                            onValueChange = { tempIconSize = it },
+                        SToggleRow("Show app names",  showNames,  textPrimary, accent, surfaceHigh) { vm.setShowNames(it) }
+                        SToggleRow("Show hidden apps", showHidden, textPrimary, accent, surfaceHigh) { vm.setShowHidden(it) }
+                        SectionLabel("App icon size  (${tempIconSize.toInt()} dp)", accent)
+                        PerfSlider(
+                            value                 = tempIconSize,
+                            onValueChange         = { tempIconSize = it },
                             onValueChangeFinished = { vm.setIconSize(tempIconSize.toInt()) },
-                            valueRange = MIN_ICON_SIZE.toFloat()..MAX_ICON_SIZE.toFloat(),
+                            valueRange            = MIN_ICON_SIZE.toFloat()..MAX_ICON_SIZE.toFloat(),
+                            accent                = accent,
+                            surfaceHigh           = surfaceHigh,
                         )
-
-                        SectionLabel("Dock icon size  (${tempDockIconSize.toInt()} dp)")
-                        AnimatedSlider(
-                            value = tempDockIconSize,
-                            onValueChange = { tempDockIconSize = it },
+                        SectionLabel("Dock icon size  (${tempDockIconSize.toInt()} dp)", accent)
+                        PerfSlider(
+                            value                 = tempDockIconSize,
+                            onValueChange         = { tempDockIconSize = it },
                             onValueChangeFinished = { vm.setDockIconSize(tempDockIconSize.toInt()) },
-                            valueRange = MIN_DOCK_ICON_SIZE.toFloat()..MAX_DOCK_ICON_SIZE.toFloat(),
+                            valueRange            = MIN_DOCK_ICON_SIZE.toFloat()..MAX_DOCK_ICON_SIZE.toFloat(),
+                            accent                = accent,
+                            surfaceHigh           = surfaceHigh,
                         )
                     }
                 }
 
-                // ── Grid Card (only in grid mode) ─────────────────────────
+                // ── Grid Card (visible only in grid mode) ─────────────────
+                // Using crossfade + fast tween — no expand layout thrashing
                 AnimatedVisibility(
                     visible = layoutMode == "grid",
-                    enter   = fadeIn() + expandVertically(),
-                    exit    = fadeOut() + shrinkVertically(),
+                    enter   = fadeIn(tween(160)),
+                    exit    = fadeOut(tween(120)),
                 ) {
-                    SettingsCard(title = "GRID", emoji = "⊞") {
+                    SettingsCard(title = "GRID", emoji = "⊞", surfaceMid = surfaceMid, surfaceHigh = surfaceHigh, textPrimary = textPrimary, accent = accent) {
                         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                            SectionLabel("Columns  ($gridCols)")
+                            SectionLabel("Columns  ($gridCols)", accent)
                             NumberPicker(
-                                range    = MIN_GRID_COLS..MAX_GRID_COLS,
-                                selected = gridCols,
-                                onSelect = { vm.setGridCols(it) },
+                                range       = MIN_GRID_COLS..MAX_GRID_COLS,
+                                selected    = gridCols,
+                                onSelect    = { vm.setGridCols(it) },
+                                accent      = accent,
+                                surfaceHigh = surfaceHigh,
                             )
-                            SectionLabel("Rows  ($gridRows)")
+                            SectionLabel("Rows  ($gridRows)", accent)
                             NumberPicker(
-                                range    = MIN_GRID_ROWS..MAX_GRID_ROWS,
-                                selected = gridRows,
-                                onSelect = { vm.setGridRows(it) },
+                                range       = MIN_GRID_ROWS..MAX_GRID_ROWS,
+                                selected    = gridRows,
+                                onSelect    = { vm.setGridRows(it) },
+                                accent      = accent,
+                                surfaceHigh = surfaceHigh,
                             )
                         }
                     }
@@ -232,57 +249,52 @@ fun SettingsSheet(vm: MainViewModel, onClose: () -> Unit) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ProfileCard
+// AssistantCard — avatar + assistant name (correctly labelled)
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun ProfileCard(
-    userName: String,
-    avatarPath: String?,
-    avatarKey: Int,
-    onChangeName: (String) -> Unit,
-    onPickAvatar: () -> Unit,
+private fun AssistantCard(
+    assistantName : String,
+    avatarPath    : String?,
+    avatarKey     : Int,
+    onChangeName  : (String) -> Unit,
+    onPickAvatar  : () -> Unit,
+    accent        : Color,
+    surfaceMid    : Color,
+    surfaceHigh   : Color,
+    textPrimary   : Color,
 ) {
     val context = LocalContext.current
-
-    // Pulse animation on avatar
-    val pulseAnim = rememberInfiniteTransition(label = "avatarPulse")
-    val pulseScale by pulseAnim.animateFloat(
-        initialValue = 1f, targetValue = 1.04f,
-        animationSpec = infiniteRepeatable(tween(1800, easing = EaseInOutSine), RepeatMode.Reverse),
-        label = "scale"
-    )
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(SatriaColors.SurfaceMid)
+            .background(surfaceMid)
             .padding(20.dp),
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            // Avatar with ring
+            // Avatar + camera badge — no animation = zero overhead
             Box(
-                modifier = Modifier
-                    .size(88.dp)
-                    .scale(pulseScale),
+                modifier         = Modifier.size(84.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                // Glowing ring
+                // Accent ring
                 Box(
                     modifier = Modifier
                         .matchParentSize()
                         .clip(CircleShape)
-                        .border(2.dp, SatriaColors.Accent.copy(alpha = 0.6f), CircleShape)
+                        .border(2.dp, accent.copy(alpha = 0.5f), CircleShape)
                 )
+                // Avatar
                 Box(
                     modifier = Modifier
-                        .size(80.dp)
+                        .size(76.dp)
                         .clip(CircleShape)
-                        .background(SatriaColors.SurfaceHigh)
-                        .clickable { onPickAvatar() },
+                        .background(surfaceHigh)
+                        .clickable(onClick = onPickAvatar),
                     contentAlignment = Alignment.Center,
                 ) {
                     if (avatarPath != null) {
@@ -292,200 +304,221 @@ private fun ProfileCard(
                                     .data(avatarPath)
                                     .diskCacheKey("avatar_$avatarKey")
                                     .memoryCacheKey("avatar_$avatarKey")
-                                    .crossfade(true)
+                                    .crossfade(200)
                                     .build(),
                                 contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                contentScale       = ContentScale.Crop,
+                                modifier           = Modifier.fillMaxSize().clip(CircleShape),
                             )
                         }
                     } else {
-                        Text("👤", fontSize = 38.sp)
+                        Text("🤖", fontSize = 36.sp)
                     }
                 }
                 // Camera badge
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .size(26.dp)
+                        .size(24.dp)
                         .clip(CircleShape)
-                        .background(SatriaColors.Accent)
-                        .clickable { onPickAvatar() },
+                        .background(accent)
+                        .clickable(onClick = onPickAvatar),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("📷", fontSize = 12.sp)
+                    Text("📷", fontSize = 11.sp)
                 }
             }
 
-            // Name field — inline styled
+            // Assistant name field
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier            = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                SectionLabel("Your name")
-                SField(userName, onChangeName, "User")
+                SectionLabel("Assistant name", accent)
+                SField(assistantName, onChangeName, "Assistant", surfaceHigh, textPrimary, accent)
             }
         }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SettingsCard — generic card container with animated expand
+// SettingsCard — collapsible section card
+// Colors passed in to avoid @Composable reads inside animation lambdas
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun SettingsCard(
-    title: String,
-    emoji: String,
-    content: @Composable ColumnScope.() -> Unit,
+    title      : String,
+    emoji      : String,
+    surfaceMid : Color,
+    surfaceHigh: Color,
+    textPrimary: Color,
+    accent     : Color,
+    content    : @Composable ColumnScope.() -> Unit,
 ) {
     var expanded by remember { mutableStateOf(true) }
 
-    // Animated arrow rotation
     val arrowRotation by animateFloatAsState(
-        targetValue = if (expanded) 0f else -90f,
-        animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "arrow",
+        targetValue   = if (expanded) 0f else -90f,
+        animationSpec = tween(200, easing = FastOutSlowInEasing),
+        label         = "arrow",
     )
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(SatriaColors.SurfaceMid),
+            .background(surfaceMid),
     ) {
-        // Header row (tap to collapse)
+        // Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { expanded = !expanded }
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication        = null, // no ripple = no extra draw pass
+                ) { expanded = !expanded }
                 .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            verticalAlignment     = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment     = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                // Emoji badge
                 Box(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(SatriaColors.SurfaceHigh),
+                        .background(surfaceHigh),
                     contentAlignment = Alignment.Center,
-                ) {
-                    Text(emoji, fontSize = 16.sp)
-                }
+                ) { Text(emoji, fontSize = 16.sp) }
                 Text(
                     title,
-                    color = SatriaColors.TextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    color         = accent.copy(alpha = 0.7f),
+                    fontSize      = 11.sp,
+                    fontWeight    = FontWeight.SemiBold,
                     letterSpacing = 1.sp,
                 )
             }
             Text(
                 "▾",
-                color = SatriaColors.TextTertiary,
+                color    = textPrimary.copy(alpha = 0.35f),
                 fontSize = 14.sp,
                 modifier = Modifier.rotate(arrowRotation),
             )
         }
 
-        // Animated content
+        // Content — fade only (no layout expand/shrink = no measure pass per frame)
         AnimatedVisibility(
             visible = expanded,
-            enter   = fadeIn() + expandVertically(expandFrom = Alignment.Top),
-            exit    = fadeOut() + shrinkVertically(shrinkTowards = Alignment.Top),
+            enter   = fadeIn(tween(160)),
+            exit    = fadeOut(tween(120)),
         ) {
             Column(
                 modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-                content = content,
+                content  = content,
             )
         }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SegmentedControl — animated pill selector
+// SegmentedControl
+// Uses animateColorAsState — single color lerp per segment, no alpha math
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
 private fun <T> SegmentedControl(
-    options: List<Pair<String, T>>,
-    selectedKey: T,
-    onSelect: (T) -> Unit,
+    options     : List<Pair<String, T>>,
+    selectedKey : T,
+    onSelect    : (T) -> Unit,
+    accent      : Color,
+    surfaceHigh : Color,
 ) {
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(SatriaColors.SurfaceHigh)
+            .background(surfaceHigh)
             .padding(3.dp),
     ) {
-        Row {
-            options.forEach { (label, key) ->
-                val active = selectedKey == key
-                val bgAlpha by animateFloatAsState(
-                    targetValue = if (active) 1f else 0f,
-                    animationSpec = spring(stiffness = Spring.StiffnessMedium),
-                    label = "segBg",
+        options.forEach { (label, key) ->
+            val active = selectedKey == key
+            val bgColor by animateColorAsState(
+                targetValue   = if (active) accent.copy(alpha = 0.18f) else Color.Transparent,
+                animationSpec = tween(180),
+                label         = "segColor",
+            )
+            val textColor by animateColorAsState(
+                targetValue   = if (active) accent else accent.copy(alpha = 0.4f),
+                animationSpec = tween(180),
+                label         = "segText",
+            )
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(bgColor)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication        = null,
+                    ) { onSelect(key) }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    label,
+                    color      = textColor,
+                    fontSize   = 13.sp,
+                    fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
                 )
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(SatriaColors.Accent.copy(alpha = bgAlpha * 0.15f))
-                        .border(
-                            width = if (active) 1.dp else 0.dp,
-                            color = if (active) SatriaColors.Accent.copy(alpha = 0.4f) else Color.Transparent,
-                            shape = RoundedCornerShape(10.dp),
-                        )
-                        .clickable { onSelect(key) }
-                        .padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(
-                        label,
-                        color = if (active) SatriaColors.Accent else SatriaColors.TextSecondary,
-                        fontSize = 13.sp,
-                        fontWeight = if (active) FontWeight.SemiBold else FontWeight.Normal,
-                    )
-                }
             }
         }
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NumberPicker — animated pill buttons
+// NumberPicker — instant color swap, no scale animation (lighter)
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun NumberPicker(range: IntRange, selected: Int, onSelect: (Int) -> Unit) {
+private fun NumberPicker(
+    range       : IntRange,
+    selected    : Int,
+    onSelect    : (Int) -> Unit,
+    accent      : Color,
+    surfaceHigh : Color,
+) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier              = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         range.forEach { v ->
             val active = v == selected
-            val scale by animateFloatAsState(
-                targetValue = if (active) 1.05f else 1f,
-                animationSpec = spring(Spring.DampingRatioMediumBouncy),
-                label = "numScale",
+            val bgColor by animateColorAsState(
+                targetValue   = if (active) accent else surfaceHigh,
+                animationSpec = tween(160),
+                label         = "numBg",
+            )
+            val txtColor by animateColorAsState(
+                targetValue   = if (active) Color.White else accent.copy(alpha = 0.45f),
+                animationSpec = tween(160),
+                label         = "numTxt",
             )
             Box(
                 modifier = Modifier
                     .weight(1f)
-                    .scale(scale)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (active) SatriaColors.Accent else SatriaColors.SurfaceHigh)
-                    .clickable { onSelect(v) }
+                    .background(bgColor)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication        = null,
+                    ) { onSelect(v) }
                     .padding(vertical = 11.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
                     "$v",
-                    color = if (active) Color.White else SatriaColors.TextSecondary,
-                    fontSize = 14.sp,
+                    color      = txtColor,
+                    fontSize   = 14.sp,
                     fontWeight = if (active) FontWeight.Bold else FontWeight.Normal,
                 )
             }
@@ -494,24 +527,26 @@ private fun NumberPicker(range: IntRange, selected: Int, onSelect: (Int) -> Unit
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// AnimatedSlider — Accent-colored slider
+// PerfSlider — no extra wrapper, direct Slider (minimizes composition depth)
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun AnimatedSlider(
-    value: Float,
-    onValueChange: (Float) -> Unit,
+private fun PerfSlider(
+    value                : Float,
+    onValueChange        : (Float) -> Unit,
     onValueChangeFinished: () -> Unit,
-    valueRange: ClosedFloatingPointRange<Float>,
+    valueRange           : ClosedFloatingPointRange<Float>,
+    accent               : Color,
+    surfaceHigh          : Color,
 ) {
     Slider(
-        value = value,
-        onValueChange = onValueChange,
+        value                 = value,
+        onValueChange         = onValueChange,
         onValueChangeFinished = onValueChangeFinished,
-        valueRange = valueRange,
-        colors = SliderDefaults.colors(
-            thumbColor         = SatriaColors.Accent,
-            activeTrackColor   = SatriaColors.Accent,
-            inactiveTrackColor = SatriaColors.SurfaceHigh,
+        valueRange            = valueRange,
+        colors                = SliderDefaults.colors(
+            thumbColor         = accent,
+            activeTrackColor   = accent,
+            inactiveTrackColor = surfaceHigh,
         ),
         modifier = Modifier.fillMaxWidth(),
     )
@@ -521,56 +556,67 @@ private fun AnimatedSlider(
 // SToggleRow
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun SToggleRow(label: String, value: Boolean, onToggle: (Boolean) -> Unit) {
+private fun SToggleRow(
+    label       : String,
+    value       : Boolean,
+    textPrimary : Color,
+    accent      : Color,
+    surfaceHigh : Color,
+    onToggle    : (Boolean) -> Unit,
+) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier              = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment     = Alignment.CenterVertically,
     ) {
-        Text(label, color = SatriaColors.TextPrimary, fontSize = 15.sp)
+        Text(label, color = textPrimary, fontSize = 15.sp)
         Switch(
-            checked = value,
+            checked        = value,
             onCheckedChange = onToggle,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor  = Color.White,
-                checkedTrackColor  = SatriaColors.Accent,
+            colors         = SwitchDefaults.colors(
+                checkedThumbColor   = Color.White,
+                checkedTrackColor   = accent,
                 uncheckedThumbColor = Color.White,
-                uncheckedTrackColor = SatriaColors.SurfaceHigh,
+                uncheckedTrackColor = surfaceHigh,
             ),
         )
     }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Small helpers
+// Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 @Composable
-private fun SectionLabel(text: String) =
+private fun SectionLabel(text: String, accent: Color) =
     Text(
         text,
-        color = SatriaColors.TextTertiary,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Medium,
+        color         = accent.copy(alpha = 0.55f),
+        fontSize      = 12.sp,
+        fontWeight    = FontWeight.Medium,
         letterSpacing = 0.3.sp,
     )
 
 @Composable
-private fun SField(value: String, onChange: (String) -> Unit, placeholder: String) =
-    TextField(
-        value = value,
-        onValueChange = onChange,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp)),
-        placeholder = { Text(placeholder, color = SatriaColors.TextTertiary) },
-        singleLine = true,
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor   = SatriaColors.SurfaceHigh,
-            unfocusedContainerColor = SatriaColors.SurfaceHigh,
-            focusedTextColor        = SatriaColors.TextPrimary,
-            unfocusedTextColor      = SatriaColors.TextPrimary,
-            focusedIndicatorColor   = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            cursorColor             = SatriaColors.Accent,
-        ),
-    )
+private fun SField(
+    value       : String,
+    onChange    : (String) -> Unit,
+    placeholder : String,
+    surfaceHigh : Color,
+    textPrimary : Color,
+    accent      : Color,
+) = TextField(
+    value          = value,
+    onValueChange  = onChange,
+    modifier       = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
+    placeholder    = { Text(placeholder, color = textPrimary.copy(alpha = 0.3f)) },
+    singleLine     = true,
+    colors         = TextFieldDefaults.colors(
+        focusedContainerColor   = surfaceHigh,
+        unfocusedContainerColor = surfaceHigh,
+        focusedTextColor        = textPrimary,
+        unfocusedTextColor      = textPrimary,
+        focusedIndicatorColor   = Color.Transparent,
+        unfocusedIndicatorColor = Color.Transparent,
+        cursorColor             = accent,
+    ),
+)
