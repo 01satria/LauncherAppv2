@@ -18,6 +18,7 @@ object PrefKeys {
     val SHOW_HIDDEN       = booleanPreferencesKey("show_hidden")
     val SHOW_NAMES        = booleanPreferencesKey("show_names")
     val LAYOUT_MODE       = stringPreferencesKey("layout_mode")
+    val HAS_SEEN_ALL_APPS_HINT = booleanPreferencesKey("has_seen_all_apps_hint")
     val AVATAR_PATH       = stringPreferencesKey("avatar_path")
     val TODOS             = stringPreferencesKey("todos")
     val COUNTDOWNS        = stringPreferencesKey("countdowns")
@@ -60,6 +61,7 @@ class Prefs(private val context: Context) {
     val assistantName    = ds.data.map { it[PrefKeys.ASSISTANT_NAME] ?: "Assistant" }
     val showHidden       = ds.data.map { it[PrefKeys.SHOW_HIDDEN] ?: false }
     val showNames        = ds.data.map { it[PrefKeys.SHOW_NAMES] ?: true }
+    val hasSeenAllAppsHint = ds.data.map { it[PrefKeys.HAS_SEEN_ALL_APPS_HINT] ?: false }
     val layoutMode       = ds.data.map { it[PrefKeys.LAYOUT_MODE] ?: "grid" }
     val avatarPath       = ds.data.map { it[PrefKeys.AVATAR_PATH] }
     val iconSize         = ds.data.map { it[PrefKeys.ICON_SIZE] ?: DEFAULT_ICON_SIZE }
@@ -93,6 +95,7 @@ class Prefs(private val context: Context) {
     suspend fun setAssistantName(v: String) = ds.edit { it[PrefKeys.ASSISTANT_NAME] = v }
     suspend fun setShowHidden(v: Boolean)   = ds.edit { it[PrefKeys.SHOW_HIDDEN] = v }
     suspend fun setShowNames(v: Boolean)    = ds.edit { it[PrefKeys.SHOW_NAMES] = v }
+    suspend fun setHasSeenAllAppsHint(v: Boolean) = ds.edit { it[PrefKeys.HAS_SEEN_ALL_APPS_HINT] = v }
     suspend fun setLayoutMode(v: String)    = ds.edit { it[PrefKeys.LAYOUT_MODE] = v }
     suspend fun setAvatarPath(v: String)    = ds.edit { it[PrefKeys.AVATAR_PATH] = v }
     suspend fun setIconSize(v: Int)         = ds.edit { it[PrefKeys.ICON_SIZE] = v }

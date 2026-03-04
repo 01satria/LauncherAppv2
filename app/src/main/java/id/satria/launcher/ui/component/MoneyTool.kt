@@ -219,9 +219,9 @@ fun MoneyTool(
                         transactions.filter { sameMonth(it.date, currentMonthKey) }
                 }
         val totalIncome =
-                remember(monthTxs) { monthTxs.filter { it.type == "income" }.sumOf { it.amount } }
+                remember(transactions) { transactions.filter { it.type == "income" }.sumOf { it.amount } }
         val totalExpense =
-                remember(monthTxs) { monthTxs.filter { it.type == "expense" }.sumOf { it.amount } }
+                remember(transactions) { transactions.filter { it.type == "expense" }.sumOf { it.amount } }
         val netBalance =
                 remember(wallets, transactions) {
                         wallets.sumOf { walletBalance(it, transactions) }
@@ -398,7 +398,7 @@ fun MoneyTool(
                         contentAlignment = Alignment.Center,
                         modifier =
                                 Modifier.align(Alignment.BottomEnd)
-                                        .padding(bottom = 72.dp, end = 20.dp)
+                                        .padding(bottom = 16.dp, end = 20.dp)
                                         .size(52.dp)
                                         .shadow(8.dp, CircleShape)
                                         .clip(CircleShape)

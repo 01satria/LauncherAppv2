@@ -25,6 +25,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     // Flow kritis (selalu dibutuhkan HomeScreen) → Eagerly agar tidak ada delay
     val showNames        = prefs.showNames.stateIn(viewModelScope, SharingStarted.Eagerly, true)
+    val hasSeenAllAppsHint = prefs.hasSeenAllAppsHint.stateIn(viewModelScope, SharingStarted.Eagerly, false)
     val layoutMode       = prefs.layoutMode.stateIn(viewModelScope, SharingStarted.Eagerly, "grid")
     val iconSize         = prefs.iconSize.stateIn(viewModelScope, SharingStarted.Eagerly, 54)
     val dockIconSize     = prefs.dockIconSize.stateIn(viewModelScope, SharingStarted.Eagerly, 56)
@@ -116,6 +117,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun saveAssistantName(v: String) = viewModelScope.launch { prefs.setAssistantName(v) }
     fun setShowHidden(v: Boolean)    = viewModelScope.launch { prefs.setShowHidden(v) }
     fun setShowNames(v: Boolean)     = viewModelScope.launch { prefs.setShowNames(v) }
+    fun setHasSeenAllAppsHint(v: Boolean) = viewModelScope.launch { prefs.setHasSeenAllAppsHint(v) }
     fun setLayoutMode(v: String)     = viewModelScope.launch { prefs.setLayoutMode(v) }
     fun setIconSize(v: Int)          = viewModelScope.launch { prefs.setIconSize(v) }
     fun setDockIconSize(v: Int)      = viewModelScope.launch { prefs.setDockIconSize(v) }

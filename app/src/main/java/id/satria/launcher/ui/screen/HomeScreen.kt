@@ -65,6 +65,7 @@ fun HomeScreen(vm: MainViewModel) {
     val dockApps        by vm.dockApps.collectAsState()
     val layoutMode      by vm.layoutMode.collectAsState()
     val showNames       by vm.showNames.collectAsState()
+    val hasSeenAllAppsHint by vm.hasSeenAllAppsHint.collectAsState()
     val avatarPath      by vm.avatarPath.collectAsState()
     val avatarVersion   by vm.avatarVersion.collectAsState()
     val iconSize        by vm.iconSize.collectAsState()
@@ -101,10 +102,12 @@ fun HomeScreen(vm: MainViewModel) {
             gridCols               = gridCols,
             gridRows               = gridRows,
             darkMode               = darkMode,
+            hasSeenAllAppsHint     = hasSeenAllAppsHint,
             overlayActive          = overlayActive,
             onAppPress             = { if (!overlayActive) vm.launchApp(it) },
             onAppLong              = { if (!overlayActive) actionTarget = it },
             onBgLongPress          = { if (!overlayActive) showSettings = true },
+            onMarkHintSeen         = { vm.setHasSeenAllAppsHint(true) },
             dashboardContent       = { onClose ->
                 DashboardScreen(
                     vm               = vm,
@@ -184,10 +187,12 @@ private fun HomeContent(
     gridCols: Int,
     gridRows: Int,
     darkMode: Boolean,
+    hasSeenAllAppsHint: Boolean,
     overlayActive: Boolean,
     onAppPress: (String) -> Unit,
     onAppLong: (String) -> Unit,
     onBgLongPress: () -> Unit,
+    onMarkHintSeen: () -> Unit,
     dashboardContent: @Composable (onClose: () -> Unit) -> Unit = {},
     dashboardScrollRequest: Int = 0,
     onDashboardChanged: (Boolean) -> Unit = {},
@@ -224,10 +229,12 @@ private fun HomeContent(
                 dockApps               = dockApps,
                 allVisibleApps         = allVisible,
                 darkMode               = darkMode,
+                hasSeenAllAppsHint     = hasSeenAllAppsHint,
                 overlayActive          = overlayActive,
                 onAppPress             = onAppPress,
                 onAppLong              = onAppLong,
                 onBgLongPress          = onBgLongPress,
+                onMarkHintSeen         = onMarkHintSeen,
                 dashboardContent       = dashboardContent,
                 dashboardScrollRequest = dashboardScrollRequest,
                 onDashboardChanged     = onDashboardChanged,
@@ -245,10 +252,12 @@ private fun NiagaraListPager(
     dockApps: List<AppData>,
     allVisibleApps: List<AppData>,
     darkMode: Boolean,
+    hasSeenAllAppsHint: Boolean,
     overlayActive: Boolean,
     onAppPress: (String) -> Unit,
     onAppLong: (String) -> Unit,
     onBgLongPress: () -> Unit,
+    onMarkHintSeen: () -> Unit,
     dashboardContent: @Composable (onClose: () -> Unit) -> Unit,
     dashboardScrollRequest: Int,
     onDashboardChanged: (Boolean) -> Unit,
@@ -261,7 +270,10 @@ private fun NiagaraListPager(
     val openSpec  = tween<Float>(durationMillis = 340, easing = FastOutSlowInEasing)
     val closeSpec = tween<Float>(durationMillis = 280, easing = FastOutSlowInEasing)
 
-    suspend fun openDrawer()  = drawerProgress.animateTo(0f, openSpec)
+    suspend fun openDrawer() {
+        if (!hasSeenAllAppsHint) onMarkHintSeen()
+        drawerProgress.animateTo(0f, openSpec)
+    }
     suspend fun closeDrawer() = drawerProgress.animateTo(1f, closeSpec)
 
     BackHandler(enabled = pagerState.currentPage == 0 && !drawerOpen) {
@@ -290,6 +302,7 @@ private fun NiagaraListPager(
                 NiagaraHomePage(
                     dockApps       = dockApps,
                     darkMode       = darkMode,
+                    hasSeenAllAppsHint = hasSeenAllAppsHint,
                     overlayActive  = overlayActive,
                     drawerProgress = drawerProgress,
                     screenHeightPx = screenHeightPx,
@@ -316,12 +329,14 @@ private fun NiagaraListPager(
             NiagaraAppDrawer(
                 apps           = allVisibleApps,
                 darkMode       = darkMode,
+                hasSeenAllAppsHint = hasSeenAllAppsHint,
                 overlayActive  = overlayActive,
                 drawerProgress = drawerProgress,
                 screenHeightPx = screenHeightPx,
                 onAppPress     = onAppPress,
                 onAppLong      = onAppLong,
                 onClose        = { scope.launch { closeDrawer() } },
+                onDragOpen     = { if (!hasSeenAllAppsHint) onMarkHintSeen() }
             )
         }
     }
@@ -373,6 +388,7 @@ private fun fmtClock(pattern: String): String =
 private fun NiagaraHomePage(
     dockApps: List<AppData>,
     darkMode: Boolean,
+    hasSeenAllAppsHint: Boolean,
     overlayActive: Boolean,
     drawerProgress: Animatable<Float, AnimationVector1D>,
     screenHeightPx: Float,
@@ -470,24 +486,30 @@ private fun NiagaraHomePage(
             Spacer(Modifier.height(28.dp))
 
             // Swipe-up hint only — no settings/dashboard buttons
-            Column(
-                modifier            = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp),
+            AnimatedVisibility(
+                visible = !hasSeenAllAppsHint,
+                enter = fadeIn(),
+                exit = fadeOut()
             ) {
-                Text(
-                    text     = "⌃",
-                    color    = theme.textTertiary(),
-                    fontSize = 22.sp,
-                    modifier = Modifier.offset(y = chevronOffset.dp),
-                )
-                Text(
-                    text          = "All apps",
-                    color         = theme.textTertiary(),
-                    fontSize      = 10.sp,
-                    letterSpacing = 0.8.sp,
-                    fontWeight    = FontWeight.Medium,
-                )
+                Column(
+                    modifier            = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Text(
+                        text     = "⌃",
+                        color    = theme.textTertiary(),
+                        fontSize = 22.sp,
+                        modifier = Modifier.offset(y = chevronOffset.dp),
+                    )
+                    Text(
+                        text          = "All apps",
+                        color         = theme.textTertiary(),
+                        fontSize      = 10.sp,
+                        letterSpacing = 0.8.sp,
+                        fontWeight    = FontWeight.Medium,
+                    )
+                }
             }
 
             Spacer(Modifier.height(18.dp))
@@ -584,12 +606,14 @@ private fun NiagaraFavoriteRow(
 private fun NiagaraAppDrawer(
     apps: List<AppData>,
     darkMode: Boolean,
+    hasSeenAllAppsHint: Boolean,
     overlayActive: Boolean,
     drawerProgress: Animatable<Float, AnimationVector1D>,
     screenHeightPx: Float,
     onAppPress: (String) -> Unit,
     onAppLong: (String) -> Unit,
     onClose: () -> Unit,
+    onDragOpen: () -> Unit
 ) {
     val theme              = LocalAppTheme.current
     val listState          = rememberLazyListState()
@@ -701,6 +725,8 @@ private fun NiagaraAppDrawer(
                             if (delta > 0f) {
                                 val next = (drawerProgress.value + delta / screenHeightPx).coerceIn(0f, 1f)
                                 scope.launch { drawerProgress.snapTo(next) }
+                            } else if (delta < 0f && !hasSeenAllAppsHint) {
+                                onDragOpen()
                             }
                         },
                         onDragStopped = { velocity ->
