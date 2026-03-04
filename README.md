@@ -16,6 +16,8 @@ Your wallpaper shines through. Your apps load fast. Your phone feels like yours 
 
 </div>
 
+![preview](public/image/image.jpg)
+
 ---
 
 ## Why Cloudys?
