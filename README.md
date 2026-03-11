@@ -18,6 +18,12 @@ Your wallpaper shines through. Your apps load fast. Your phone feels like yours 
 
 ![preview](public/image/image.jpg)
 
+<div align="center">
+
+[<b>v3 Of My Launcher App</b>](https://github.com/01satria/FreeLauncher)
+
+</div>
+
 ---
 
 ## Why Cloudys?
