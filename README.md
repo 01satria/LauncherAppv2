@@ -20,7 +20,7 @@ Your wallpaper shines through. Your apps load fast. Your phone feels like yours 
 
 <div align="center">
 
-[<b>v3 Of My Launcher App</b>](https://github.com/01satria/LauncherAppv3)
+[<b>v3 Of My Launcher App</b>](https://github.com/01satria/LauncherApp)
 
 </div>
 
